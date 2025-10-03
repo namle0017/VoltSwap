@@ -11,6 +11,7 @@ namespace VoltSwap.DAL.IRepositories
 {
     public interface IUsersRepositories : IGenericRepositories<User> 
     {
-        
+        Task<User?> GetByEmailAsync(String email);
+        Task<User?> GetUserAsync(string email, string password_hash);
     }
 }

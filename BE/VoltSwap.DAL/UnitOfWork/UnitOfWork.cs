@@ -27,7 +27,7 @@ namespace VoltSwap.DAL.UnitOfWork
             return await _context.SaveChangesAsync();
         }
 
-        public IUsersRepositories UsersRepository
+        public IUsersRepositories Users
         {
             get
             {

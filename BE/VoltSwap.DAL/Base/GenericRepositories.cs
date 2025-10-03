@@ -298,5 +298,11 @@ namespace VoltSwap.DAL.Base
 
             return await query.CountAsync();
         }
+        public async Task<T> Insert(T entity)
+        {
+            ArgumentNullException.ThrowIfNull(entity);
+            await _context.AddAsync(entity);
+            return entity;
+        }
     }
 }

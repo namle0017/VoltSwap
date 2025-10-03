@@ -40,6 +40,8 @@ public partial class VoltSwapDbContext : DbContext
 
     public virtual DbSet<Rating> Ratings { get; set; }
 
+    public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
+
     public virtual DbSet<Report> Reports { get; set; }
 
     public virtual DbSet<StationStaff> StationStaffs { get; set; }
@@ -559,6 +561,46 @@ public partial class VoltSwapDbContext : DbContext
                 .HasConstraintName("FK_ratings_user_driver_id");
         });
 
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.TokenId).HasName("PK__refresh___CB3C9E17ADEF5ECB");
+
+            entity.ToTable("refresh_token");
+
+            entity.HasIndex(e => e.ExpiresAt, "IX_refresh_token_expires_at");
+
+            entity.HasIndex(e => e.Token, "IX_refresh_token_token").IsUnique();
+
+            entity.HasIndex(e => e.UserId, "IX_refresh_token_user_id");
+
+            entity.Property(e => e.TokenId)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("token_id");
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("created_at");
+            entity.Property(e => e.ExpiresAt)
+                .HasColumnType("datetime")
+                .HasColumnName("expires_at");
+            entity.Property(e => e.IsRevoked).HasColumnName("is_revoked");
+            entity.Property(e => e.Token)
+                .IsRequired()
+                .HasMaxLength(100)
+                .IsUnicode(false)
+                .HasColumnName("token");
+            entity.Property(e => e.UserId)
+                .IsRequired()
+                .HasMaxLength(15)
+                .IsUnicode(false)
+                .HasColumnName("user_id");
+
+            entity.HasOne(d => d.User).WithMany(p => p.RefreshTokens)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_refresh_token_user_id");
+        });
+
         modelBuilder.Entity<Report>(entity =>
         {
             entity.HasKey(e => e.ReportId).HasName("PK__reports__779B7C5848D5751E");
@@ -870,7 +912,7 @@ public partial class VoltSwapDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(255)
                 .HasColumnName("user_address");
-            entity.Property(e => e.UserDriverName)
+            entity.Property(e => e.UserName)
                 .IsRequired()
                 .HasMaxLength(100)
                 .HasColumnName("user_driver_name");

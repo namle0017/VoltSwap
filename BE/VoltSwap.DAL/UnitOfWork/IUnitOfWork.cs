@@ -11,6 +11,6 @@ namespace VoltSwap.DAL.UnitOfWork
     public interface IUnitOfWork : IDisposable // quan ly bo nho
     {
         Task<int> SaveChangesAsync();
-        IUsersRepositories UsersRepository { get; }
+        IUsersRepositories Users { get; }
     }
 }

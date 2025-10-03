@@ -9,7 +9,7 @@ public partial class User
 {
     public string UserId { get; set; }
 
-    public string UserDriverName { get; set; }
+    public string UserName { get; set; }
 
     public string UserPasswordHash { get; set; }
 
@@ -25,6 +25,8 @@ public partial class User
 
     public DateTime CreatedAt { get; set; }
 
+    public string Status { get; set; }
+
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 
     public virtual ICollection<DriverVehicle> DriverVehicles { get; set; } = new List<DriverVehicle>();
@@ -36,6 +38,8 @@ public partial class User
     public virtual ICollection<Plan> Plans { get; set; } = new List<Plan>();
 
     public virtual ICollection<Rating> Ratings { get; set; } = new List<Rating>();
+
+    public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 
     public virtual ICollection<Report> ReportUserAdmins { get; set; } = new List<Report>();
 

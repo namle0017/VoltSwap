@@ -14,6 +14,7 @@ namespace VoltSwap.DAL.Base
             Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
             bool asNoTracking = true
         );
+        Task<T> Insert(T entity);
 
         IQueryable<T> GetAllQueryable();
 
