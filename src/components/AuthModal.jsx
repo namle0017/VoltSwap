@@ -1,6 +1,6 @@
 // AuthModal.jsx
 import { useState, useEffect } from "react";
-import API_BASE_URL from "../api/api"; // import base url
+import API_BASE_URL from "../api/api";
 
 const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
   const [mode, setMode] = useState(initialMode);
@@ -37,7 +37,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userName: formData.name, // hoặc dùng email làm username
+            userName: formData.name,
             userPassword: formData.password,
             userEmail: formData.email,
             userTele: formData.phone,
@@ -51,7 +51,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userEmail: formData.email,
-            userPassword: formData.password, 
+            userPassword: formData.password,
           }),
         });
       }
