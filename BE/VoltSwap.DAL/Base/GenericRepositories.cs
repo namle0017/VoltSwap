@@ -8,10 +8,10 @@ namespace VoltSwap.DAL.Base
     {
         protected VoltSwapDbContext _context;
 
-        public GenericRepositories()
-        {
-            _context ??= new VoltSwapDbContext();
-        }
+        //public GenericRepositories()
+        //{
+        //    _context ??= new VoltSwapDbContext();
+        //}
 
         public GenericRepositories(VoltSwapDbContext context)
         {

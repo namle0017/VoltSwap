@@ -11,12 +11,34 @@ using Microsoft.EntityFrameworkCore;
 
 namespace VoltSwap.DAL.Repositories
 {
-    public class UsersRepositories(VoltSwapDbContext context) : GenericRepositories<User>(context)
+    public class UsersRepositories : GenericRepositories<User>, IUsersRepositories
     {
-        protected VoltSwapDbContext _context;
+        private readonly VoltSwapDbContext _context;
+
+        public UsersRepositories(VoltSwapDbContext context) : base(context)
+        {
+            _context = context;
+        }
+
         public async Task<User?> GetByEmailAsync(string email)
         {
             return await _context.Users.FirstOrDefaultAsync(x => x.UserEmail == email);
+        }
+
+        public async Task<User?> GetAdminAsync()
+        {
+
+            return await _context.Users.FirstOrDefaultAsync(x => x.UserRole == "Admin");
+        }
+
+        public async Task<User> CheckUserActive(string userEmail)
+        {
+            return await _context.Users.FirstOrDefaultAsync(x => x.UserEmail == userEmail && x.Status == "Active");
+        }
+
+        public async Task<User?> GetUserAsync(string email, string password_hash)
+        {
+            return await _context.Users.FirstOrDefaultAsync(x => x.UserEmail == email && x.UserPasswordHash == password_hash);
         }
     }
 }

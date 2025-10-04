@@ -13,5 +13,7 @@ namespace VoltSwap.DAL.IRepositories
     {
         Task<User?> GetByEmailAsync(String email);
         Task<User?> GetUserAsync(string email, string password_hash);
+        Task<User?> GetAdminAsync();
+        Task<User> CheckUserActive(string email);
     }
 }

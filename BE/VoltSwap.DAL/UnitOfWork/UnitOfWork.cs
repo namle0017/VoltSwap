@@ -12,9 +12,12 @@ namespace VoltSwap.DAL.UnitOfWork
     public class UnitOfWork : IUnitOfWork
     {
         private readonly VoltSwapDbContext _context;
-
-        public UnitOfWork() => _context ??= new VoltSwapDbContext();
         private IUsersRepositories? userRepository;
+
+        public UnitOfWork(VoltSwapDbContext context)
+        {
+            _context = context;
+        }
 
         public void Dispose()
         {
