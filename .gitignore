@@ -7,18 +7,36 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependency directories
+node_modules/
+
+# Vite build output
+dist/
+dist-ssr/
 *.local
+
+# Env files
+.env
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# OS-generated files
+Thumbs.db
+
+# Optional: test coverage, lock files (tuỳ nhóm)
+coverage/
+# package-lock.json
+# yarn.lock
