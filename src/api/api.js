@@ -1,4 +1,12 @@
-// src/api/api.js
-const API_BASE_URL = "https://bdd21145319a.ngrok-free.app"; // base url từ BE
+import axios from "axios";
 
-export default API_BASE_URL;
+const API_BASE_URL = "https://8ff9ccb93170.ngrok-free.app/api/Auth";
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+export default api;

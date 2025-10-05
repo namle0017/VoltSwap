@@ -18,25 +18,25 @@ const Benefits = () => {
 
   const benefits = [
     {
-      icon: <i class="bi bi-clock"></i>,
+      icon: <i className="bi bi-clock"></i>,
       title: "Save Time",
       description:
         "Reduce battery swap time to under 5 minutes with our automated system and smart queue management.",
     },
     {
-      icon: <i class="bi bi-leaf"></i>,
+      icon: <i className="bi bi-leaf"></i>,
       title: "Eco-Friendly",
       description:
         "Promote sustainable transportation with zero-emission battery swap solutions and renewable energy integration.",
     },
     {
-      icon: <i class="bi bi-bar-chart"></i>,
+      icon: <i className="bi bi-bar-chart"></i>,
       title: "Easy Management",
       description:
         "Streamlined dashboard for effortless station management, monitoring, and operational control.",
     },
     {
-      icon: <i class="bi bi-cash"></i>,
+      icon: <i className="bi bi-cash"></i>,
       title: "Cost Effective",
       description:
         "Optimize operational costs with intelligent resource allocation and predictive maintenance systems.",

@@ -7,37 +7,37 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 const Services = () => {
   const services = [
     {
-      icon: <i class="bi bi-battery-charging"></i>,
+      icon: <i className="bi bi-battery-charging"></i>,
       title: "Battery Swap Booking",
       description:
         "Easy online booking system for quick battery swaps with real-time availability updates.",
     },
     {
-      icon: <i class="bi bi-bar-chart-fill"></i>,
+      icon: <i className="bi bi-bar-chart-fill"></i>,
       title: "Inventory Management",
       description:
         "Advanced inventory tracking for battery status, health monitoring, and maintenance scheduling.",
     },
     {
-      icon: <i class="bi bi-graph-up"></i>,
+      icon: <i className="bi bi-graph-up"></i>,
       title: "Analytics & Reporting",
       description:
         "Comprehensive reporting tools with detailed analytics for operational insights and optimization.",
     },
     {
-      icon: <i class="bi bi-lightning-charge"></i>,
+      icon: <i className="bi bi-lightning-charge"></i>,
       title: "Smart Charging",
       description:
         "Intelligent charging algorithms that optimize battery life and reduce energy consumption.",
     },
     {
-      icon: <i class="bi bi-phone"></i>,
+      icon: <i className="bi bi-phone"></i>,
       title: "Mobile App Integration",
       description:
         "User-friendly mobile application for seamless station location, booking, and payment processing.",
     },
     {
-      icon: <i class="bi bi-wrench"></i>,
+      icon: <i className="bi bi-wrench"></i>,
       title: "Maintenance Tracking",
       description:
         "Automated maintenance scheduling and tracking system for optimal station performance.",

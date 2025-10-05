@@ -54,7 +54,7 @@ const Contact = () => {
                   whileHover={{ x: 10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className="text-2xl text-primary">📍</div>
+                  <i className="bi bi-geo-fill text-2xl text-primary"></i>
                   <div>
                     <div className="font-semibold text-gray-900">Address</div>
                     <div className="text-gray-600">
@@ -67,7 +67,7 @@ const Contact = () => {
                   whileHover={{ x: 10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className="text-2xl text-primary">📞</div>
+                  <i className="bi bi-telephone-fill text-2xl text-primary"></i>
                   <div>
                     <div className="font-semibold text-gray-900">Phone</div>
                     <div className="text-gray-600">+1 (555) 123-4567</div>
@@ -78,7 +78,7 @@ const Contact = () => {
                   whileHover={{ x: 10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className="text-2xl text-primary">📧</div>
+                  <i className="bi bi-envelope-at-fill text-2xl text-primary"></i>
                   <div>
                     <div className="font-semibold text-gray-900">Email</div>
                     <div className="text-gray-600">

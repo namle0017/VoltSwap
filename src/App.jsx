@@ -6,6 +6,7 @@ import ServicesPage from "./pages/ServicesPage";
 import BenefitsPage from "./pages/BenefitsPage";
 import ContactPage from "./pages/ContactPage";
 import StationPage from "./pages/StationDemo";
+import AdminDashboard from "./pages/AdminPage"; // import trang admin
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 const router = createBrowserRouter([
@@ -20,7 +21,9 @@ const router = createBrowserRouter([
       { path: "/contact", element: <ContactPage /> },
     ],
   },
-  { path: "/Station", element: <StationPage /> },
+  { path: "/station", element: <StationPage /> },
+
+  { path: "/admin", element: <AdminDashboard /> },
 ]);
 
 function App() {

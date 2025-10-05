@@ -7,9 +7,9 @@ const Footer = () => {
   const location = useLocation();
 
   const socialLinks = [
-    { name: "Facebook", icon: <i class="bi bi-facebook"></i>, url: "#" },
-    { name: "Twitter", icon: <i class="bi bi-twitter-x"></i>, url: "#" },
-    { name: "LinkedIn", icon: <i class="bi bi-linkedin"></i>, url: "#" },
+    { name: "Facebook", icon: <i className="bi bi-facebook"></i>, url: "#" },
+    { name: "Twitter", icon: <i className="bi bi-twitter-x"></i>, url: "#" },
+    { name: "LinkedIn", icon: <i className="bi bi-linkedin"></i>, url: "#" },
   ];
 
   const quickLinks = [
@@ -120,7 +120,7 @@ const Footer = () => {
               <div className="space-y-3 text-gray-400">
                 <div className="flex items-center space-x-2">
                   <span>
-                    <i class="bi bi-geo-fill"></i>
+                    <i className="bi bi-geo-fill"></i>
                   </span>
                   <span>
                     123 EV Station Drive
@@ -130,13 +130,13 @@ const Footer = () => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <span>
-                    <i class="bi bi-telephone-fill"></i>
+                    <i className="bi bi-telephone-fill"></i>
                   </span>
                   <span>+1 (555) 123-4567</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span>
-                    <i class="bi bi-envelope-at-fill"></i>
+                    <i className="bi bi-envelope-at-fill"></i>
                   </span>
                   <span>info@evstationmanagement.com</span>
                 </div>

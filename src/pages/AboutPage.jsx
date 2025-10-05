@@ -29,7 +29,7 @@ const AboutPage = () => {
               </div>
               <div className="relative">
                 <img
-                  src="https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=800"
+                  src="https://selex.vn/wp-content/uploads/2023/06/316324888_5456103024498975_4553314338926426875_n-768x512.jpg"
                   alt="Our Mission"
                   className="w-full h-auto rounded-2xl shadow-lg"
                 />
