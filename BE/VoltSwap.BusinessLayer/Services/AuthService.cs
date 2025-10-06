@@ -73,49 +73,53 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<ServiceResult> RegisterAsync(RegisterRequest request)
         {
-            var isUserActive = await _unitOfWork.Users.CheckUserActive(request.UserEmail);
-            if (isUserActive != null)
+            try
             {
+                var isUserActive = await _unitOfWork.Users.CheckUserActive(request.UserEmail);
+                if (isUserActive != null)
+                {
+                    return new ServiceResult
+                    {
+                        Status = 409,
+                        Message = "Email already exists"
+                    };
+                }
+
+                string role = string.IsNullOrEmpty(request.UserRole) ? "Driver" : request.UserRole;
+                var supervisorId = await GetAdminId();
+                var userId = await GenerateUserId(role);
+                var newUser = new User()
+                {
+                    UserId = userId,
+                    UserName = request.UserName,
+                    UserPasswordHash = GeneratedPasswordHash(request.UserPassword),
+                    UserEmail = request.UserEmail,
+                    UserTele = request.UserTele,
+                    UserRole = role,
+                    UserAddress = request.UserAddress,
+                    SupervisorId = supervisorId,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = "Active"
+                };
+
+                await _userRepo.CreateAsync(newUser);
+                await _unitOfWork.SaveChangesAsync();
+
                 return new ServiceResult
                 {
-                    Status = 409, // cái này là trả về resource đã tồn tại (ở đây là email), lỗi này còn trả về khi có quá nhiều yêu cầu đồng thời cho 1 file
-                    Message = "Email already exists",
-
+                    Status = 201,
+                    Message = "Registration successful"
                 };
             }
-            String role = "";
-            if (!string.IsNullOrEmpty(role))
+            catch (Exception ex)
             {
-                role = request.UserRole;
-            } else
-            {
-                role = "Driver";
+                Console.WriteLine(ex.Message);
+                return new ServiceResult
+                {
+                    Status = 500,
+                    Message = "An error occurred during registration"
+                };
             }
-
-            var supervisorId = await GetAdminId();
-            var userId = await GenerateUserId(role);
-            var newUser = new User()
-            {
-                UserId = userId,
-                UserName = request.UserName,
-                UserPasswordHash = GeneratedPasswordHash(request.UserPassword),
-                UserEmail = request.UserEmail,
-                UserTele = request.UserTele,
-                UserRole = role,
-                UserAddress = request.UserAddress,
-                SupervisorId = supervisorId,
-                CreatedAt = DateTime.UtcNow,
-                Status = "Active"
-            };
-
-            await _userRepo.CreateAsync(newUser);
-            await _unitOfWork.SaveChangesAsync();
-
-            return new ServiceResult
-            {
-                Status = 201, // đây là mã trả về là đã thành côgn
-                Message = "Registration successful",
-            };
         }
 
 

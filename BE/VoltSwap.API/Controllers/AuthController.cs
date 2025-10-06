@@ -24,11 +24,23 @@ namespace VoltSwap.API.Controllers
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState);
+                return BadRequest(new { message = "Invalid input", errors = ModelState });
             }
 
             var result = await _authService.RegisterAsync(request);
-            return StatusCode(result.Status, new { message = result.Message });
+            if (result.Status == 201)
+            {
+                return StatusCode(201, new
+                {
+                    message = result.Message,
+                    data = new { }  // Data không được null
+                });
+            }
+
+            return StatusCode(result.Status, new
+            {
+                message = result.Message
+            });
         }
 
         [HttpPost("login")]

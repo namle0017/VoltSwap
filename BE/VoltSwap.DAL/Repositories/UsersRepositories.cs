@@ -40,5 +40,10 @@ namespace VoltSwap.DAL.Repositories
         {
             return await _context.Users.FirstOrDefaultAsync(x => x.UserEmail == email && x.UserPasswordHash == password_hash);
         }
+
+        public async Task<int> GetNumberOfDriverAsync()
+        {
+            return await _context.Users.CountAsync(x => x.UserRole == "Driver" && x.Status == "Active");
+        }
     }
 }
