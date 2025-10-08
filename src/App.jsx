@@ -5,8 +5,10 @@ import AboutPage from "./pages/AboutPage";
 import ServicesPage from "./pages/ServicesPage";
 import BenefitsPage from "./pages/BenefitsPage";
 import ContactPage from "./pages/ContactPage";
-import StationPage from "./pages/StationDemo";
-import AdminDashboard from "./pages/AdminPage"; // import trang admin
+import StationSwap from "./pages/StationSwap";
+import AdminPage from "./pages/AdminPage"; // import trang admin
+import AdminLayout from "./layouts/AdminLayout"
+import CustomerManagement from "./pages/CustomerManagement"
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 const router = createBrowserRouter([
@@ -21,9 +23,19 @@ const router = createBrowserRouter([
       { path: "/contact", element: <ContactPage /> },
     ],
   },
-  { path: "/station", element: <StationPage /> },
+  { path: "/station", element: <StationSwap /> },
 
-  { path: "/admin", element: <AdminDashboard /> },
+  {
+    path: "/admin",
+    element: <AdminLayout />, // Admin layout có sidebar + navbar
+    children: [
+      { path: "/admin", element: <AdminPage /> },
+      { path: "/admin/customers", element: <CustomerManagement /> },
+      // sau này bạn có thể thêm các trang khác như:
+      // { path: "/admin/reports", element: <ReportsPage /> },
+      // { path: "/admin/employees", element: <EmployeePage /> },
+    ],
+  },
 ]);
 
 function App() {
