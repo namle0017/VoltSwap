@@ -1,0 +1,6 @@
+@VoltSwap.API_HostAddress = http://localhost:5062
+
+GET {{VoltSwap.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
