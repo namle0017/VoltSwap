@@ -58,8 +58,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
       // 🔐 Login
       else {
         res = await api.post("/login", {
-          userEmail: formData.email,
-          userPassword: formData.password,
+          Email: formData.email,
+          Password: formData.password,
         });
 
         localStorage.setItem("token", res.data.token || "");
