@@ -1,9 +1,12 @@
 ﻿using System.Linq.Expressions;
+using VoltSwap.DAL.DTO;
 
 namespace VoltSwap.DAL.Base
 {
     public interface IGenericRepositories<T> where T : class
     {
+        Task<PagedResult<T>> GetAllDataByExpression(QueryOptions<T> options);
+
         List<T> GetAll();
 
         Task<List<T>> GetAllAsync();

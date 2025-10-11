@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using VoltSwap.DAL.Data;
+using VoltSwap.DAL.DTO;
 
 namespace VoltSwap.DAL.Base
 {
@@ -303,6 +304,11 @@ namespace VoltSwap.DAL.Base
             ArgumentNullException.ThrowIfNull(entity);
             await _context.AddAsync(entity);
             return entity;
+        }
+
+        public Task<PagedResult<T>> GetAllDataByExpression(QueryOptions<T> options)
+        {
+            throw new NotImplementedException();
         }
     }
 }

@@ -37,6 +37,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
+builder.Services.AddScoped<IPlanService, PlanService>();
 
 
 var app = builder.Build();
@@ -60,5 +61,6 @@ if (!app.Environment.IsDevelopment())
 } // 2. CORS trước UseHttpsRedirection
 app.UseAuthorization();      // 4.
 app.MapControllers();
-
+app.UseAuthentication();
+app.UseAuthorization();
 app.Run();
