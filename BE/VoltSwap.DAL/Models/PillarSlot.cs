@@ -15,7 +15,7 @@ public partial class PillarSlot
 
     public int SlotNumber { get; set; }
 
-    public string Status { get; set; }
+    public string PillarStatus { get; set; }
 
     public DateTime UpdateAt { get; set; }
 

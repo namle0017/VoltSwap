@@ -3,7 +3,7 @@
    "ContextClassName": "VoltSwapDbContext",
    "ContextNamespace": null,
    "FilterSchemas": false,
-   "IncludeConnectionString": false,
+   "IncludeConnectionString": true,
    "MinimumProductVersion": "2.6.1186",
    "ModelNamespace": null,
    "OutputContextPath": "Data",

@@ -26,5 +26,18 @@ namespace VoltSwap.DAL.Repositories
             int numberOfStation = await _context.BatterySwapStations.CountAsync();
             return (numberOfStationActive, numberOfStation);
         }
+
+
+
+        public async Task<List<PillarSlot>> GetBatteriesByStationIdAsync(String stationId)
+        {
+            var pillarSlots = await _context.PillarSlots
+                .Include(slot => slot.BatterySwapPillar)
+                .ThenInclude(slot => slot.BatterySwapStation)
+                .Include(slot => slot.Battery)
+                .Where(slot => slot.BatterySwapPillar.BatterySwapStationId == stationId && (slot.PillarStatus == "Available" || slot.PillarStatus == "Lock"))
+                .ToListAsync();
+            return pillarSlots;
+        }
     }
 }

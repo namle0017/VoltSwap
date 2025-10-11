@@ -11,21 +11,13 @@ public partial class BatterySession
 
     public string BatteryId { get; set; }
 
-    public decimal? SocStart { get; set; }
+    public string EventType { get; set; }
 
-    public decimal? SocEnd { get; set; }
+    public decimal SocDelta { get; set; }
 
-    public decimal? CycleStart { get; set; }
+    public decimal EnergyDeltaWh { get; set; }
 
-    public decimal? CycleEnd { get; set; }
-
-    public decimal? EnergyChargedWh { get; set; }
-
-    public decimal? EnergyDischargedWh { get; set; }
-
-    public DateTime? TimestampOut { get; set; }
-
-    public DateTime? TimestampIn { get; set; }
+    public DateTime Timestamp { get; set; }
 
     public virtual Battery Battery { get; set; }
 }

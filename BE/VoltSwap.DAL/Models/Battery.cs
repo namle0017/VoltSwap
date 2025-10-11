@@ -17,7 +17,7 @@ public partial class Battery
 
     public decimal Soh { get; set; }
 
-    public string Status { get; set; }
+    public string BatteryStatus { get; set; }
 
     public virtual ICollection<BatterySession> BatterySessions { get; set; } = new List<BatterySession>();
 

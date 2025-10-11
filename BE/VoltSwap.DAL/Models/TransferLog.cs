@@ -17,7 +17,7 @@ public partial class TransferLog
 
     public string Reason { get; set; }
 
-    public string Status { get; set; }
+    public string TransferStatus { get; set; }
 
     public string UserAdminId { get; set; }
 
