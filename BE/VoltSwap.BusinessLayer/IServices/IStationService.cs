@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using VoltSwap.BusinessLayer.Base;
 
 namespace VoltSwap.BusinessLayer.IServices
 {
-    internal interface IStationService
+    public interface IStationService
     {
+        Task<ServiceResult> GetStationList();
     }
 }
