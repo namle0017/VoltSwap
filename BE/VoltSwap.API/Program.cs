@@ -24,7 +24,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", b =>
     {
-        b.WithOrigins("http://localhost:5173") // ❌ CHỈ cho phép localhost
+        b.WithOrigins("http://localhost:5173")
          .AllowAnyMethod()
          .AllowAnyHeader()
          .AllowCredentials();
@@ -32,6 +32,7 @@ builder.Services.AddCors(options =>
 });
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<OverviewService>();
+builder.Services.AddScoped<PlanService>();
 builder.Services.AddScoped(typeof(IGenericRepositories<>), typeof(GenericRepositories<>));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Logging.ClearProviders();

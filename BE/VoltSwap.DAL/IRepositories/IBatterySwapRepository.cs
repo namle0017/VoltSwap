@@ -8,9 +8,8 @@ using VoltSwap.DAL.Models;
 
 namespace VoltSwap.DAL.IRepositories
 {
-    public interface IStationRepository : IGenericRepositories<BatterySwapStation>
+    public interface IBatterySwapRepository : IGenericRepositories<BatterySwap>
     {
-        Task<(int, int)> GetNumberOfStationActive();
-        Task<List<PillarSlot>> GetBatteriesByStationIdAsync(String stationId);
+        Task<List<BatterySwap>> GetBatteryInUsingAsync(String subId);
     }
 }

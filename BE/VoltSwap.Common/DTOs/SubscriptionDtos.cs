@@ -1,0 +1,32 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using VoltSwap.DAL.Models;
+
+namespace VoltSwap.Common.DTOs
+{
+    public class CheckSubRequest
+    {
+        public String UserId { get; set; }
+    }
+
+    public class SubRequest
+    {
+        public String UserId { get; set; }
+        public string SubId { get; set; }
+    }
+
+    public class ReponseSub
+    {
+        public String SubscriptionId { get; set; }
+        public String PlanName { get; set; }
+        public String Status { get; set; }
+        public double SubFee { get; set; }
+        public DateTime EndDate { get; set; }
+        public int RemainingSwap { get; set; }
+        public double CurrentMilleage { get; set; }
+        public int TotalSwap { get; set; }
+    }
+}

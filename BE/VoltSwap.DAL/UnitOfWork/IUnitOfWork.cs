@@ -12,5 +12,10 @@ namespace VoltSwap.DAL.UnitOfWork
     {
         Task<int> SaveChangesAsync();
         IUsersRepositories Users { get; }
+        ISubscriptionRepository Subscriptions { get; }
+        IBatterySwapRepository BatterySwap { get; }
+        IStationRepository Stations { get; }
+        IPlanRepository Plans { get; }
+        ITransactionRepository Trans { get; }
     }
 }
