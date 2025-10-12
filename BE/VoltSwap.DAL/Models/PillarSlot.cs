@@ -11,11 +11,11 @@ public partial class PillarSlot
 
     public string BatterySwapPillarId { get; set; }
 
-    public string BatteryId { get; set; }
+    public string? BatteryId { get; set; }
 
     public int SlotNumber { get; set; }
 
-    public string Status { get; set; }
+    public string PillarStatus { get; set; }
 
     public DateTime UpdateAt { get; set; }
 

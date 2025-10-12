@@ -21,6 +21,8 @@ public partial class Subscription
 
     public int? RemainingSwap { get; set; }
 
+    public string Status { get; set; }
+
     public DateTime CreateAt { get; set; }
 
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();

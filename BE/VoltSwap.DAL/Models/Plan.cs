@@ -23,6 +23,8 @@ public partial class Plan
 
     public decimal? Price { get; set; }
 
+    public string Status { get; set; }
+
     public DateTime? CreateAt { get; set; }
 
     public virtual ICollection<Fee> Fees { get; set; } = new List<Fee>();

@@ -13,6 +13,12 @@ namespace VoltSwap.DAL.UnitOfWork
     {
         private readonly VoltSwapDbContext _context;
         private IUsersRepositories? userRepository;
+        private ISubscriptionRepository? subRepository;
+        private IBatterySwapRepository? batSwapRepository;
+        private IStationRepository? stationRepository;
+        private IPlanRepository? planRepository;
+        private ITransactionRepository? transRepository;
+        private IBatteryRepository? batRepository;
 
         public UnitOfWork(VoltSwapDbContext context)
         {
@@ -39,6 +45,74 @@ namespace VoltSwap.DAL.UnitOfWork
                     userRepository = (IUsersRepositories)new UsersRepositories(_context);
                 }
                 return userRepository;
+            }
+        }
+        public ISubscriptionRepository Subscriptions
+        {
+            get
+            {
+                if (subRepository == null)
+                {
+                    subRepository = (ISubscriptionRepository)new SubscriptionRepository(_context);
+                }
+                return subRepository;
+            }
+        }
+        public IStationRepository Stations
+        {
+            get
+            {
+                if (stationRepository == null)
+                {
+                    stationRepository = (IStationRepository)new StationRepository(_context);
+                }
+                return stationRepository;
+            }
+        }
+        public IBatterySwapRepository BatterySwap
+        {
+            get
+            {
+                if (batSwapRepository == null)
+                {
+                    batSwapRepository = (IBatterySwapRepository)new BatterySwapRepository(_context);
+                }
+                return batSwapRepository;
+            }
+        }
+
+        public IPlanRepository Plans
+        {
+            get
+            {
+                if (planRepository == null)
+                {
+                    planRepository = (IPlanRepository)new PlanRepository(_context);
+                }
+                return planRepository;
+            }
+        }
+
+        public ITransactionRepository Trans
+        {
+            get
+            {
+                if (transRepository == null)
+                {
+                    transRepository = (ITransactionRepository)new TransactionRepository(_context);
+                }
+                return transRepository;
+            }
+        }
+        public IBatteryRepository Batteries
+        {
+            get
+            {
+                if (batRepository == null)
+                {
+                    batRepository = (IBatteryRepository)new BatteryRepository(_context);
+                }
+                return batRepository;
             }
         }
     }
