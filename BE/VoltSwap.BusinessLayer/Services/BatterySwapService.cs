@@ -148,10 +148,16 @@ namespace VoltSwap.BusinessLayer.Services
             await _subRepo.UpdateAsync(getSub);
 
             await _unitOfWork.SaveChangesAsync();
+            int topNumber = await _unitOfWork.Subscriptions.GetNumberOfbatteryInSub(requestBatteryList.accessRequest.SubscriptionId);
+            var getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarAsync(requestBatteryList.accessRequest.StationId);
             return new ServiceResult
             {
                 Status = 200,
                 Message = "Successfull",
+                Data = new BatteryRequest
+                {
+                    
+                }
             };
 
         }

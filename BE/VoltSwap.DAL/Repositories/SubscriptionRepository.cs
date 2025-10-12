@@ -40,5 +40,14 @@ namespace VoltSwap.DAL.Repositories
         {
             return await _context.Subscriptions.AnyAsync(x => x.SubscriptionId == subId);
         }
+
+        public async Task<int> GetNumberOfbatteryInSub(string subId)
+        {
+            var count = await _context.Subscriptions
+                .Where(sub => sub.SubscriptionId == subId)
+                .Select(sub => sub.Plan.NumberOfBattery)
+                .FirstOrDefaultAsync();
+            return count??0;
+        }
     }
 }
