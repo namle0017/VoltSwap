@@ -35,6 +35,8 @@ builder.Services.AddScoped<OverviewService>();
 builder.Services.AddScoped<PlanService>();
 builder.Services.AddScoped<StationService>();
 builder.Services.AddScoped<BatterySwapService>();
+builder.Services.AddScoped<TransactionService>();
+builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddScoped(typeof(IGenericRepositories<>), typeof(GenericRepositories<>));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Logging.ClearProviders();

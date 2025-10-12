@@ -14,10 +14,10 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<ServiceResult> CheckSubId(AccessRequest requestDto);
         Task<List<PillarSlotDto>> GetPillarSlot(String stationId);
         Task<List<BatteryDto>> GetBatteryInUsingAvailable(string subId);
-        Task<ServiceResult> SwapInBattery(BatterySwapInListResponse request);
 
         Task<decimal> CalMilleageBase(List<BatterySession> batSession);
         Task<ServiceResult> SwapOutBattery(BatterySwapInListResponse requestDto);
         Task<ServiceResult> CheckBatteryAvailable(BatterySwapInListResponse requestBatteryList);
+
         }
 }

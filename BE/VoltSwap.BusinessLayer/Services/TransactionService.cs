@@ -37,13 +37,13 @@ namespace VoltSwap.BusinessLayer.Services
             _unitOfWork = unitOfWork;
             _configuration = configuration;
         }
-
+        //Hàm này để tạo transaction mới sau đó là list ra lịch sử transaction của user
         public async Task<ServiceResult> CreateTransactionAsync(TransactionRequest requestDto)
         {
             string transactionId = await GenerateTransactionId();
             string subId = await GenerateSubscriptionId();
 
-            string transactionContext = $"{requestDto.DriverId}-{requestDto.TransactionType.Replace(" ", "_").ToUpper()}-{transactionId.Substring(9)}";
+            string transactionContext = $"{requestDto.DriverId}-{requestDto.TransactionType.Replace(" ", "_").ToUpper()}-{transactionId.Substring(6)}";
 
             var transactionDetail = new Transaction
             {
@@ -57,8 +57,8 @@ namespace VoltSwap.BusinessLayer.Services
                 PaymentMethod = "Bank transfer",
                 Status = "Pending",
                 Fee = requestDto.Fee,
-                TotalAmount = (requestDto.Amount+ requestDto.Fee),
-                Note = $"Note for {requestDto.TransactionType}",
+                TotalAmount = (requestDto.Amount + requestDto.Fee),
+                Note = $"Note for {requestDto.TransactionType} {subId}",
             };
 
 
@@ -78,23 +78,62 @@ namespace VoltSwap.BusinessLayer.Services
             await _transRepo.CreateAsync(transactionDetail);
             await _subRepo.CreateAsync(subscriptionDetail);
             await _unitOfWork.SaveChangesAsync();
+            var transactions = await _transRepo.GetAllAsync(t => t.UserDriverId == requestDto.DriverId);
+            if (transactions == null || !transactions.Any())
+            {
+                return new ServiceResult
+                {
+                    Status = 204,
+                    Message = "No transactions found for this user."
+                };
+            }
+            var transactionHistory = transactions.Select(t => new TransactionListReponse
+            {
+                TransactionId = t.TransactionId,
+                Amount = t.TotalAmount,
+                PaymentDate = t.TransactionDate,
+                PaymentStatus = t.Status,
+                TransactionNote = t.Note
+            }).ToList();
 
             return new ServiceResult
             {
                 Status = 200,
                 Message = "Successfull",
-                Data = new TransactionReponse
-                {
-                    TransactionId = transactionId,
-                    Amount = requestDto.Amount,
-                    PaymentStatus = "Pending",
-                    BankName = "TP Bank - Tien Phong Bank",
-                    TransactionContext = transactionContext,
-                    PaymentAccount = "17647502973",
-                }
+                Data = transactionHistory,
             };
-
         }
+
+        //Hàm này để hiển thị lên transaction mà user cần trả thông qua TransactionReponse
+        public async Task<ServiceResult> GetTransactionDetailAsync(string transactionId)
+        {
+            var transaction = await _transRepo.GetByIdAsync(t => t.TransactionId == transactionId);
+            if (transaction == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Transaction not found."
+                };
+            }
+            var transactionResponse = new TransactionReponse
+            {
+                TransactionId = transaction.TransactionId,
+                Amount = transaction.TotalAmount,
+                PaymentStatus = transaction.Status,
+                BankName = "Vietcombank",
+                TransactionContext = transaction.TransactionContext,
+                PaymentAccount = "123456789"
+            };
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Transaction details retrieved successfully.",
+                Data = transactionResponse
+            };
+        }
+
+
 
 
         //Tao ra transactionID
@@ -102,23 +141,24 @@ namespace VoltSwap.BusinessLayer.Services
         {
             string transactionId;
             bool isDuplicated;
-
+            string dayOnly = DateTime.Today.Day.ToString("D2");
             do
             {
                 // Sinh 10 chữ số ngẫu nhiên
                 var random = new Random();
-                transactionId = $"TRANS-{DateTime.Today}-{string.Concat(Enumerable.Range(0, 10).Select(_ => random.Next(0, 10).ToString()))}";
+                transactionId = $"TRANS-{dayOnly}-{string.Concat(Enumerable.Range(0, 10).Select(_ => random.Next(0, 10).ToString()))}";
 
                 // Kiểm tra xem có trùng không
                 isDuplicated = await _transRepo.AnyAsync(u => u.TransactionId == transactionId);
 
             } while (isDuplicated);
-            return transactionId ;
+            return transactionId;
         }
 
         //Tao ra SubscriptionId
         private async Task<string> GenerateSubscriptionId()
         {
+            string dayOnly = DateTime.Today.Day.ToString("D2");
             string subscriptionId;
             bool isDuplicated;
 
@@ -132,7 +172,69 @@ namespace VoltSwap.BusinessLayer.Services
                 isDuplicated = await _subRepo.AnyAsync(u => u.SubscriptionId == subscriptionId);
 
             } while (isDuplicated);
-            return subscriptionId ;
+            return subscriptionId;
+        }
+
+
+        //Hàm này để admin có thể xem các transaction mà user mới tạo, để check coi là approve hay deny nếu approve thì trong transaction sẽ được cập nhật status thành Active và trong subscription sẽ được cập nhật status thành active nếu mà transactionType là Buy plan hoặc là Renew plan
+        public async Task<ServiceResult> GetAllPendingTransactionsAsync()
+        {
+            var transactions = await _transRepo.GetAllAsync(t => t.Status == "Pending");
+            if (transactions == null || !transactions.Any())
+            {
+                return new ServiceResult
+                {
+                    Status = 204,
+                    Message = "No pending transactions found."
+                };
+            }
+            var pendingTransactions = transactions.Select(t => new TransactionListForAdminResponse
+            {
+                TransactionId = t.TransactionId,
+                Amount = t.TotalAmount,
+                PaymentDate = t.TransactionDate,
+                TransactionContext = t.TransactionContext,
+                PaymentStatus = t.Status,
+                TransactionNote = t.Note
+            }).ToList();
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Pending transactions retrieved successfully.",
+                Data = pendingTransactions
+            };
+        }
+
+        public async Task<ServiceResult> UpdateTransactionStatusAsync(ApproveTransactionRequest requestDto)
+        {
+            var transaction = await _transRepo.GetByIdAsync(t => t.TransactionId == requestDto.RequestTransactionId);
+            if (transaction == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Transaction not found."
+                };
+            }
+            transaction.Status = requestDto.NewStatus;
+            _transRepo.UpdateAsync(transaction);
+            await _unitOfWork.SaveChangesAsync();
+            // Nếu transaction được duyệt (approved), cập nhật trạng thái của subscription tương ứng
+            if (requestDto.NewStatus.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                var subscription = await _subRepo.GetByIdAsync(s => s.SubscriptionId == transaction.SubscriptionId);
+                if (subscription != null)
+                {
+                    subscription.Status = "Active";
+                    _subRepo.UpdateAsync(subscription);
+                    await _unitOfWork.SaveChangesAsync();
+                }
+            }
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Transaction status updated successfully."
+            };
         }
     }
 }

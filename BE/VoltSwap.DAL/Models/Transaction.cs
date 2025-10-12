@@ -31,6 +31,10 @@ public partial class Transaction
 
     public string Note { get; set; }
 
+    public string TransactionContext { get; set; }
+
+    public DateTime? ConfirmDate { get; set; }
+
     public virtual Subscription Subscription { get; set; }
 
     public virtual User UserDriver { get; set; }

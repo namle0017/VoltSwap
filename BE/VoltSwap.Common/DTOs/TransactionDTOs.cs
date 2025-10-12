@@ -24,4 +24,28 @@ namespace VoltSwap.Common.DTOs
         public string TransactionContext { get; set; }
         public string PaymentAccount {  get; set; }
     }
+    public class TransactionListReponse
+    {
+        public string TransactionId { get; set; }
+        public decimal Amount { get; set; }
+        public string PaymentStatus { get; set; }
+        public string TransactionNote { get; set; }
+        public DateTime PaymentDate {  get; set; }
+    }
+
+    public class  TransactionListForAdminResponse
+    {
+        public string TransactionId { get; set; }
+        public decimal Amount { get; set; }
+        public string PaymentStatus { get; set; }
+        public string TransactionContext { get; set; }
+        public string TransactionNote { get; set; }
+        public DateTime PaymentDate { get; set; }
+    }
+
+    public class ApproveTransactionRequest
+    {
+        public string RequestTransactionId { get; set; }
+        public string NewStatus { get; set; }
+    }
 }

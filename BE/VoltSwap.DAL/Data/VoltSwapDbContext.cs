@@ -54,6 +54,7 @@ public partial class VoltSwapDbContext : DbContext
     public virtual DbSet<TransferLog> TransferLogs { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
+
     public static string GetConnectionString(string connectionStringName)
     {
         var config = new ConfigurationBuilder()
@@ -66,11 +67,12 @@ public partial class VoltSwapDbContext : DbContext
         return connectionString;
     }
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder.UseSqlServer(GetConnectionString("DefaultConnection"));
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Appointment>(entity =>
         {
-            entity.HasKey(e => e.AppointmentId).HasName("PK__appointm__A50828FC4C0A925A");
+            entity.HasKey(e => e.AppointmentId).HasName("PK__appointm__A50828FCB5F645E4");
 
             entity.ToTable("appointments");
 
@@ -133,7 +135,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<Battery>(entity =>
         {
-            entity.HasKey(e => e.BatteryId).HasName("PK__batterie__31C8DB8EB468AA24");
+            entity.HasKey(e => e.BatteryId).HasName("PK__batterie__31C8DB8E22E792DF");
 
             entity.ToTable("batteries");
 
@@ -151,7 +153,6 @@ public partial class VoltSwapDbContext : DbContext
                 .IsUnicode(false)
                 .HasColumnName("battery_status");
             entity.Property(e => e.BatterySwapStationId)
-                .IsRequired()
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasColumnName("battery_swap_station_id");
@@ -167,13 +168,12 @@ public partial class VoltSwapDbContext : DbContext
 
             entity.HasOne(d => d.BatterySwapStation).WithMany(p => p.Batteries)
                 .HasForeignKey(d => d.BatterySwapStationId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_batteries_battery_swap_station_id");
         });
 
         modelBuilder.Entity<BatterySession>(entity =>
         {
-            entity.HasKey(e => e.SessionId).HasName("PK__battery___69B13FDCF2B982C9");
+            entity.HasKey(e => e.SessionId).HasName("PK__battery___69B13FDC4E01F62E");
 
             entity.ToTable("battery_sessions");
 
@@ -208,7 +208,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<BatterySwap>(entity =>
         {
-            entity.HasKey(e => e.SwapHistoryId).HasName("PK__battery___74DF5EE33809D402");
+            entity.HasKey(e => e.SwapHistoryId).HasName("PK__battery___74DF5EE3D20A3E22");
 
             entity.ToTable("battery_swap");
 
@@ -274,7 +274,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<BatterySwapPillar>(entity =>
         {
-            entity.HasKey(e => e.BatterySwapPillarId).HasName("PK__battery___02EC35A0C337B65D");
+            entity.HasKey(e => e.BatterySwapPillarId).HasName("PK__battery___02EC35A086DDB24C");
 
             entity.ToTable("battery_swap_pillar");
 
@@ -299,7 +299,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<BatterySwapStation>(entity =>
         {
-            entity.HasKey(e => e.BatterySwapStationId).HasName("PK__battery___25B1A58C20FBD40A");
+            entity.HasKey(e => e.BatterySwapStationId).HasName("PK__battery___25B1A58C55B7F363");
 
             entity.ToTable("battery_swap_stations");
 
@@ -337,7 +337,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<DriverVehicle>(entity =>
         {
-            entity.HasKey(e => e.Vin).HasName("PK__driver_v__DDB00C67C76B5AD2");
+            entity.HasKey(e => e.Vin).HasName("PK__driver_v__DDB00C670F03E371");
 
             entity.ToTable("driver_vehicles");
 
@@ -370,7 +370,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<Fee>(entity =>
         {
-            entity.HasKey(e => e.FeeId).HasName("PK__fees__A19C8AFB2456077A");
+            entity.HasKey(e => e.FeeId).HasName("PK__fees__A19C8AFB2DF60F5A");
 
             entity.ToTable("fees");
 
@@ -439,7 +439,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<PillarSlot>(entity =>
         {
-            entity.HasKey(e => e.SlotId).HasName("PK__pillar_s__971A01BB36454DD5");
+            entity.HasKey(e => e.SlotId).HasName("PK__pillar_s__971A01BBA9F2232F");
 
             entity.ToTable("pillar_slots");
 
@@ -481,7 +481,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<Plan>(entity =>
         {
-            entity.HasKey(e => e.PlanId).HasName("PK__plans__BE9F8F1D3C7CCBFA");
+            entity.HasKey(e => e.PlanId).HasName("PK__plans__BE9F8F1D9E9CC985");
 
             entity.ToTable("plans");
 
@@ -523,7 +523,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<Rating>(entity =>
         {
-            entity.HasKey(e => e.RatingId).HasName("PK__ratings__D35B278BDDB27437");
+            entity.HasKey(e => e.RatingId).HasName("PK__ratings__D35B278B72F71888");
 
             entity.ToTable("ratings");
 
@@ -565,7 +565,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<RefreshToken>(entity =>
         {
-            entity.HasKey(e => e.TokenId).HasName("PK__refresh___CB3C9E176B327757");
+            entity.HasKey(e => e.TokenId).HasName("PK__refresh___CB3C9E17F82772CE");
 
             entity.ToTable("refresh_token");
 
@@ -605,7 +605,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<Report>(entity =>
         {
-            entity.HasKey(e => e.ReportId).HasName("PK__reports__779B7C580F620FFE");
+            entity.HasKey(e => e.ReportId).HasName("PK__reports__779B7C587585ABE0");
 
             entity.ToTable("reports");
 
@@ -667,7 +667,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<StationStaff>(entity =>
         {
-            entity.HasKey(e => e.StationStaffId).HasName("PK__station___0D35F8675AE60A6B");
+            entity.HasKey(e => e.StationStaffId).HasName("PK__station___0D35F8673FA80121");
 
             entity.ToTable("station_staffs");
 
@@ -702,7 +702,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<Subscription>(entity =>
         {
-            entity.HasKey(e => e.SubscriptionId).HasName("PK__subscrip__863A7EC114A4D290");
+            entity.HasKey(e => e.SubscriptionId).HasName("PK__subscrip__863A7EC1859B37ED");
 
             entity.ToTable("subscriptions");
 
@@ -753,7 +753,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<Transaction>(entity =>
         {
-            entity.HasKey(e => e.TransactionId).HasName("PK__transact__85C600AF45FA5967");
+            entity.HasKey(e => e.TransactionId).HasName("PK__transact__85C600AF82D8C573");
 
             entity.ToTable("transactions");
 
@@ -770,6 +770,9 @@ public partial class VoltSwapDbContext : DbContext
             entity.Property(e => e.Amount)
                 .HasColumnType("decimal(10, 2)")
                 .HasColumnName("amount");
+            entity.Property(e => e.ConfirmDate)
+                .HasColumnType("datetime")
+                .HasColumnName("confirm_date");
             entity.Property(e => e.Currency)
                 .IsRequired()
                 .HasMaxLength(255)
@@ -799,6 +802,9 @@ public partial class VoltSwapDbContext : DbContext
             entity.Property(e => e.TotalAmount)
                 .HasColumnType("decimal(10, 2)")
                 .HasColumnName("total_amount");
+            entity.Property(e => e.TransactionContext)
+                .HasColumnType("text")
+                .HasColumnName("transaction_context");
             entity.Property(e => e.TransactionDate)
                 .HasColumnType("datetime")
                 .HasColumnName("transaction_date");
@@ -826,7 +832,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<TransferLog>(entity =>
         {
-            entity.HasKey(e => e.TransferId).HasName("PK__transfer__78E6FD3340349D0F");
+            entity.HasKey(e => e.TransferId).HasName("PK__transfer__78E6FD33DF12354B");
 
             entity.ToTable("transfer_logs");
 
@@ -895,7 +901,7 @@ public partial class VoltSwapDbContext : DbContext
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.HasKey(e => e.UserId).HasName("PK__users__B9BE370FDA2B92B3");
+            entity.HasKey(e => e.UserId).HasName("PK__users__B9BE370F264E51BB");
 
             entity.ToTable("users");
 
