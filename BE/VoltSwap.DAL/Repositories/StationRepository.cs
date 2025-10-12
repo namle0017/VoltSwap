@@ -8,6 +8,7 @@ using VoltSwap.DAL.Base;
 using VoltSwap.DAL.Data;
 using VoltSwap.DAL.IRepositories;
 using VoltSwap.DAL.Models;
+using static System.Collections.Specialized.BitVector32;
 
 namespace VoltSwap.DAL.Repositories
 {
@@ -33,10 +34,21 @@ namespace VoltSwap.DAL.Repositories
         {
             var pillarSlots = await _context.PillarSlots
                 .Include(slot => slot.BatterySwapPillar)
-                .ThenInclude(slot => slot.BatterySwapStation)
+                .ThenInclude(pillar => pillar.BatterySwapStation)
                 .Include(slot => slot.Battery)
-                .Where(slot => slot.BatterySwapPillar.BatterySwapStationId == stationId && (slot.PillarStatus == "Available" || slot.PillarStatus == "Lock"))
+                .Where(slot => slot.BatterySwapPillar.BatterySwapStationId == stationId)
                 .ToListAsync();
+            return pillarSlots;
+        }
+        public async Task<List<PillarSlot>> GetBatteriesByStationAsync()
+        {
+            var pillarSlots = await _context.PillarSlots
+                .Include(slot => slot.BatterySwapPillar)
+                .ThenInclude(pillar => pillar.BatterySwapStation)
+                .Include(slot => slot.Battery)
+                .Where(slot => slot.PillarStatus == "Use")
+                .ToListAsync();
+
             return pillarSlots;
         }
     }

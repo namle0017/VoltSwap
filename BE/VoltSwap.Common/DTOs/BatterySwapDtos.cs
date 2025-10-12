@@ -15,13 +15,18 @@ namespace VoltSwap.Common.DTOs
     public class BatteryDto
     {
         public string BatteryId { get; set; }
-        public int? SlotId { get; set; }
+        public int SlotId { get; set; }
         //class này dùng để trả về cho fe pin và được fe trả về để biết slotNumber của pin mới là ở đâu
     }
 
-    public class BatterySwapList
+    public class BatterySwapInListResponse
     {
         public List<BatteryDto> BatteryDtos { get; set; }
+        public List<PillarSlotDto> PillarSlotDtos { get; set; }
+        public AccessRequest accessRequest { get; set; }
+    }
+    public class BatterySwapListRequest
+    {
         public List<PillarSlotDto> PillarSlotDtos { get; set; }
         public string SubscriptionId { get; set; }
     }

@@ -35,23 +35,31 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<ServiceResult> GetStationList()
         {
             var stationList = await _unitOfWork.Stations.GetAllAsync(station => station.Status== "Active");
+            var availableBatteries = await _unitOfWork.Stations.GetBatteriesByStationAsync();
             var stationAvailableList = stationList
-                .Select(station => new StationListResponse
+            .Select(station =>
+            {
+                var batteryCount = availableBatteries.Count(b => b.BatterySwapPillar.BatterySwapStationId == station.BatterySwapStationId);
+                var percent = ((double)batteryCount / (double)(station.NumberOfPillar*20))*100;
+
+                return new StationListResponse
                 {
                     StationId = station.BatterySwapStationId,
                     StationName = station.BatterySwapStationName,
                     StationAddress = station.Address,
-                    BatteryAvailable = station.Batteries.Count(b => b.BatteryStatus == "Available"),
-                    AvailablePercent = ((double)station.Batteries.Count(b => b.BatteryStatus == "Available") / station.NumberOfPillar) * 100,
-                    TotalBattery = station.NumberOfPillar,
-                })
-        .Where(station => station.AvailablePercent > 50)
-        .ToList();
+                    BatteryAvailable = batteryCount,
+                    AvailablePercent = percent,
+                    TotalBattery = station.NumberOfPillar*20,
+                };
+            })
+            .Where(s => s.AvailablePercent > 0)
+            .ToList();
+
             return new ServiceResult
             {
                 Status = 200,
                 Message = "Successful",
-                Data = stationAvailableList,
+                Data = stationAvailableList
             };
         }
     }

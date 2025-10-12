@@ -11,7 +11,7 @@ public partial class PillarSlot
 
     public string BatterySwapPillarId { get; set; }
 
-    public string BatteryId { get; set; }
+    public string? BatteryId { get; set; }
 
     public int SlotNumber { get; set; }
 

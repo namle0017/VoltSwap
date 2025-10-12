@@ -10,5 +10,7 @@ namespace VoltSwap.DAL.IRepositories
 {
     public interface IBatteryRepository : IGenericRepositories<Battery>
     {
+        Task<List<Battery>> GetNumberOfBatteries();
+        Task<Battery> FindingBatteryById(String batId);
     }
 }

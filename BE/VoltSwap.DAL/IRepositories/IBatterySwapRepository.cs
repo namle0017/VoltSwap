@@ -11,5 +11,6 @@ namespace VoltSwap.DAL.IRepositories
     public interface IBatterySwapRepository : IGenericRepositories<BatterySwap>
     {
         Task<List<BatterySwap>> GetBatteryInUsingAsync(String subId);
+        Task<PillarSlot> GetPillarSlot(int batSlotId);
     }
 }

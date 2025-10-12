@@ -12,5 +12,7 @@ obj/
 *.log
 
 # Secrets
+appsettings.Development.json
+appsettings.json
 .env
 .sonarqube

@@ -9,7 +9,7 @@ namespace VoltSwap.Common.DTOs
     public class PillarSlotDto
     {
         public int SlotId { get; set; }
-        public String BatteryId { get; set; }
+        public String? BatteryId { get; set; }
         public int SlotNumber { get; set; }
         public String StationId { get; set; }
         public string PillarId { get; set; }

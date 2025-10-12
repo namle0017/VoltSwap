@@ -16,12 +16,17 @@ namespace VoltSwap.API.Controllers
             _batSwapService = batSwapService;
         }
 
-        [HttpGet("validate-subscription-slots")]
-        public async Task<IActionResult> ValidateSubscriptionSlots(AccessRequest request)
+        [HttpGet("validate-subscription")]
+        public async Task<IActionResult> ValidateSubscriptionSlots([FromQuery] AccessRequest request)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
             var result = await _batSwapService.CheckSubId(request);
-            return Ok(result.Data);
+            return StatusCode(result.Status, new { message = result.Message , data = result.Data} );
         }
+
 
     }
 }

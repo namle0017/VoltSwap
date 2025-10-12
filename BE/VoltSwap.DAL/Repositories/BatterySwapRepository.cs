@@ -26,5 +26,10 @@ namespace VoltSwap.DAL.Repositories
                 .ToListAsync();
         }
 
+        public async Task<PillarSlot> GetPillarSlot(int batSlotid)
+        {
+            return await _context.PillarSlots.FirstOrDefaultAsync(slot => slot.SlotId == batSlotid);
+        }
+
     }
 }
