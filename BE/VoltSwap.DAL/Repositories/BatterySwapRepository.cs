@@ -30,6 +30,5 @@ namespace VoltSwap.DAL.Repositories
         {
             return await _context.PillarSlots.FirstOrDefaultAsync(slot => slot.SlotId == batSlotid);
         }
-
     }
 }

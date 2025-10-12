@@ -51,5 +51,17 @@ namespace VoltSwap.DAL.Repositories
 
             return pillarSlots;
         }
+        public async Task<List<PillarSlot>> GetBatteriesAvailableByStationAsync(string pillarId, int topNumber)
+        {
+            return await _context.PillarSlots
+            .Where(ps => ps.BatterySwapPillarId == pillarId
+                         && ps.Battery != null
+                         && ps.Battery.BatteryStatus == "Available")
+            .OrderByDescending(ps => ps.Battery.Soc)
+            .Take(topNumber)
+            .ToListAsync();
+        }
+
+
     }
 }

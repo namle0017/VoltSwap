@@ -114,10 +114,27 @@ namespace VoltSwap.BusinessLayer.Services
                 var updateBat = await _unitOfWork.Batteries.FindingBatteryById(item.BatteryId);
                 if (getSlot != null || updateBat!=null)
                 {
+                    var updateBatSwapInHis = await _batSwapRepo.GetByIdAsync(bat => bat.BatteryOutId == item.BatteryId && bat.SubscriptionId == requestBatteryList.accessRequest.SubscriptionId && bat.Status=="In using");
+                    var updateBatSwapIn = new BatterySwap
+                    {
+                        SwapHistoryId = await GenerateBatterySwapId(),
+                        SubscriptionId = requestBatteryList.accessRequest.SubscriptionId,
+                        BatterySwapStationId = requestBatteryList.accessRequest.StationId,
+                        BatteryOutId = null,
+                        BatteryInId = item.BatteryId,
+                        SwapDate = DateOnly.FromDateTime(DateTime.Today),
+                        Note = "",
+                        Status = "Returned",
+                        CreateAt = DateTime.UtcNow.ToLocalTime(),
+                    };
+
                     getSlot.BatteryId = item.BatteryId;
                     getSlot.PillarStatus = "Use";
-                    updateBat.BatteryStatus = "In using";
-                    updateBat.BatterySwapStationId = null;
+                    updateBat.BatteryStatus = "Charging";
+                    updateBat.BatterySwapStationId = requestBatteryList.accessRequest.StationId;
+                    updateBatSwapInHis.SwapDate = DateOnly.FromDateTime(DateTime.Today);
+                    updateBatSwapInHis.Status = "Returned";
+                    await _batSwapRepo.CreateAsync(updateBatSwapIn);
                     await _pillarRepo.UpdateAsync(getSlot);
                     await _batRepo.UpdateAsync(updateBat);
                 }
@@ -130,6 +147,7 @@ namespace VoltSwap.BusinessLayer.Services
             await _batSessionRepo.BulkCreateAsync(getSessionList);
             await _subRepo.UpdateAsync(getSub);
 
+            await _unitOfWork.SaveChangesAsync();
             return new ServiceResult
             {
                 Status = 200,
@@ -252,6 +270,22 @@ namespace VoltSwap.BusinessLayer.Services
                 Status = 200,
                 Message = "Success"
             };
+        }
+
+        //hàm này để generate ra BatterySwapId với format là BTHS-XX-XX-XXXXXX với 2 cái đầu là ngày 2 cái sau là tháng còn 6 cái cuối là random không trùng lặp
+        public async Task<string> GenerateBatterySwapId()
+        {
+            string batterySwapId;
+            bool isDuplicated;
+            do
+            {
+                var random = new Random();
+                var datePart = DateTime.UtcNow.ToString("ddMM");
+                var randomPart = string.Concat(Enumerable.Range(0, 6).Select(_ => random.Next(0, 10).ToString()));
+                batterySwapId = $"BTHS-{datePart}-{randomPart}";
+                isDuplicated = await _batSwapRepo.AnyAsync(bat => bat.SwapHistoryId == batterySwapId);
+            } while (isDuplicated);
+            return batterySwapId;
         }
     }
 }

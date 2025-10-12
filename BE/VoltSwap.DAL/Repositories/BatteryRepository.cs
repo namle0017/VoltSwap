@@ -27,8 +27,8 @@ namespace VoltSwap.DAL.Repositories
                 .Where(bat => bat.BatteryStatus == "Available" && bat.BatterySwapStation.Status=="Active")
                 .ToListAsync();
             return result;
+        }
 
-    }
         public async Task<Battery> FindingBatteryById(String batId)
         {
             return await _context.Batteries.FirstOrDefaultAsync(bat => bat.BatteryId == batId);
