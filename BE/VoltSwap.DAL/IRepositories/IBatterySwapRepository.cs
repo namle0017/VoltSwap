@@ -12,5 +12,6 @@ namespace VoltSwap.DAL.IRepositories
     {
         Task<List<BatterySwap>> GetBatteryInUsingAsync(String subId);
         Task<PillarSlot> GetPillarSlot(int batSlotId);
+        Task<List<Battery>> GetBatteriesBySubscriptionId(string subId);
     }
 }

@@ -42,15 +42,15 @@ namespace VoltSwap.API.Controllers
         }
 
         //Hàm này để list ra transaction của user
-        [HttpGet("user-transaction-history-list")]
-        public async Task<IActionResult> UserTransaction([FromQuery] string userId)
+        [HttpPost("user-transaction-history-list")]
+        public async Task<IActionResult> UserTransaction([FromBody] string userId)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
             var result = await _transService.GetUserTransactionHistoryAsync(userId);
-            return StatusCode(result.Status, new { message = result.Message, data = result.Data });
+            return Ok(result);
         }
 
         //Hàm này để admin trả về status của transaction

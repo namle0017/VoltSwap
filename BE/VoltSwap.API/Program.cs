@@ -33,6 +33,7 @@ builder.Services.AddCors(options =>
     });
 });
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<OverviewService>();
 builder.Services.AddScoped<PlanService>();
 builder.Services.AddScoped<StationService>();

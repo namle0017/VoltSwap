@@ -28,7 +28,7 @@ namespace VoltSwap.BusinessLayer.Services
             IConfiguration configuration) : base(serviceProvider)
         {
             _userRepo = userRepo;
-            reportRepo = reportRepo;
+            _reportRepo = reportRepo;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
         }
@@ -36,10 +36,10 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm này để list ra danh sách các report hiện tại và sẽ filter theo create_at và status là processing
         public async Task<List<Report>> GetAllReport()
         {
-            var reports = await _reportRepo.GetAllAsync();
+            var reports = await _reportRepo.GetAllAsync() ?? new List<Report>();
             return reports
-                .OrderBy(rp => rp.Status== "Processing")
-                .ThenByDescending(rp=>rp.CreateAt)
+                .OrderBy(rp => rp.Status == "Processing")
+                .ThenByDescending(rp => rp.CreateAt)
                 .ToList();
         }
 

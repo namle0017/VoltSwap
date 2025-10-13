@@ -94,11 +94,12 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<ServiceResult> CheckBatteryAvailable(BatterySwapListRequest requestBatteryList)
         {
             var getBatteryAvailable = await GetBatteryInUsingAvailable(requestBatteryList.accessRequest.SubscriptionId);
-            List<BatteryDto> getUnavailableBattery = requestBatteryList.BatteryDtos.Except(getBatteryAvailable).ToList();
-            if (getUnavailableBattery != null)
+            List<BatteryDto> getUnavailableBattery = await GetUnvailableBattery(requestBatteryList.accessRequest.SubscriptionId, requestBatteryList.BatteryDtos);
+            if (getUnavailableBattery != null && getUnavailableBattery.Any())
             {
                 return new ServiceResult
                 {
+                    Status = 404,
                     Message = "You’re trying to return a different battery",
                     Data = getUnavailableBattery,
                 };
@@ -112,7 +113,7 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 var getSlot = await _unitOfWork.BatterySwap.GetPillarSlot(item.SlotId);
                 var updateBat = await _unitOfWork.Batteries.FindingBatteryById(item.BatteryId);
-                if (getSlot != null || updateBat != null)
+                if (getSlot != null && updateBat != null)
                 {
                     var updateBatSwapInHis = await _batSwapRepo.GetByIdAsync(bat => bat.BatteryOutId == item.BatteryId && bat.SubscriptionId == requestBatteryList.accessRequest.SubscriptionId && bat.Status == "in using");
                     var updateBatSwapIn = new BatterySwap
@@ -167,7 +168,21 @@ namespace VoltSwap.BusinessLayer.Services
             };
 
         }
-        public async Task<List<PillarSlotDto>> GetPillarSlot(String stationId)
+
+        public async Task<List<BatteryDto>> GetUnvailableBattery(string subId, List<BatteryDto> batteryDtos)
+        {
+            var getBatteryAvailable = await GetBatteryInUsingAvailable(subId);
+
+            // So sánh dựa theo BatteryId thay vì reference
+            var unavailable = batteryDtos
+                .Where(x => !getBatteryAvailable.Any(y => y.BatteryId == x.BatteryId))
+                .ToList();
+
+            return unavailable;
+        }
+
+
+        public async Task<List<PillarSlotDto>> GetPillarSlot(string stationId)
         {
             var pillarSlots = await _unitOfWork.Stations.GetBatteriesInPillarByStationIdAsync(stationId);
             var dtoList = pillarSlots.Select(slot => new PillarSlotDto
@@ -197,7 +212,25 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Đây là hàm để generate ra Session
-        private async Task<List<BatterySession>> GenerateBatterySession(String batId)
+        public async Task<List<BatterySession>> GenerateBatterySession(string subId)
+        {
+            // Lấy danh sách tất cả pin trong Subscription đó
+            var batteriesInSub = await _unitOfWork.BatterySwap
+                .GetBatteriesBySubscriptionId(subId); // viết thêm hàm này trong repo nếu chưa có
+
+            List<BatterySession> allSessions = new();
+
+            foreach (var battery in batteriesInSub)
+            {
+                var sessions = await GenerateBatterySessionForBattery(battery.BatteryId);
+                allSessions.AddRange(sessions);
+            }
+
+            return allSessions;
+        }
+
+        // Hàm tạo session riêng cho từng pin
+        private async Task<List<BatterySession>> GenerateBatterySessionForBattery(string batId)
         {
             List<BatterySession> getBatterSessionList = new();
             for (int i = 0; i <= 10; i++)
@@ -206,6 +239,7 @@ namespace VoltSwap.BusinessLayer.Services
                 var eventType = eventTypes[_random.Next(eventTypes.Length)];
                 decimal socDelta = 0;
                 decimal energyDelta = 0;
+
                 if (eventType == "use_start" || eventType == "charge_start")
                 {
                     socDelta = 0m;
@@ -213,13 +247,11 @@ namespace VoltSwap.BusinessLayer.Services
                 }
                 else if (eventType == "use_end")
                 {
-                    // Discharge: SOC giảm 0.1 đến 0.6 (negative)
                     socDelta = (decimal)(-(_random.NextDouble() * 0.5 + 0.1));
-                    energyDelta = socDelta * 100m;  // Giả sử 1 SOC = 100 Wh
+                    energyDelta = socDelta * 100m;
                 }
                 else  // charge_end
                 {
-                    // Charge: SOC tăng 0.1 đến 0.6 (positive)
                     socDelta = (decimal)(_random.NextDouble() * 0.5 + 0.1);
                     energyDelta = socDelta * 100m;
                 }
@@ -242,6 +274,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             return getBatterSessionList;
         }
+
 
         //Đây là hàm tính milleage base
         public async Task<decimal> CalMilleageBase(List<BatterySession> batSession)
@@ -445,7 +478,7 @@ namespace VoltSwap.BusinessLayer.Services
 
 
         //Hàm này để staff check pin trong trạm đồng thời là thêm pin hay thay đổi pin trong trụ
-        public async Task<ServiceResult> StaffCheckStation(String stationId)
+        public async Task<ServiceResult> StaffCheckStation(string stationId)
         {
             var getPillarSlotList = await GetPillarSlot(stationId);
             return new ServiceResult

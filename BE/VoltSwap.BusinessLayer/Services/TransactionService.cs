@@ -40,6 +40,8 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm này để tạo transaction mới sau đó là list ra lịch sử transaction của user
         public async Task<ServiceResult> CreateTransactionAsync(TransactionRequest requestDto)
         {
+            if (string.IsNullOrEmpty(requestDto.DriverId))
+                return new ServiceResult { Status = 400, Message = "DriverId is required" };
             string transactionId = await GenerateTransactionId();
             string subId = await GenerateSubscriptionId();
 
@@ -77,8 +79,8 @@ namespace VoltSwap.BusinessLayer.Services
             
             await _subRepo.CreateAsync(subscriptionDetail);
             await _unitOfWork.SaveChangesAsync();
-            var transactions = await _transRepo.GetAllAsync(t => t.UserDriverId == requestDto.DriverId);
-            if (transactions == null || !transactions.Any())
+            var getTransactionList = await GetUserTransactionHistoryAsync(requestDto.DriverId);
+            if (!getTransactionList.Any())
             {
                 return new ServiceResult
                 {
@@ -86,20 +88,12 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "No transactions found for this user."
                 };
             }
-            var transactionHistory = transactions.Select(t => new TransactionListReponse
-            {
-                TransactionId = t.TransactionId,
-                Amount = t.TotalAmount,
-                PaymentDate = t.TransactionDate,
-                PaymentStatus = t.Status,
-                TransactionNote = t.Note
-            }).ToList();
 
             return new ServiceResult
             {
                 Status = 200,
                 Message = "Successfull",
-                Data = transactionHistory,
+                Data = getTransactionList,
             };
         }
 
@@ -237,18 +231,37 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Hàm này để lấy lịch sử transaction của user
-        public async Task<ServiceResult> GetUserTransactionHistoryAsync(string driverId)
+        public async Task<List<TransactionListReponse>> GetUserTransactionHistoryAsync(string driverId)
         {
+            if (string.IsNullOrEmpty(driverId))
+            {
+                throw new ArgumentException("Invalid driver ID provided.", nameof(driverId)); // Throw exception cho error
+            }
+
             var transactions = await _transRepo.GetAllAsync(t => t.UserDriverId == driverId);
+
             if (transactions == null || !transactions.Any())
             {
-                return new ServiceResult
-                {
-                    Status = 204,
-                    Message = "No transactions found for this user."
-                };
+                return new List<TransactionListReponse>(); // Return empty list nếu không có data (không throw, để caller handle)
             }
-            var transactionHistory = transactions.Select(t => new TransactionListReponse
+
+            var transactionHistory = transactions.Select(t => new Transaction
+            {
+                TransactionId = t.TransactionId,
+                SubscriptionId = t.SubscriptionId,
+                UserDriverId = t.UserDriverId,
+                TransactionType = t.TransactionType,
+                Amount = t.Amount,
+                Currency = "VND",
+                TransactionDate = t.TransactionDate,
+                PaymentMethod = t.PaymentMethod,
+                Status = t.Status,
+                Fee = t.Fee,
+                TotalAmount = t.TotalAmount,
+                Note = t.Note,
+            }).ToList();
+
+            return transactionHistory.Select(t => new TransactionListReponse
             {
                 TransactionId = t.TransactionId,
                 Amount = t.TotalAmount,
@@ -256,12 +269,6 @@ namespace VoltSwap.BusinessLayer.Services
                 PaymentStatus = t.Status,
                 TransactionNote = t.Note
             }).ToList();
-            return new ServiceResult
-            {
-                Status = 200,
-                Message = "Successfull",
-                Data = transactionHistory,
-            };
         }
     }
 }

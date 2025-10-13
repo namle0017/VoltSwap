@@ -22,7 +22,7 @@ namespace VoltSwap.DAL.Repositories
 
         public async Task<List<BatterySwap>> GetBatteryInUsingAsync(String subId)
         {
-            return await _context.BatterySwaps.Where(batHistory => batHistory.SubscriptionId == subId && batHistory.Status == "In using")
+            return await _context.BatterySwaps.Where(batHistory => batHistory.SubscriptionId == subId && batHistory.Status == "in using")
                 .ToListAsync();
         }
 
@@ -30,5 +30,18 @@ namespace VoltSwap.DAL.Repositories
         {
             return await _context.PillarSlots.FirstOrDefaultAsync(slot => slot.SlotId == batSlotid);
         }
+
+        public async Task<List<Battery>> GetBatteriesBySubscriptionId(string subId)
+        {
+            return await _context.BatterySwaps
+                .Where(swap => swap.SubscriptionId == subId && swap.Status == "in using")
+                .Join(_context.Batteries,
+                      swap => swap.BatteryOutId,
+                      battery => battery.BatteryId,
+                      (swap, battery) => battery)
+                .Distinct()
+                .ToListAsync();
+        }
+
     }
 }

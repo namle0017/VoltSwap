@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore.Storage.ValueConversion.Internal;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -82,5 +83,9 @@ namespace VoltSwap.Common.DTOs
         public string BatterInId { get; set; }
         public int SlotId { get; set; }
         public DateTime CreateAt { get; set; }
+    }
+    public class GetBatteryInStationRequest
+    {
+        public string StationId { get; set; } = string.Empty;
     }
 }
