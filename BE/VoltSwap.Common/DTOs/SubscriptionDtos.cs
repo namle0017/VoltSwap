@@ -29,4 +29,17 @@ namespace VoltSwap.Common.DTOs
         public double CurrentMilleage { get; set; }
         public int TotalSwap { get; set; }
     }
+
+    public class ServiceOverviewItemDto
+    {
+        public string PlanName { get; set; }  
+        public string SubId { get; set; }  
+        public string PlanStatus { get; set; }  
+        public int? SwapLimit { get; set; }  
+        public int? Remaining_swap { get; set; }
+        public decimal? Current_miligate { get; set; }
+        public DateOnly EndDate { get; set; } 
+    }
+
+
 }

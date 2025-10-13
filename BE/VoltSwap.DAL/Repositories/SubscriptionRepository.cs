@@ -24,7 +24,7 @@ namespace VoltSwap.DAL.Repositories
         {
             var getSub = await _context.Subscriptions.Where(sub => sub.UserDriverId == userId && sub.Status == "Active")
                 .OrderByDescending(sub => sub.StartDate)
-                .Include(sub => sub.PlanId)
+                .Include(sub => sub.Plan)
                 .ToListAsync();
             return getSub;
         }
@@ -40,5 +40,19 @@ namespace VoltSwap.DAL.Repositories
         {
             return await _context.Subscriptions.AnyAsync(x => x.SubscriptionId == subId);
         }
+        public async Task<int> GetRequiredBatteriesFromPlanAsync(string subscriptionId)
+        {
+            var required = await _context.Subscriptions
+                .Where(s => s.SubscriptionId == subscriptionId)
+                .Select(s => s.Plan.NumberOfBattery)
+                .FirstOrDefaultAsync();
+
+            if (required <= 0)
+                throw new InvalidOperationException($"Plan cho subscription '{subscriptionId}' thiếu number_of_battery hợp lệ.");
+
+            return (int)required;
+        }
+
     }
 }
+

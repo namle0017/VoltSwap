@@ -33,11 +33,22 @@ namespace VoltSwap.DAL.Repositories
         {
             var pillarSlots = await _context.PillarSlots
                 .Include(slot => slot.BatterySwapPillar)
-                .ThenInclude(slot => slot.BatterySwapStation)
+                 .ThenInclude(slot => slot.BatterySwapStation)
                 .Include(slot => slot.Battery)
-                .Where(slot => slot.BatterySwapPillar.BatterySwapStationId == stationId && (slot.PillarStatus == "Available" || slot.PillarStatus == "Lock"))
+                .Where(slot => slot.BatterySwapPillar.BatterySwapStationId == stationId && (slot.PillarStatus == "Use"))
                 .ToListAsync();
             return pillarSlots;
         }
+        public async Task<List<PillarSlot>> GetBatteriesAvailableByStationAsync(string pillarId, int topNumber)
+        {
+            return await _context.PillarSlots
+            .Where(ps => ps.BatterySwapPillarId == pillarId
+                         && ps.Battery != null
+                         && ps.Battery.BatteryStatus == "Available")
+            .OrderByDescending(ps => ps.Battery.Soc)
+            .Take(topNumber)
+            .ToListAsync();
+        }
+
     }
 }

@@ -18,6 +18,7 @@ namespace VoltSwap.DAL.UnitOfWork
         private IStationRepository? stationRepository;
         private IPlanRepository? planRepository;
         private ITransactionRepository? transRepository;
+        private IBookingRepository? bookingRepository;
 
         public UnitOfWork(VoltSwapDbContext context)
         {
@@ -101,6 +102,18 @@ namespace VoltSwap.DAL.UnitOfWork
                     transRepository = (ITransactionRepository)new TransactionRepository(_context);
                 }
                 return transRepository;
+            }
+        }
+
+        public IBookingRepository Bookings
+        {
+            get
+            {
+                if (bookingRepository == null)
+                {
+                    bookingRepository = (IBookingRepository)new BookingRepository(_context);
+                }
+                return bookingRepository;
             }
         }
     }

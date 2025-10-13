@@ -10,6 +10,8 @@ namespace VoltSwap.DAL.IRepositories
 {
     public interface ISubscriptionRepository : IGenericRepositories<Subscription>
     {
+        Task<int> GetRequiredBatteriesFromPlanAsync(string subscriptionId);
+
         Task<List<Subscription>> GetSubscriptionByUserIdAsync(string userId);
         Task<bool> IsPlanHoldingBatteryAsync(string subId);
         Task<bool> CheckPlanAvailabel(string subId);

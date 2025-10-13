@@ -5,6 +5,8 @@ using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.DAL.Base;
 using VoltSwap.DAL.Data;
+using VoltSwap.DAL.IRepositories;
+using VoltSwap.DAL.Repositories;
 using VoltSwap.DAL.UnitOfWork;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +32,10 @@ builder.Services.AddCors(options =>
          .AllowCredentials();
     });
 });
+
+builder.Services.AddScoped<SubscriptionService>();
+builder.Services.AddScoped<IPillarSlotRepository, PillarSlotRepository>();
+builder.Services.AddScoped<BookingService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<OverviewService>();
 builder.Services.AddScoped<PlanService>();

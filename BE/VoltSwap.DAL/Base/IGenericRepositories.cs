@@ -41,7 +41,7 @@ namespace VoltSwap.DAL.Base
         Task BulkCreateAsync(IEnumerable<T> entities);
 
         //Task<int> CreateAsync(T entity);
-
+        void Update(T entity);
         Task UpdateAsync(T entity);
 
         //Task<int> UpdateAsync(T entity);
@@ -76,5 +76,6 @@ namespace VoltSwap.DAL.Base
         Task<int> CountAsync(
         Expression<Func<T, bool>>? predicate = null,
         bool asNoTracking = true);
+        
     }
 }

@@ -16,4 +16,28 @@ namespace VoltSwap.Common.DTOs
         public int SwapLimit { get; set; }
         public decimal? Price { get; set; }
     }
+
+    public class ChangePlanCheckRequest
+    {
+        public string SubscriptionId { get; set; }
+    }
+    public class ChangePlanCheckResponse
+    {
+        public DateOnly EndDate { get; set; }
+    }
+    public class ChangePlanRequest
+    {
+        public string UserDriverId { get; set; }
+        public string SubscriptionId { get; set; }
+        public string NewPlanId { get; set; }
+    }
+
+    public class ChangePlanResponse
+    {
+        public string SubscriptionId { get; set; }
+        public string PlanId { get; set; }
+        public DateOnly StartDate { get; set; }
+        public DateOnly EndDate { get; set; }
+        public string Status { get; set; }
+    }
 }

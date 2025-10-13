@@ -117,7 +117,7 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Tao ra SubscriptionId
-        private async Task<string> GenerateSubscriptionId()
+        public async Task<string> GenerateSubscriptionId()
         {
             string subscriptionId;
             bool isDuplicated;

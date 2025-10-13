@@ -304,5 +304,10 @@ namespace VoltSwap.DAL.Base
             await _context.AddAsync(entity);
             return entity;
         }
+
+        public Task GetByUserIdAsync(string userId)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
