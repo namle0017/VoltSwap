@@ -30,7 +30,7 @@ namespace VoltSwap.DAL.Repositories
 
 
 
-        public async Task<List<PillarSlot>> GetBatteriesByStationIdAsync(String stationId)
+        public async Task<List<PillarSlot>> GetBatteriesInPillarByStationIdAsync(String stationId)
         {
             var pillarSlots = await _context.PillarSlots
                 .Include(slot => slot.BatterySwapPillar)
@@ -51,7 +51,8 @@ namespace VoltSwap.DAL.Repositories
 
             return pillarSlots;
         }
-        public async Task<List<PillarSlot>> GetBatteriesAvailableByStationAsync(string pillarId, int topNumber)
+
+        public async Task<List<PillarSlot>> GetBatteriesAvailableByPillarIdAsync(string pillarId, int topNumber)
         {
             return await _context.PillarSlots
             .Where(ps => ps.BatterySwapPillarId == pillarId
@@ -62,6 +63,20 @@ namespace VoltSwap.DAL.Repositories
             .ToListAsync();
         }
 
+        public async Task<List<Battery>> GetBatteriesByStationIdAsync(String stationId)
+        {
+            var bat = await _context.Batteries
+                .Include(bat => bat.BatterySwapStation)
+                .Where(bat => bat.BatterySwapStationId == stationId)
+                .ToListAsync();
+            return bat;
+        }
 
+        public async Task<List<BatterySwapStation>> GetStationActive()
+        {
+            return await _context.BatterySwapStations
+                .Where(station => station.Status == "Active")
+                .ToListAsync();
+        }
     }
 }

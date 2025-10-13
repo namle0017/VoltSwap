@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Transactions;
+using VoltSwap.BusinessLayer.Base;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.Common.DTOs;
 
@@ -37,6 +38,18 @@ namespace VoltSwap.API.Controllers
                 return BadRequest(ModelState);
             }
             var result = await _transService.GetTransactionDetailAsync(requestTransactionId);
+            return StatusCode(result.Status, new { message = result.Message, data = result.Data });
+        }
+
+        //Hàm này để list ra transaction của user
+        [HttpGet("user-transaction-history-list")]
+        public async Task<IActionResult> UserTransaction([FromQuery] string userId)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _transService.GetUserTransactionHistoryAsync(userId);
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
 

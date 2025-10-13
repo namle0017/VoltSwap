@@ -51,7 +51,7 @@ namespace VoltSwap.API.Controllers
                 return BadRequest(ModelState);
             }
             var result = await _authService.LoginAsync(request);
-            return StatusCode(result.Status, new { message = result.Message });
+            return StatusCode(result.Status, new { message = result.Message, data =result.Data});
         }
     }
 

@@ -11,5 +11,6 @@ namespace VoltSwap.BusinessLayer.IServices
     public interface ITransactionService
     {
         Task<ServiceResult> CreateTransactionAsync(TransactionRequest request);
+        Task<ServiceResult> GetUserTransactionHistoryAsync(string driverId);
     }
 }

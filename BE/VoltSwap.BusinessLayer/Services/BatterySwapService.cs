@@ -77,7 +77,7 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 Status = 200,
                 Message = "Please put your battery",
-                Data = new BatterySwapListRequest
+                Data = new BatterySwapInListResponse
                 {
                     PillarSlotDtos = getPillarSlotList,
                 }
@@ -91,11 +91,11 @@ namespace VoltSwap.BusinessLayer.Services
         // 2. Tính milleage base + RemainingSwap.  Done
         // 3. Cập nhật lại pillarSlot.Status là returned và cục pin out ra sẽ là in using
         // 4. Cập nhật lại battery.Status là in using và đồng thời là gán cái Battery.StationId là null nếu là in using và sẽ là có id nếu là charging và cập nhật thêm là soc và soh
-        public async Task<ServiceResult> CheckBatteryAvailable(BatterySwapInListResponse requestBatteryList)
+        public async Task<ServiceResult> CheckBatteryAvailable(BatterySwapListRequest requestBatteryList)
         {
             var getBatteryAvailable = await GetBatteryInUsingAvailable(requestBatteryList.accessRequest.SubscriptionId);
             List<BatteryDto> getUnavailableBattery = requestBatteryList.BatteryDtos.Except(getBatteryAvailable).ToList();
-            if(getUnavailableBattery != null)
+            if (getUnavailableBattery != null)
             {
                 return new ServiceResult
                 {
@@ -107,14 +107,14 @@ namespace VoltSwap.BusinessLayer.Services
             var getSub = await _subRepo.GetByIdAsync(requestBatteryList.accessRequest.SubscriptionId);
             //Update cho những cục pin được đưa vào
             var getPillarSlot = await GetPillarSlot(requestBatteryList.accessRequest.StationId);
-            
+
             foreach (var item in requestBatteryList.BatteryDtos)
             {
                 var getSlot = await _unitOfWork.BatterySwap.GetPillarSlot(item.SlotId);
                 var updateBat = await _unitOfWork.Batteries.FindingBatteryById(item.BatteryId);
-                if (getSlot != null || updateBat!=null)
+                if (getSlot != null || updateBat != null)
                 {
-                    var updateBatSwapInHis = await _batSwapRepo.GetByIdAsync(bat => bat.BatteryOutId == item.BatteryId && bat.SubscriptionId == requestBatteryList.accessRequest.SubscriptionId && bat.Status=="In using");
+                    var updateBatSwapInHis = await _batSwapRepo.GetByIdAsync(bat => bat.BatteryOutId == item.BatteryId && bat.SubscriptionId == requestBatteryList.accessRequest.SubscriptionId && bat.Status == "in using");
                     var updateBatSwapIn = new BatterySwap
                     {
                         SwapHistoryId = await GenerateBatterySwapId(),
@@ -138,10 +138,10 @@ namespace VoltSwap.BusinessLayer.Services
                     await _pillarRepo.UpdateAsync(getSlot);
                     await _batRepo.UpdateAsync(updateBat);
                 }
-            }            
+            }
             var getSessionList = await GenerateBatterySession(requestBatteryList.accessRequest.SubscriptionId);
             var getMilleageBase = await CalMilleageBase(getSessionList);
-            
+
             getSub.CurrentMileage += getMilleageBase;
             getSub.RemainingSwap += 1;
             await _batSessionRepo.BulkCreateAsync(getSessionList);
@@ -149,21 +149,27 @@ namespace VoltSwap.BusinessLayer.Services
 
             await _unitOfWork.SaveChangesAsync();
             int topNumber = await _unitOfWork.Subscriptions.GetNumberOfbatteryInSub(requestBatteryList.accessRequest.SubscriptionId);
-            var getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarAsync(requestBatteryList.accessRequest.StationId);
+            var getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarIdAsync(requestBatteryList.pillarId, topNumber);
+            var dtoList = getPillarSlotList.Select(slot => new BatteryDto
+            {
+                SlotId = slot.SlotId,
+                BatteryId = slot.BatteryId,
+            }).ToList();
             return new ServiceResult
             {
                 Status = 200,
                 Message = "Successfull",
                 Data = new BatteryRequest
                 {
-                    
+                    BatteryDtos = dtoList,
+                    SubscriptionId = requestBatteryList.accessRequest.SubscriptionId,
                 }
             };
 
         }
         public async Task<List<PillarSlotDto>> GetPillarSlot(String stationId)
         {
-            var pillarSlots = await _unitOfWork.Stations.GetBatteriesByStationIdAsync(stationId);
+            var pillarSlots = await _unitOfWork.Stations.GetBatteriesInPillarByStationIdAsync(stationId);
             var dtoList = pillarSlots.Select(slot => new PillarSlotDto
             {
                 SlotId = slot.SlotId,
@@ -194,7 +200,7 @@ namespace VoltSwap.BusinessLayer.Services
         private async Task<List<BatterySession>> GenerateBatterySession(String batId)
         {
             List<BatterySession> getBatterSessionList = new();
-            for(int i =0; i<= 10; i++)
+            for (int i = 0; i <= 10; i++)
             {
                 var eventTypes = new[] { "use_start", "use_end", "charge_start", "charge_end" };
                 var eventType = eventTypes[_random.Next(eventTypes.Length)];
@@ -223,7 +229,8 @@ namespace VoltSwap.BusinessLayer.Services
                 var randomSeconds = _random.NextDouble() * range;
                 var timestamp = startDate.AddSeconds(randomSeconds);
 
-                var getList = new BatterySession{
+                var getList = new BatterySession
+                {
                     BatteryId = batId,
                     EventType = eventType,
                     SocDelta = socDelta,
@@ -242,40 +249,12 @@ namespace VoltSwap.BusinessLayer.Services
             decimal milleageBase = 0;
             foreach (var item in batSession)
             {
-                if(item.EventType == "use_end")
+                if (item.EventType == "use_end")
                 {
-                    milleageBase = milleageBase + ((-item.EnergyDeltaWh) / 60); 
+                    milleageBase = milleageBase + ((-item.EnergyDeltaWh) / 60);
                 }
             }
             return milleageBase;
-        }
-
-
-        public async Task<ServiceResult> SwapOutBattery(BatterySwapInListResponse requestDto)
-        {
-            //Lấy danh sách các trạm
-            var updatedSlots = new List<PillarSlot>();
-            foreach (var batteryDto in requestDto.BatteryDtos)
-            {
-                //lấy danh sách các pillar và danh sách bat
-                var pillarEntity = await _pillarRepo.GetByIdAsync(x => x.SlotId == batteryDto.SlotId);
-                var batteryEntities = await _batRepo.GetByIdAsync(bat => bat.BatteryId == batteryDto.BatteryId);
-
-                batteryEntities.BatterySwapStationId = null;
-                batteryEntities.BatteryStatus = "Charging";
-                pillarEntity.BatteryId = null;
-                pillarEntity.UpdateAt = DateTime.UtcNow;
-                updatedSlots.Add(pillarEntity);
-                await _batRepo.UpdateAsync(batteryEntities);
-                await _pillarRepo.UpdateAsync(pillarEntity);
-            }
-
-            await _unitOfWork.SaveChangesAsync();
-            return new ServiceResult
-            {
-                Status = 200,
-                Message = "Success"
-            };
         }
 
         //hàm này để generate ra BatterySwapId với format là BTHS-XX-XX-XXXXXX với 2 cái đầu là ngày 2 cái sau là tháng còn 6 cái cuối là random không trùng lặp
@@ -293,5 +272,99 @@ namespace VoltSwap.BusinessLayer.Services
             } while (isDuplicated);
             return batterySwapId;
         }
+
+
+        //Hàm này để trả về bill sau khi swap out
+        public async Task<ServiceResult> SwapOutBattery(BatterySwapListRequest requestDto)
+        {
+            if (requestDto?.BatteryDtos == null || !requestDto.BatteryDtos.Any())
+            {
+                return new ServiceResult { Status = 400, Message = "No batteries to swap out" };
+            }
+
+            var subId = requestDto.accessRequest?.SubscriptionId ?? string.Empty;
+            var stationId = requestDto.accessRequest?.StationId ?? string.Empty;
+            if (string.IsNullOrEmpty(subId) || string.IsNullOrEmpty(stationId))
+            {
+                return new ServiceResult { Status = 400, Message = "Invalid subscription or station" };
+            }
+
+            var updatedSlots = new List<PillarSlot>();
+            var swappedBatteries = new List<string>();
+
+            foreach (var batteryDto in requestDto.BatteryDtos)
+            {
+                var pillarEntity = await _pillarRepo.GetByIdAsync(x => x.SlotId == batteryDto.SlotId);  // string SlotId khớp
+                var batteryEntity = await _batRepo.GetByIdAsync(b => b.BatteryId == batteryDto.BatteryId);
+
+                if (pillarEntity != null && batteryEntity != null)
+                {
+                    // Update battery
+                    batteryEntity.BatterySwapStationId = null;
+                    batteryEntity.BatteryStatus = "In Use";
+
+                    // Update pillar
+                    pillarEntity.BatteryId = null;
+                    pillarEntity.PillarStatus = "Not use";
+                    pillarEntity.UpdateAt = DateTime.UtcNow;
+
+                    // Tạo history
+                    var swapOut = new BatterySwap
+                    {
+                        SwapHistoryId = await GenerateBatterySwapId(),
+                        SubscriptionId = subId,
+                        BatterySwapStationId = stationId,
+                        BatteryOutId = batteryDto.BatteryId,
+                        BatteryInId = null,
+                        SwapDate = DateOnly.FromDateTime(DateTime.Today),
+                        Note = "",
+                        Status = "Swapped Out",
+                        CreateAt = DateTime.UtcNow.ToLocalTime(),
+                    };
+                    await _batSwapRepo.CreateAsync(swapOut);
+
+                    await _batRepo.UpdateAsync(batteryEntity);
+                    await _pillarRepo.UpdateAsync(pillarEntity);
+
+                    swappedBatteries.Add(batteryDto.BatteryId);
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+
+            // Tính bill (merge)
+            var sub = await _subRepo.GetByIdAsync(subId);
+            if (sub == null)
+            {
+                return new ServiceResult { Status = 404, Message = "Subscription not found" };
+            }
+
+            var mileageRate = decimal.TryParse(_configuration["MileageRate:PerKm"], out var rate) ? rate : 0.1m;
+            var totalFee = sub.CurrentMileage * mileageRate;
+            var swappedCount = swappedBatteries.Count;
+
+            // Update remaining swap (ví dụ +1 per battery)
+            sub.RemainingSwap += swappedCount;
+            await _subRepo.UpdateAsync(sub);
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = $"Battery swapped out successfully. Swapped {swappedCount} batteries.",
+                Data = new BillAfterSwapOutResponse  // Khớp DTO mới
+                {
+                    SubId = subId,
+                    DateSwap = DateOnly.FromDateTime(DateTime.Today),
+                    TimeSwap = TimeOnly.FromDateTime(DateTime.Now),
+                }
+            };
+        }
+
+
+
+
+        //Đây sẽ là bắt đầu cho phần transfer pin giữa các trạm hay giả lập cho staff, cái này có thể là khi user trả pin nhưng bị lỗi gì đó về trạm thì staff sẽ đi lấy pin đó từ User rồi đổi pin mới cho User và khi đó staff sẽ nhập batteryOutId, batteryInId cho batterySwap của user và nếu user đã trả pin rồi mà không lấy được pin ra thì staff cũng sẽ mang pin để đưa cho user nhưng khi này staff sẽ truyền vào mỗi batteryOutId thôi
+        
     }
 }

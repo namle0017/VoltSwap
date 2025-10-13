@@ -19,6 +19,7 @@ namespace VoltSwap.DAL.UnitOfWork
         private IPlanRepository? planRepository;
         private ITransactionRepository? transRepository;
         private IBatteryRepository? batRepository;
+        private IReportRepository? reportRepository;
 
         public UnitOfWork(VoltSwapDbContext context)
         {
@@ -113,6 +114,17 @@ namespace VoltSwap.DAL.UnitOfWork
                     batRepository = (IBatteryRepository)new BatteryRepository(_context);
                 }
                 return batRepository;
+            }
+        }
+        public IReportRepository Reports
+        {
+            get
+            {
+                if (reportRepository == null)
+                {
+                    reportRepository = (IReportRepository)new ReportRepository(_context);
+                }
+                return reportRepository;
             }
         }
     }

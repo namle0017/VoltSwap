@@ -45,5 +45,15 @@ namespace VoltSwap.DAL.Repositories
         {
             return await _context.Users.CountAsync(x => x.UserRole == "Driver" && x.Status == "Active");
         }
+
+        //Đây là hàm để lấy danh sách các staff cùng với Station mà người đó đang làm thông qua bảng StaffStation
+        public async Task<List<User>> GetStaffWithStationAsync()
+        {
+            return await _context.Users
+                .Include(u => u.StationStaffs) // Include the navigation property to StationStaffs
+                .ThenInclude(ss => ss.BatterySwapStation) // Then include the related BatterySwapStation
+                .Where(u => u.UserRole == "Staff" && u.Status == "Active")
+                .ToListAsync();
+        }
     }
 }

@@ -24,11 +24,15 @@ namespace VoltSwap.Common.DTOs
         public List<BatteryDto> BatteryDtos { get; set; }
         public List<PillarSlotDto> PillarSlotDtos { get; set; }
         public AccessRequest accessRequest { get; set; }
+
+        public string PillarId { get; set; }
     }
     public class BatterySwapListRequest
     {
-        public List<PillarSlotDto> PillarSlotDtos { get; set; }
+        public List<BatteryDto> BatteryDtos { get; set; }
         public string SubscriptionId { get; set; }
+        public AccessRequest accessRequest { get; set; }
+        public string pillarId { get; set; }
     }
 
     public class BatteryRequest
@@ -44,5 +48,24 @@ namespace VoltSwap.Common.DTOs
         public decimal SocDelta { get; set; }
         public decimal EnergyDeltaWh { get; set; }
         public DateTime TimeStamp { get; set; }
+    }
+
+    public class BillAfterSwapOutResponse
+    {
+        public string SubId { get; set; }
+        public DateOnly DateSwap { get; set; }
+        public TimeOnly TimeSwap { get; set; }
+    }
+
+
+    //Đây sẽ là bắt đầu cho phần transfer pin giữa các trạm hay giả lập cho staff
+    public class StaffBatteryRequest
+    { 
+        public String StationId { get; set; }
+        public string StaffId { get; set; }
+        public String? BatteryOutId { get; set; }
+        public String? BatteryInId { get; set; }
+        public  string SubId { get; set; }
+
     }
 }

@@ -11,7 +11,10 @@ namespace VoltSwap.DAL.IRepositories
     public interface IStationRepository : IGenericRepositories<BatterySwapStation>
     {
         Task<(int, int)> GetNumberOfStationActive();
-        Task<List<PillarSlot>> GetBatteriesByStationIdAsync(String stationId);
+        Task<List<PillarSlot>> GetBatteriesInPillarByStationIdAsync(String stationId);
         Task<List<PillarSlot>> GetBatteriesByStationAsync();
+        Task<List<PillarSlot>> GetBatteriesAvailableByPillarIdAsync(string pillarId, int topNumber);
+        Task<List<Battery>> GetBatteriesByStationIdAsync(String stationId);
+        Task<List<BatterySwapStation>> GetStationActive();
     }
 }

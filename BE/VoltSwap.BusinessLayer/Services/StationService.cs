@@ -62,5 +62,66 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = stationAvailableList
             };
         }
+
+        //Hàm để lấy danh sách các trạm đang hoạt động
+        public async Task<ServiceResult> GetActiveStation()
+        {
+            var stationList = await _unitOfWork.Stations.GetAllAsync(station => station.Status == "Active");
+            var activeStationList = stationList
+            .Select(station => new StationActiveReponse
+            {
+                StationId = station.BatterySwapStationId,
+                StationName = station.BatterySwapStationName,
+            })
+            .ToList();
+            
+            var getList = stationList.Select(station =>new  ListStationForTransferResponse{
+                ActiveStationsLeft = activeStationList,
+                ActiveStationsRight = activeStationList,
+            });
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successful",
+                Data = getList
+            };
+        }
+
+        public async Task<ServiceResult> GetBatteryInStation(string stationId)
+        {
+            var result = await _unitOfWork.Stations.GetBatteriesByStationIdAsync(stationId);
+            var batteryInStationList = result.Select(bat => new BatResponse
+            {
+                BatteryId = bat.BatteryId,
+                Soc = bat.Soc,
+                soh = bat.Soh,
+                Status = bat.BatteryStatus,
+                StationId = bat.BatterySwapStationId,
+                Capacity = bat.Capacity,
+
+            });
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successful",
+                Data = batteryInStationList,
+            };
+        }
+
+        public async Task<ServiceResult> GetStationActive()
+        {
+            var stationList = await _unitOfWork.Stations.GetStationActive();
+            var newList = stationList.Select(station => new StationActiveReponse
+            {
+                StationId = station.BatterySwapStationId,
+                StationName = station.BatterySwapStationName,
+            }).ToList();
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successful",
+                Data = newList
+            };
+        }
     }
 }

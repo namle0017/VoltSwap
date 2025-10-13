@@ -14,6 +14,34 @@ namespace VoltSwap.Common.DTOs
         public int TotalBattery { get; set; }
         public double AvailablePercent { get; set; }
         public int BatteryAvailable { get; set; }
-
     }
+
+    public class StationActiveReponse
+    {
+        public string StationId { get; set; }
+        public string StationName { get; set; }
+    }
+
+    public class ListStationForTransferResponse
+    {
+        public List<StationActiveReponse> ActiveStationsLeft { get; set; }
+        public List<StationActiveReponse> ActiveStationsRight { get; set; }
+    }
+
+    public class StationResponse
+    {
+        public string ReportId { get; set; }
+        public string StationId { get; set; }
+    }
+
+    public class StaffListResponse
+    {
+        public string StaffId { get; set; }
+        public string StaffName { get; set; }
+        public string StationName { get; set; }
+        public String StationId { get; set; }
+        public string PhoneNumber { get; set; }
+    }
+
+
 }

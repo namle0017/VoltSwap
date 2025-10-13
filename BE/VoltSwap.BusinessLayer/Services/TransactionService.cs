@@ -236,5 +236,33 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "Transaction status updated successfully."
             };
         }
+
+        //Hàm này để lấy lịch sử transaction của user
+        public async Task<ServiceResult> GetUserTransactionHistoryAsync(string driverId)
+        {
+            var transactions = await _transRepo.GetAllAsync(t => t.UserDriverId == driverId);
+            if (transactions == null || !transactions.Any())
+            {
+                return new ServiceResult
+                {
+                    Status = 204,
+                    Message = "No transactions found for this user."
+                };
+            }
+            var transactionHistory = transactions.Select(t => new TransactionListReponse
+            {
+                TransactionId = t.TransactionId,
+                Amount = t.TotalAmount,
+                PaymentDate = t.TransactionDate,
+                PaymentStatus = t.Status,
+                TransactionNote = t.Note
+            }).ToList();
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successfull",
+                Data = transactionHistory,
+            };
+        }
     }
 }

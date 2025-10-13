@@ -18,5 +18,6 @@ namespace VoltSwap.DAL.UnitOfWork
         IPlanRepository Plans { get; }
         ITransactionRepository Trans { get; }
         IBatteryRepository Batteries { get; }
+        IReportRepository Reports { get; }
     }
 }
