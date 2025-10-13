@@ -19,5 +19,6 @@ namespace VoltSwap.DAL.UnitOfWork
         ITransactionRepository Trans { get; }
         IBatteryRepository Batteries { get; }
         IReportRepository Reports { get; }
+        IBookingRepository Bookings { get; }
     }
 }
