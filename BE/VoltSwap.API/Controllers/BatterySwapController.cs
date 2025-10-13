@@ -69,5 +69,28 @@ namespace VoltSwap.API.Controllers
             var result = await _stationService.GetBatteryInStation(stationId);
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
+
+
+        [HttpGet("staff-help-customer")]
+        public async Task<IActionResult> StaffHelpAsync(StaffBatteryRequest requestDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _batSwapService.StaffTransferBattery(requestDto);
+            return StatusCode(result.Status, new { message = result.Message});
+        }
+
+        [HttpGet("pillar-slot-in-station")]
+        public async Task<IActionResult> GetPillarSlotInStation(string stationId)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _batSwapService.StaffCheckStation(stationId);
+            return StatusCode(result.Status, new { message = result.Message, data = result.Data });
+        }
     }
 }

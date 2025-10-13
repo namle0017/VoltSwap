@@ -365,6 +365,132 @@ namespace VoltSwap.BusinessLayer.Services
 
 
         //Đây sẽ là bắt đầu cho phần transfer pin giữa các trạm hay giả lập cho staff, cái này có thể là khi user trả pin nhưng bị lỗi gì đó về trạm thì staff sẽ đi lấy pin đó từ User rồi đổi pin mới cho User và khi đó staff sẽ nhập batteryOutId, batteryInId cho batterySwap của user và nếu user đã trả pin rồi mà không lấy được pin ra thì staff cũng sẽ mang pin để đưa cho user nhưng khi này staff sẽ truyền vào mỗi batteryOutId thôi
-        
+        public async Task<ServiceResult> StaffTransferBattery(StaffBatteryRequest requestDto)
+        {
+            if (string.IsNullOrEmpty(requestDto.StationId) || string.IsNullOrEmpty(requestDto.StaffId))
+            {
+                return new ServiceResult { Status = 400, Message = "Invalid station or staff ID" };
+            }
+            // Xử lý Battery Out
+            if (!string.IsNullOrEmpty(requestDto.BatteryOutId))
+            {
+                var batteryOut = new Battery
+                {
+                    BatteryId = requestDto.BatteryOutId,
+                    BatterySwapStationId = null,
+                    BatteryStatus = "In Use",
+                    Capacity = 100,
+                    Soc = 100.0m,
+                    Soh = 100.0m,
+                };
+                if (batteryOut != null)
+                {
+                    batteryOut.BatterySwapStationId = null;
+                    batteryOut.BatteryStatus = "In Use";
+                    await _batRepo.UpdateAsync(batteryOut);
+                    var swapOut = new BatterySwap
+                    {
+                        SwapHistoryId = await GenerateBatterySwapId(),
+                        SubscriptionId = requestDto.SubId,
+                        BatterySwapStationId = requestDto.StationId,
+                        BatteryOutId = requestDto.BatteryOutId,
+                        BatteryInId = null,
+                        SwapDate = DateOnly.FromDateTime(DateTime.Today),
+                        Note = $"Staff {requestDto.StaffId} transferred out",
+                        Status = "in using",
+                        CreateAt = DateTime.UtcNow.ToLocalTime(),
+                    };
+                    await _batSwapRepo.CreateAsync(swapOut);
+                }
+                else
+                {
+                    return new ServiceResult { Status = 404, Message = "Battery to transfer out not found" };
+                }
+            }
+            // Xử lý Battery In
+            if (!string.IsNullOrEmpty(requestDto.BatteryInId))
+            {
+                var batteryIn = await _batRepo.GetByIdAsync(b => b.BatteryId == requestDto.BatteryInId);
+                if (batteryIn != null)
+                {
+                    batteryIn.BatterySwapStationId = requestDto.StationId;
+                    batteryIn.BatteryStatus = "Maintenance";
+                    await _batRepo.UpdateAsync(batteryIn);
+                    var swapIn = new BatterySwap
+                    {
+                        SwapHistoryId = await GenerateBatterySwapId(),
+                        SubscriptionId = requestDto.SubId,
+                        BatterySwapStationId = requestDto.StationId,
+                        BatteryOutId = null,
+                        BatteryInId = requestDto.BatteryInId,
+                        SwapDate = DateOnly.FromDateTime(DateTime.Today),
+                        Note = $"Staff {requestDto.StaffId} transferred out",
+                        Status = "Returned",
+                        CreateAt = DateTime.UtcNow.ToLocalTime(),
+                    };
+                    await _batSwapRepo.UpdateAsync(swapIn);
+                }
+                else
+                {
+                    return new ServiceResult { Status = 404, Message = "Battery to transfer out not found" };
+                }
+            }
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Battery transfer processed successfully"
+            };
+        }
+
+
+        //Hàm này để staff check pin trong trạm đồng thời là thêm pin hay thay đổi pin trong trụ
+        public async Task<ServiceResult> StaffCheckStation(String stationId)
+        {
+            var getPillarSlotList = await GetPillarSlot(stationId);
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successfull",
+                Data = getPillarSlotList,
+            };
+        }
+
+
+        //Hàm này để staff có thể đổi pin mà pin này chưa có trong hệ thống nên khi đưa vào thì sẽ là pin mới
+        public async Task<ServiceResult> StaffAddNewBattery(StaffNewBatteryInRequest requestDto)
+        {
+            var newBattery = new Battery
+            {
+                BatteryId = requestDto.BatteryInId,
+                BatterySwapStationId = requestDto.StataionId,
+                BatteryStatus = "Available",
+                Capacity = 100,
+                Soc = 100.0m,
+                Soh = 100.0m,
+            };
+
+            await _batRepo.CreateAsync(newBattery);
+            var newPillarSlot = await _unitOfWork.Stations.GetPillarSlotAsync(requestDto.SlotId);
+            newPillarSlot.BatteryId = requestDto.BatteryInId;
+            newPillarSlot.PillarStatus = "Use";
+            newPillarSlot.UpdateAt = DateTime.UtcNow.ToLocalTime();
+            await _pillarRepo.UpdateAsync(newPillarSlot);
+
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message ="Successfull",
+                Data=new BillAfterStaffSwapOutResponse
+                {
+                    BatterInId= requestDto.BatteryInId,
+                    SlotId = requestDto.SlotId,
+                    CreateAt = DateTime.UtcNow.ToLocalTime(),
+                }
+            };
+
+        }
     }
 }

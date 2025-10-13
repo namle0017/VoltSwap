@@ -60,7 +60,7 @@ namespace VoltSwap.BusinessLayer.Services
                 TotalAmount = (requestDto.Amount + requestDto.Fee),
                 Note = $"Note for {requestDto.TransactionType} {subId}",
             };
-
+            await _transRepo.CreateAsync(transactionDetail);
 
             var subscriptionDetail = new Subscription
             {
@@ -74,8 +74,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Status = "Inactive",
                 CreateAt = DateTime.UtcNow,
             };
-
-            await _transRepo.CreateAsync(transactionDetail);
+            
             await _subRepo.CreateAsync(subscriptionDetail);
             await _unitOfWork.SaveChangesAsync();
             var transactions = await _transRepo.GetAllAsync(t => t.UserDriverId == requestDto.DriverId);

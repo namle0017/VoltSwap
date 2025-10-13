@@ -78,5 +78,10 @@ namespace VoltSwap.DAL.Repositories
                 .Where(station => station.Status == "Active")
                 .ToListAsync();
         }
+
+        public async Task<PillarSlot> GetPillarSlotAsync(int slotId)
+        {
+            return await _context.PillarSlots.FirstOrDefaultAsync(slot => slot.SlotId == slotId);
+        }
     }
 }

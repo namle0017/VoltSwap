@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore.Storage.ValueConversion.Internal;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -66,6 +67,20 @@ namespace VoltSwap.Common.DTOs
         public String? BatteryOutId { get; set; }
         public String? BatteryInId { get; set; }
         public  string SubId { get; set; }
+    }
 
+    public class StaffNewBatteryInRequest
+    {
+        public int SlotId { get; set; }
+        public string BatteryInId { get; set; }
+        public String StataionId { get; set; }
+        public String staffId { get; set; }
+    }
+
+    public class BillAfterStaffSwapOutResponse
+    {
+        public string BatterInId { get; set; }
+        public int SlotId { get; set; }
+        public DateTime CreateAt { get; set; }
     }
 }

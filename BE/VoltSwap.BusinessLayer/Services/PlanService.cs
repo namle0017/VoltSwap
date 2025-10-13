@@ -57,8 +57,16 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<int> GetDurationDays(string planId)
         {
             var getPlan = await _planRepo.GetByIdAsync(planId);
-            int getDurationDays = getPlan.DurationDays ?? 0;
-            return getDurationDays;
+
+            if (getPlan == null)
+            {
+                // Ghi log hoặc ném lỗi tùy theo logic của hệ thống
+                throw new Exception($"Plan with ID '{planId}' not found.");
+                // hoặc nếu bạn muốn chỉ trả về 0 thay vì lỗi:
+                // return 0;
+            }
+
+            return getPlan.DurationDays ?? 0;
         }
     }
-}
+    }
