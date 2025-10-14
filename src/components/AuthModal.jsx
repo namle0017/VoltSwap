@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/api";
+import authApi from "../api/authApi";
 
 const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
   const navigate = useNavigate();
@@ -44,7 +44,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
 
       // 🆕 Register
       if (mode === "signup") {
-        res = await api.post("/register", {
+        res = await authApi.post("/register", {
           userName: formData.name,
           userPassword: formData.password,
           userEmail: formData.email,
@@ -57,23 +57,33 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
       }
       // 🔐 Login
       else {
-        res = await api.post("/login", {
+        res = await authApi.post("/login", {
           Email: formData.email,
           Password: formData.password,
         });
 
-        localStorage.setItem("token", res.data.token || "");
+        // ✅ Lấy token và user từ response BE
+        const token = res.data?.data?.token;
+        const user = res.data?.data?.user;
 
-        if (
-          formData.email === "admin@evstation.com" &&
-          formData.password === "admin123"
-        ) {
+        // ✅ Lưu token và thông tin user vào localStorage
+        if (token) {
+          localStorage.setItem("token", token);
+          localStorage.setItem("userId", user?.userId || "");
+          localStorage.setItem("userRole", user?.userRole || "");
+          localStorage.setItem("userName", user?.userName || "");
+        }
+
+        // ✅ Điều hướng theo role
+        if (user?.userRole === "Aadmin") {
           alert("✅ Admin login successful! Redirecting...");
           navigate("/admin");
         } else {
           alert("✅ Login successful!");
-          navigate("/");
+          navigate("/user/service");
         }
+
+        onClose();
       }
 
       onClose();
@@ -88,9 +98,6 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
       alert(message);
     }
   };
-
-
-
 
   const switchMode = () => {
     setMode(mode === "login" ? "signup" : "login");
@@ -119,8 +126,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
             {forgotMode
               ? "Reset Password"
               : mode === "login"
-                ? "Welcome Back"
-                : "Create Account"}
+              ? "Welcome Back"
+              : "Create Account"}
           </h2>
 
           {/* Form */}
@@ -214,8 +221,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
               {forgotMode
                 ? "Send Reset Link"
                 : mode === "login"
-                  ? "Sign In"
-                  : "Create Account"}
+                ? "Sign In"
+                : "Create Account"}
             </button>
           </form>
 
