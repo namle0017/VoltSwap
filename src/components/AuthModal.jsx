@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/api";
-import parseJwt from "../utils/parseJwt";
+import authApi from "../api/authApi";
 
 const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
   const navigate = useNavigate();
@@ -30,36 +29,23 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
-    if (!emailOk) {
-      window.__toast?.("Email không hợp lệ", "error");
-      return;
-    }
-    if (!forgotMode) {
-      if (!formData.password || formData.password.length < 6) {
-        window.__toast?.("Mật khẩu tối thiểu 6 ký tự", "error");
-        return;
-      }
-    }
-
     try {
       let res;
 
       // 📨 Forgot Password
       if (forgotMode) {
-        res = await api.post("/Auth/forgot-password", {
+        // eslint-disable-next-line no-undef
+        res = await api.post("/forgot-password", {
           userEmail: formData.email,
         });
         alert("📩 Reset link sent to your email!");
-        res = await api.post("/Auth/forgot-password", { userEmail: formData.email });
-        window.__toast?.("📩 Đã gửi link đặt lại mật khẩu", "success");
         setForgotMode(false);
         return;
       }
 
       // 🆕 Register
       if (mode === "signup") {
-        res = await api.post("/Auth/register", {
+        res = await authApi.post("/register", {
           userName: formData.name,
           userPassword: formData.password,
           userEmail: formData.email,
@@ -68,41 +54,49 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
           userAddress: formData.address,
           supervior: "",
         });
-        alert(res.data?.message || "✅ Account created!");
-        window.__toast?.(res.data?.message || "✅ Tạo tài khoản thành công", "success");
+        alert(res.data.message || "✅ Account created!");
       }
       // 🔐 Login
       else {
-        res = await api.post("/Auth/login", {
+        res = await authApi.post("/login", {
           Email: formData.email,
           Password: formData.password,
         });
 
-        const token = res.data?.token || "";
-        if (!token) throw new Error("Token is missing in response");
-        localStorage.setItem("token", token);
+        // ✅ Lấy token và user từ response BE
+        const token = res.data?.data?.token;
+        const user = res.data?.data?.user;
 
-        // Điều hướng theo role trong token
-        const payload = parseJwt(token);
-        const roles = Array.isArray(payload?.roles)
-          ? payload.roles
-          : [payload?.role].filter(Boolean);
-        const isAdmin = roles.includes("Admin");
-        alert("✅ Login successful!");
-        window.__toast?.("✅ Đăng nhập thành công", "success");
-        navigate(isAdmin ? "/admin" : "/");
+        // ✅ Lưu token và thông tin user vào localStorage
+        if (token) {
+          localStorage.setItem("token", token);
+          localStorage.setItem("userId", user?.userId || "");
+          localStorage.setItem("userRole", user?.userRole || "");
+          localStorage.setItem("userName", user?.userName || "");
+        }
+
+        // ✅ Điều hướng theo role
+        if (user?.userRole === "Admin") {
+          alert("✅ Admin login successful! Redirecting...");
+          navigate("/admin");
+        } else {
+          alert("✅ Login successful!");
+          navigate("/user/service");
+        }
+
+        onClose();
       }
 
       onClose();
     } catch (err) {
       console.error("❌ Axios Error:", err);
+
       const message =
-        err.normalizedMessage ||
         err.response?.data?.message ||
         err.response?.data ||
         "Something went wrong. Please try again.";
+
       alert(message);
-      window.__toast?.(message, "error");
     }
   };
 
@@ -115,8 +109,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 backdrop-blur-md bg-gray-100/20 flex items-center justify-center z-50 p-4"
-      role="dialog" aria-modal="true" aria-label={forgotMode ? "Reset Password" : (mode === "login" ? "Login" : "Sign Up")}>
+    <div className="fixed inset-0 backdrop-blur-md bg-gray-100/20 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
@@ -124,7 +117,6 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
-            aria-label="Đóng hộp thoại"
           >
             ✖
           </button>

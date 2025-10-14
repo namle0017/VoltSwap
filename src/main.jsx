@@ -5,8 +5,10 @@ import App from "./App.jsx";
 import ToastHost from "./components/Toast.jsx";
 
 createRoot(document.getElementById("root")).render(
-  <StrictMode>
+  //<StrictMode>
+  <>
     <App />
     <ToastHost />
-  </StrictMode>
+  </>
+  //</StrictMode>
 );

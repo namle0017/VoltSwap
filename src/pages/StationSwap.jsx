@@ -73,7 +73,8 @@ export default function StationSwap() {
             m.includes("ok") ||
             m.includes("please put your battery") ||
             m.includes("validated") ||
-            m.includes("valid")
+            m.includes("valid") ||
+            m.includes("Please, take batteries")
         );
     };
 
