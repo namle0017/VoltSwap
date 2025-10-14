@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using VoltSwap.DAL.Models;
+using VoltSwap.BusinessLayer.Base;
+using VoltSwap.Common.DTOs;
 
 namespace VoltSwap.BusinessLayer.IServices
 {
-    public interface IReportService
+    public interface IBookingService
     {
-
-        Task<List<Report>> GetAllReport();
+        Task<ServiceResult> CreateBookingAsync(CreateBookingRequest request);
     }
 }

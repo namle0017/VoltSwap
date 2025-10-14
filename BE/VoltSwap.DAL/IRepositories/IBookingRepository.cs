@@ -5,11 +5,10 @@ using System.Text;
 using System.Threading.Tasks;
 using VoltSwap.DAL.Models;
 
-namespace VoltSwap.BusinessLayer.IServices
+namespace VoltSwap.DAL.IRepositories
 {
-    public interface IReportService
+    public  interface IBookingRepository
     {
-
-        Task<List<Report>> GetAllReport();
+        Task<Appointment> CreateAsync(Appointment appointment);
     }
 }
