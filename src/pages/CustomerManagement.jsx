@@ -179,6 +179,7 @@ const CustomerManagement = () => {
                             className="flex items-center space-x-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-300"
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
+                            aria-label="Xem chi tiết khách hàng"
                         >
                             <i className="bi bi-funnel"></i>
                             <span>Filters</span>
@@ -371,6 +372,7 @@ const CustomerManagement = () => {
                                             className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
                                             whileHover={{ scale: 1.1 }}
                                             whileTap={{ scale: 0.9 }}
+                                            aria-label="Xoá khách hàng"
                                         >
                                             <i className="bi bi-x-lg"></i>
                                         </motion.button>

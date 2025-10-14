@@ -32,6 +32,7 @@ const AboutPage = () => {
                   src="https://selex.vn/wp-content/uploads/2023/06/316324888_5456103024498975_4553314338926426875_n-768x512.jpg"
                   alt="Our Mission"
                   className="w-full h-auto rounded-2xl shadow-lg"
+                  loading="lazy" decoding="async"
                 />
               </div>
             </div>
@@ -46,7 +47,7 @@ const AboutPage = () => {
             <div className="grid md:grid-cols-3 gap-8">
               <div className="text-center">
                 <div className="text-5xl mb-4">
-                  <i class="bi bi-leaf-fill"></i>
+                  <i className="bi bi-leaf-fill"></i>
                 </div>
                 <h4 className="text-xl font-semibold text-gray-900 mb-3">
                   Sustainability
@@ -58,7 +59,7 @@ const AboutPage = () => {
               </div>
               <div className="text-center">
                 <div className="text-5xl mb-4">
-                  <i class="bi bi-airplane-engines-fill"></i>
+                  <i className="bi bi-airplane-engines-fill"></i>
                 </div>
                 <h4 className="text-xl font-semibold text-gray-900 mb-3">
                   Innovation
@@ -70,7 +71,7 @@ const AboutPage = () => {
               </div>
               <div className="text-center">
                 <div className="text-5xl mb-4">
-                  <i class="bi bi-people-fill"></i>
+                  <i className="bi bi-people-fill"></i>
                 </div>
                 <h4 className="text-xl font-semibold text-gray-900 mb-3">
                   Reliability

@@ -1,4 +1,3 @@
-// components/AdminSidebar.jsx
 import { NavLink } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
@@ -6,10 +5,11 @@ import { motion } from "framer-motion";
 const menu = [
     { name: "Overview", path: "/admin", icon: "📊", end: true },
     { name: "Customers", path: "/admin/customers", icon: "👥" },
-    // sau này thêm tiếp: Reports, Stations, Employees, Complaints, Packages...
+    { name: "Complaints", path: "/admin/complaints", icon: "📝" }, // 👈 NEW
+    // có thể thêm: { name: "Transactions", path: "/admin/transactions", icon: "💳" },
 ];
 
-export default function AdminDashboard({ onSignOut }) {
+export default function AdminSidebar({ onSignOut }) {
     return (
         <motion.aside
             className="w-64 bg-white shadow-lg h-full fixed z-10"
@@ -31,9 +31,7 @@ export default function AdminDashboard({ onSignOut }) {
                         to={item.path}
                         end={item.end}
                         className={({ isActive }) =>
-                            `mx-3 block px-4 py-3 rounded-lg text-left transition-all duration-200 ${isActive
-                                ? "bg-blue-500 text-white"
-                                : "text-gray-700 hover:bg-gray-100"
+                            `mx-3 block px-4 py-3 rounded-lg text-left transition-all duration-200 ${isActive ? "bg-blue-500 text-white" : "text-gray-700 hover:bg-gray-100"
                             }`
                         }
                     >

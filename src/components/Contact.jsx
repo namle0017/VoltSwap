@@ -22,6 +22,8 @@ const Contact = () => {
     // Handle form submission here
     console.log("Form submitted:", formData);
     alert("Thank you for your message! We'll get back to you soon.");
+    console.log("Form submitted:", formData);
+    window.__toast?.("✅ Đã gửi liên hệ. Chúng tôi sẽ phản hồi sớm!", "success");
     setFormData({ name: "", email: "", message: "" });
   };
 
@@ -115,7 +117,7 @@ const Contact = () => {
             delay={0.4}
             className="card p-8"
           >
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6" aria-label="Contact form">
               <div>
                 <label
                   htmlFor="name"

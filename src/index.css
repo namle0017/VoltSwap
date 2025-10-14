@@ -10,6 +10,8 @@
   --animate-fade-in: fadeIn 0.5s ease-in-out;
   --animate-slide-up: slideUp 0.5s ease-out;
 
+  /* == Reusable components == */
+
   @keyframes fadeIn {
     0% {
       opacity: 0;

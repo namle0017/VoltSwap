@@ -78,6 +78,7 @@ const About = () => {
               className="relative w-full h-auto rounded-2xl shadow-lg"
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.3 }}
+              loading="lazy"
             />
           </AnimatedSection>
         </div>

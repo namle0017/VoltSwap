@@ -27,6 +27,7 @@ const BenefitsPage = () => {
                     src="https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150"
                     alt="Client"
                     className="w-16 h-16 rounded-full mr-4"
+                    loading="lazy" decoding="async"
                   />
                   <div>
                     <h4 className="font-semibold text-gray-900">
@@ -51,6 +52,7 @@ const BenefitsPage = () => {
                     src="https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150"
                     alt="Client"
                     className="w-16 h-16 rounded-full mr-4"
+                    loading="lazy" decoding="async"
                   />
                   <div>
                     <h4 className="font-semibold text-gray-900">

@@ -1,6 +1,6 @@
 import { useScrollAnimation } from "../hooks/useScrollAnimation";
 // eslint-disable-next-line no-unused-vars
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 const AnimatedSection = ({
   children,
   animation = "fadeUp",
@@ -9,6 +9,7 @@ const AnimatedSection = ({
   className = "",
 }) => {
   const [ref, isVisible] = useScrollAnimation(0.1);
+  const prefersReduced = useReducedMotion();
 
   const animations = {
     fadeUp: {
@@ -40,14 +41,10 @@ const AnimatedSection = ({
   return (
     <motion.div
       ref={ref}
-      initial="hidden"
-      animate={isVisible ? "visible" : "hidden"}
-      variants={animations[animation]}
-      transition={{
-        duration,
-        delay,
-        ease: [0.25, 0.25, 0.25, 0.75],
-      }}
+      initial={prefersReduced ? false : "hidden"}
+      animate={prefersReduced ? false : (isVisible ? "visible" : "hidden")}
+      variants={prefersReduced ? undefined : animations[animation]}
+      transition={prefersReduced ? undefined : { duration, delay, ease: [0.25, 0.25, 0.25, 0.75] }}
       className={className}
     >
       {children}

@@ -6,40 +6,45 @@ import ServicesPage from "./pages/ServicesPage";
 import BenefitsPage from "./pages/BenefitsPage";
 import ContactPage from "./pages/ContactPage";
 import StationSwap from "./pages/StationSwap";
-import AdminPage from "./pages/AdminPage"; // import trang admin
-import AdminLayout from "./layouts/AdminLayout"
-import CustomerManagement from "./pages/CustomerManagement"
+import AdminPage from "./pages/AdminPage";
+import AdminLayout from "./layouts/AdminLayout";
+import CustomerManagement from "./pages/CustomerManagement";
+import ComplaintsManagement from "./pages/ComplaintsManagement"; // 👈 NEW
+import ProtectedRoute from "./components/ProtectedRoute";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <MainLayout />, // Layout có Navbar + Footer
+    element: <MainLayout />,
     children: [
-      { path: "/", element: <Home /> },
-      { path: "/about", element: <AboutPage /> },
-      { path: "/services", element: <ServicesPage /> },
-      { path: "/benefits", element: <BenefitsPage /> },
-      { path: "/contact", element: <ContactPage /> },
+      { index: true, element: <Home /> },
+      { path: "about", element: <AboutPage /> },
+      { path: "services", element: <ServicesPage /> },
+      { path: "benefits", element: <BenefitsPage /> },
+      { path: "contact", element: <ContactPage /> },
     ],
   },
-  { path: "/station", element: <StationSwap /> },
+  { path: "/stations", element: <StationSwap /> },
 
+  // 🔒 Protect whole /admin tree
   {
-    path: "/admin",
-    element: <AdminLayout />, // Admin layout có sidebar + navbar
+    element: <ProtectedRoute requiredRole="Admin" />,
     children: [
-      { path: "/admin", element: <AdminPage /> },
-      { path: "/admin/customers", element: <CustomerManagement /> },
-      // sau này bạn có thể thêm các trang khác như:
-      // { path: "/admin/reports", element: <ReportsPage /> },
-      // { path: "/admin/employees", element: <EmployeePage /> },
+      {
+        path: "/admin",
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <AdminPage /> },              // dashboard
+          { path: "customers", element: <CustomerManagement /> },
+          { path: "complaints", element: <ComplaintsManagement /> }, // 👈 NEW
+          // { path: "transactions", element: <TransactionManagement /> }, // nếu cần
+        ],
+      },
     ],
   },
 ]);
 
-function App() {
+export default function App() {
   return <RouterProvider router={router} />;
 }
-
-export default App;
