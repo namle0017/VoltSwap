@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using VoltSwap.DAL.Models;
 
 namespace VoltSwap.DAL.Base
 {
@@ -41,7 +42,7 @@ namespace VoltSwap.DAL.Base
         Task BulkCreateAsync(IEnumerable<T> entities);
 
         //Task<int> CreateAsync(T entity);
-
+        void Update(T entity);
         Task UpdateAsync(T entity);
 
         //Task<int> UpdateAsync(T entity);

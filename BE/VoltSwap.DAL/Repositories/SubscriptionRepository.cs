@@ -24,7 +24,7 @@ namespace VoltSwap.DAL.Repositories
         {
             var getSub = await _context.Subscriptions.Where(sub => sub.UserDriverId == userId && sub.Status == "Active")
                 .OrderByDescending(sub => sub.StartDate)
-                .Include(sub => sub.PlanId)
+                .Include(sub => sub.Plan)
                 .ToListAsync();
             return getSub;
         }
