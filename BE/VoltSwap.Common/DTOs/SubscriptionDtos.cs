@@ -9,12 +9,12 @@ namespace VoltSwap.Common.DTOs
 {
     public class CheckSubRequest
     {
-        public String UserId { get; set; }
+        public String DriverId { get; set; }
     }
 
     public class SubRequest
     {
-        public String UserId { get; set; }
+        public String DriverId { get; set; }
         public string SubId { get; set; }
     }
 

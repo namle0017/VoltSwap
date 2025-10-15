@@ -19,12 +19,12 @@ namespace VoltSwap.API.Controllers
 
 
         [HttpGet("subscription-user-list")]
-        public async Task<IActionResult> GetSubscriptionUserList([FromQuery] string userId)
+        public async Task<IActionResult> GetSubscriptionUserList([FromQuery] CheckSubRequest request)
         {
-            if (string.IsNullOrWhiteSpace(userId))
-                return BadRequest(new { message = "userId is required" });
+            if (string.IsNullOrWhiteSpace(request.DriverId))
+                return BadRequest(new { message = "UserId is required" });
 
-            var result = await _subService.GetUserSubscriptionsAsync(new CheckSubRequest { UserId = userId });
+            var result = await _subService.GetUserSubscriptionsAsync(request);
             return StatusCode(result.Status, result);
         }
 

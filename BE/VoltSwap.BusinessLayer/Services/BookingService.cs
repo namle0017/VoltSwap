@@ -50,15 +50,15 @@ namespace VoltSwap.BusinessLayer.Services
 
             string bookingId = await GenerateBookingId();
 
-            var locked = await _slotRepo.LockSlotsAsync(request.BatterySwapStationId, request.SubscriptionId, bookingId);
+            var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
       
 
 
             var appointment = new Appointment
             {
                 AppointmentId = bookingId,
-                UserDriverId = request.UserDriverId,
-                BatterySwapStationId = request.BatterySwapStationId,
+                UserDriverId = request.DriverId,
+                BatterySwapStationId = request.StationId,
                 Note = request.Note,
                 SubscriptionId = request.SubscriptionId,
                 Status = "Not done",

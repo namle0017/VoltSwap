@@ -94,7 +94,7 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 BatteryId = bat.BatteryId,
                 Soc = bat.Soc,
-                soh = bat.Soh,
+                Soh = bat.Soh,
                 Status = bat.BatteryStatus,
                 StationId = bat.BatterySwapStationId,
                 Capacity = bat.Capacity,

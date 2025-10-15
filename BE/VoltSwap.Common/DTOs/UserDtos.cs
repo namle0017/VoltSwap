@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace VoltSwap.Common.DTOs
 {
-    public class UserDtos
+    public class UserTransactionRequest
     {
+        public string DriverId { get; set; }
     }
 }

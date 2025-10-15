@@ -38,7 +38,7 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<ServiceResult> UserPlanCheckerAsync(CheckSubRequest requestDto)
         {
-            var checkUserPlan = await _unitOfWork.Subscriptions.GetSubscriptionByUserIdAsync(requestDto.UserId);
+            var checkUserPlan = await _unitOfWork.Subscriptions.GetSubscriptionByUserIdAsync(requestDto.DriverId);
             if (checkUserPlan == null)
             {
                 //204 User chưa mua gì hết
@@ -64,7 +64,7 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<ServiceResult> GetUserSubscriptionsAsync(CheckSubRequest request)
         {
-            var userSubscriptions = await _unitOfWork.Subscriptions.GetSubscriptionByUserIdAsync(request.UserId);
+            var userSubscriptions = await _unitOfWork.Subscriptions.GetSubscriptionByUserIdAsync(request.DriverId);
             if (userSubscriptions == null || !userSubscriptions.Any())
             {
                 return new ServiceResult
