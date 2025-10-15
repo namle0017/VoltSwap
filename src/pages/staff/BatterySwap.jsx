@@ -1,5 +1,5 @@
 import React from "react";
-import { manualSwapAPI } from "../services/apiServices";
+import { manualSwapAPI } from "@/services/apiServices";
 
 export default function BatterySwap() {
     const [history, setHistory] = React.useState([]);

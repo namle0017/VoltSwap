@@ -5,7 +5,7 @@ import {
     validateSubscription,
     swapInBattery,
     swapOutBattery,
-} from "../api/batterySwapApi";
+} from "@/api/batterySwapApi";
 
 const FALLBACK_STATIONS = [
     { stationId: "STA-10-03-7891", stationName: "Thu Duc Station (Fallback)" },

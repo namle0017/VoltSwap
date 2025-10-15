@@ -3,7 +3,7 @@ import About from "../components/About";
 import Services from "../components/Services";
 import Benefits from "../components/Benefits";
 import Contact from "../components/Contact";
-import PageTransition from "../components/PageTransition";
+import PageTransition from "@/components/PageTransition";
 
 const Home = () => {
   return (

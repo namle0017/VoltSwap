@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { manualSwapAPI } from "../services/apiServices";
+import { manualSwapAPI } from "@/services/apiServices";
 
 export default function APITest() {
     const [results, setResults] = useState({});

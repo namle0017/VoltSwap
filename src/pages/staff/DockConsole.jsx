@@ -1,6 +1,6 @@
 // src/pages/DockConsole.jsx
 import React, { useState } from "react";
-import { staffAddNewBattery } from "../api/batterySwapApi";
+import { staffAddNewBattery } from "@/api/batterySwapApi";
 
 export default function DockConsole() {
     // Ẩn nhưng gửi lên BE

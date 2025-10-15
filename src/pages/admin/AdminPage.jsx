@@ -2,7 +2,7 @@
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import PageTransition from "../components/PageTransition";
+import PageTransition from "@/components/PageTransition";
 import { useMemo } from "react";
 
 export default function AdminPage() {

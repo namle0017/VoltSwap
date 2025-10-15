@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { manualAssist } from "../api/batterySwapApi";
+import { manualAssist } from "@/api/batterySwapApi";
 
 export default function ManualAssist() {
     const [stationId] = useState("st-01");

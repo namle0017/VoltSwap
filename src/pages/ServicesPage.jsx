@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Services from "../components/Services";
-import PageTransition from "../components/PageTransition";
+import PageTransition from "@/components/PageTransition";
 import AuthModal from "../components/AuthModal";
 
 const ServicesPage = () => {

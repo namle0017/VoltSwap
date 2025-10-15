@@ -1,5 +1,5 @@
 import About from "../components/About";
-import PageTransition from "../components/PageTransition";
+import PageTransition from "@/components/PageTransition";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 const AboutPage = () => {

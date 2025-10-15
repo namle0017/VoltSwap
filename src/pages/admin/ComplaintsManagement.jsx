@@ -2,8 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
-import PageTransition from "../components/PageTransition";
-import { fetchComplaints, fetchStaffList, assignStaff } from "../api/complaintsApi";
+import PageTransition from "@/components/PageTransition";
+import { fetchComplaints, fetchStaffList, assignStaff } from "@/api/complaintsApi";
 
 const STATUS = {
     OPEN: "Open",

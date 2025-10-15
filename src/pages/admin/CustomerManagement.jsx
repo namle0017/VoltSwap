@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
-import PageTransition from "../components/PageTransition";
+import PageTransition from "@/components/PageTransition";
 
 const CustomerManagement = () => {
     const [searchTerm, setSearchTerm] = useState("");

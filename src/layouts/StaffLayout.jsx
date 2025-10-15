@@ -2,7 +2,7 @@
 import React from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-import PageTransition from "../components/PageTransition";
+import PageTransition from "@/components/PageTransition";
 
 const sections = [
     { to: "/staff/overview", label: "Overview", icon: "🏠" },

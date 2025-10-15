@@ -1,5 +1,5 @@
 import Benefits from "../components/Benefits";
-import PageTransition from "../components/PageTransition";
+import PageTransition from "@/components/PageTransition";
 
 const BenefitsPage = () => {
   return (

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import hero from "../assets/hero.png";
 import AuthModal from "../components/AuthModal";
-import PageTransition from "../components/PageTransition";
+import PageTransition from "@/components/PageTransition";
 
 const Hero = () => {
   const [authModal, setAuthModal] = useState({ isOpen: false, mode: "signup" });

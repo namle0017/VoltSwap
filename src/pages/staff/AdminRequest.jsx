@@ -1,6 +1,6 @@
 // src/pages/AdminRequest.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { adminRequestsAPI } from "../services/apiServices";
+import { adminRequestsAPI } from "@/services/apiServices";
 
 export default function AdminRequest() {
     // form

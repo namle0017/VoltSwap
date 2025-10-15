@@ -2,49 +2,53 @@
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
-import MainLayout from "./layouts/MainLayout";
-import Home from "./pages/Home";
-import AboutPage from "./pages/AboutPage";
-import ServicesPage from "./pages/ServicesPage";
-import BenefitsPage from "./pages/BenefitsPage";
-import ContactPage from "./pages/ContactPage";
-import StationSwap from "./pages/StationSwap";
+/** Layouts */
+import MainLayout from "@/layouts/MainLayout";
+import AdminLayout from "@/layouts/AdminLayout";
+import StaffLayout from "@/layouts/StaffLayout";
+import UserLayout from "@/layouts/UserLayout";
 
-// Admin
-import AdminLayout from "./layouts/AdminLayout";
-import AdminPage from "./pages/AdminPage";
-import CustomerManagement from "./pages/CustomerManagement";
-import ComplaintsManagement from "./pages/ComplaintsManagement";
+/** Route guard */
+import ProtectedRoute from "@/components/ProtectedRoute";
 
-// User
-import UserLayout from "./layouts/UserLayout";
-import Service from "./pages/Service";
-import RegisterService from "./pages/RegisterService";
-import ChangeService from "./pages/ChangeService";
-import Vehicle from "./pages/Vehicle";
-import Station from "./pages/Station";
-import Transaction from "./pages/Transaction";
-import Payment from "./pages/Payment";
-import Support from "./pages/Support";
-import Profile from "./pages/Profile";
+/** Public pages */
+import Home from "@/pages/Home";
+import AboutPage from "@/pages/AboutPage";
+import ServicesPage from "@/pages/ServicesPage";
+import BenefitsPage from "@/pages/BenefitsPage";
+import ContactPage from "@/pages/ContactPage";
+import StationSwap from "@/pages/StationSwap";
 
-// Staff (thêm mới)
-import StaffLayout from "./layouts/StaffLayout";
-import Overview from "./pages/Overview";
-import Inventory from "./pages/Inventory";
-import ManualAssist from "./pages/ManualAssist";
-import DockConsole from "./pages/DockConsole";
-import BatterySwap from "./pages/BatterySwap"; // trang lịch sử/tra cứu swap
-import Booking from "./pages/Booking";
-import AdminRequest from "./pages/AdminRequest";
-import CustomerSupport from "./pages/CustomerSupport";
-import Ping from "./pages/Ping";
-import APITest from "./pages/APITest";
+/** Admin pages */
+import AdminPage from "@/pages/admin/AdminPage";
+import CustomerManagement from "@/pages/admin/CustomerManagement";
+import ComplaintsManagement from "@/pages/admin/ComplaintsManagement";
 
-import ProtectedRoute from "./components/ProtectedRoute";
+/** Staff pages */
+import Overview from "@/pages/staff/Overview";
+import Inventory from "@/pages/staff/Inventory";
+import ManualAssist from "@/pages/staff/ManualAssist";
+import BatterySwap from "@/pages/staff/BatterySwap";
+import Booking from "@/pages/staff/Booking";
+import AdminRequest from "@/pages/staff/AdminRequest";
+import CustomerSupport from "@/pages/staff/CustomerSupport";
+import DockConsole from "@/pages/staff/DockConsole";
+import Ping from "@/pages/staff/Ping";
+import APITest from "@/pages/staff/APITest";
+
+/** User pages */
+import Service from "@/pages/user/Service";
+import RegisterService from "@/pages/user/RegisterService";
+import ChangeService from "@/pages/user/ChangeService";
+import Station from "@/pages/user/Station";
+import Transaction from "@/pages/user/Transaction";
+import Payment from "@/pages/user/Payment";
+import Vehicle from "@/pages/user/Vehicle";
+import Support from "@/pages/user/Support";
+import Profile from "@/pages/user/Profile";
 
 const router = createBrowserRouter([
-  // ---- Public site ----
+  /** Public site */
   {
     path: "/",
     element: <MainLayout />,
@@ -54,15 +58,16 @@ const router = createBrowserRouter([
       { path: "services", element: <ServicesPage /> },
       { path: "benefits", element: <BenefitsPage /> },
       { path: "contact", element: <ContactPage /> },
+      { path: "stations", element: <StationSwap /> },
     ],
   },
-  { path: "/stations", element: <StationSwap /> },
 
-  // ---- User app (/user/...) ----
+  /** User app (after login as Driver/Customer) */
   {
     path: "/user",
     element: <UserLayout />,
     children: [
+      { index: true, element: <Navigate to="service" replace /> },
       { path: "service", element: <Service /> },
       { path: "service/register", element: <RegisterService /> },
       { path: "service/change", element: <ChangeService /> },
@@ -75,8 +80,9 @@ const router = createBrowserRouter([
     ],
   },
 
-  // ---- Staff app (/staff/...) ----
-  { // bỏ nếu không cần chặn role
+  /** Staff console (guarded) */
+  {
+    element: <ProtectedRoute requiredRole="Staff" />,
     children: [
       {
         path: "/staff",
@@ -91,12 +97,14 @@ const router = createBrowserRouter([
           { path: "booking", element: <Booking /> },
           { path: "admin-request", element: <AdminRequest /> },
           { path: "support", element: <CustomerSupport /> },
+          { path: "ping", element: <Ping /> },
+          { path: "api-test", element: <APITest /> },
         ],
       },
     ],
   },
 
-  // ---- Admin app (/admin/...) ----
+  /** Admin portal (guarded) */
   {
     element: <ProtectedRoute requiredRole="Admin" />,
     children: [
@@ -107,18 +115,14 @@ const router = createBrowserRouter([
           { index: true, element: <AdminPage /> },
           { path: "customers", element: <CustomerManagement /> },
           { path: "complaints", element: <ComplaintsManagement /> },
-          // { path: "transactions", element: <TransactionManagement /> },
+          // { path: "transactions", element: <TransactionManagement /> }, // add later if needed
         ],
       },
     ],
   },
 
-  // ---- Utility pages (public) ----
-  { path: "/ping", element: <Ping /> },
-  { path: "/api-test", element: <APITest /> },
-
-  // ---- Fallback ----
-  { path: "*", element: <Navigate to="/ping" replace /> },
+  /** Fallback */
+  { path: "*", element: <Navigate to="/" replace /> },
 ]);
 
 export default function App() {

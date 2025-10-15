@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import api from "../api/api";
+import api from "@/api/api";
 import { useNavigate } from "react-router-dom";
 
 export default function Station() {
