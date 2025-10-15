@@ -40,8 +40,13 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm này để tạo transaction mới sau đó là list ra lịch sử transaction của user
         public async Task<ServiceResult> CreateTransactionAsync(TransactionRequest requestDto)
         {
+            // chỗ này sẽ check coi driverId đã có chưa, nếu có rồi thì bỏ qua
             if (string.IsNullOrEmpty(requestDto.DriverId))
                 return new ServiceResult { Status = 400, Message = "DriverId is required" };
+
+            // chỗ này thì để tạo transactionid và SubId đang lỗi chỗ này
+            //Nếu chạy chỗ này thì kêu gọi 2 hàm để generate ra transId và SubId và 2 cái này đều sẽ lấy số random cộng với là sẽ check lại nếu bị vấn đề dup id để tránh conflict
+            //Nhưng mà chỗ này đang lỗi conflict :))))))))))))))
             string transactionId = await GenerateTransactionId();
             string subId = await GenerateSubscriptionId();
 

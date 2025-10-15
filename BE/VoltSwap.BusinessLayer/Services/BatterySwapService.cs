@@ -523,7 +523,6 @@ namespace VoltSwap.BusinessLayer.Services
                     CreateAt = DateTime.UtcNow.ToLocalTime(),
                 }
             };
-
         }
     }
 }

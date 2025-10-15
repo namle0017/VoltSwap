@@ -25,7 +25,7 @@ namespace VoltSwap.API.Controllers
             }); ;
         }
 
-        [HttpGet("statio-active")]
+        [HttpGet("station-active")]
         public async Task<IActionResult> GetActiveStation()
         {
             var result = await _stationService.GetActiveStation();
