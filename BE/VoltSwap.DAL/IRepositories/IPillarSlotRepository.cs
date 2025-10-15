@@ -7,9 +7,10 @@ using VoltSwap.DAL.Models;
 
 namespace VoltSwap.DAL.IRepositories
 {
-    public interface IBookingRepository
-
+    public  interface IPillarSlotRepository
     {
-        Task<Appointment> CreateAsync(Appointment appointment);
+        Task<int> LockSlotsAsync(string stationId, string subscriptionId, string bookingId);
+      
     }
 }
+

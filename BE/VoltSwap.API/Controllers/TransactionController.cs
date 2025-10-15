@@ -42,8 +42,8 @@ namespace VoltSwap.API.Controllers
         }
 
         //Hàm này để list ra transaction của user
-        [HttpPost("user-transaction-history-list")]
-        public async Task<IActionResult> UserTransaction([FromBody] string userId)
+        [HttpGet("user-transaction-history-list")]
+        public async Task<IActionResult> UserTransaction([FromQuery] string userId)
         {
             if (!ModelState.IsValid)
             {
