@@ -47,6 +47,8 @@ namespace VoltSwap.BusinessLayer.Services
                     StationId = station.BatterySwapStationId,
                     StationName = station.BatterySwapStationName,
                     StationAddress = station.Address,
+                    LocationLat = station.LocationLat,
+                    LocationLon = station.LocationLng,
                     BatteryAvailable = batteryCount,
                     AvailablePercent = percent,
                     TotalBattery = station.NumberOfPillar*20,
@@ -63,7 +65,7 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
-        //Hàm để lấy danh sách các trạm đang hoạt động
+        //Hàm để lấy danh sách các trạm đang hoạt động cho admin để đổi pin 
         public async Task<ServiceResult> GetActiveStation()
         {
             var stationList = await _unitOfWork.Stations.GetAllAsync(station => station.Status == "Active");

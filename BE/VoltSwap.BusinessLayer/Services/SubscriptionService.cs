@@ -64,7 +64,9 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<ServiceResult> GetUserSubscriptionsAsync(CheckSubRequest request)
         {
-            var userSubscriptions = await _unitOfWork.Subscriptions.GetSubscriptionByUserIdAsync(request.DriverId);
+            var userSubscriptions = await _unitOfWork.Subscriptions
+                .GetSubscriptionByUserIdAsync(request.UserId);
+
             if (userSubscriptions == null || !userSubscriptions.Any())
             {
                 return new ServiceResult
@@ -73,28 +75,54 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "No subscriptions found for the user."
                 };
             }
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            bool hasChanges = false;
+
+            
+            foreach (var sub in userSubscriptions)
+            {
+                // Đã hết hạn nhưng vẫn đang active -> chuyển sang expired
+                if (sub.EndDate < today && sub.Status == "Active")
+                {
+                    sub.Status = "Expired";
+                    hasChanges = true;
+                }
+
+                // Đã quá 4 ngày kể từ EndDate -> inactive
+                else if (sub.EndDate.AddDays(4) < today && sub.Status == "Expired")
+                {
+                    sub.Status = "Inactive";
+                    hasChanges = true;
+                }
+            }
+
+            // Nếu có thay đổi -> cập nhật DB
+            if (hasChanges)
+            {
+                _unitOfWork.Subscriptions.UpdateRange(userSubscriptions);
+                await _unitOfWork.SaveChangesAsync();
+            }
+
             var subscriptionDtos = userSubscriptions.Select(sub => new ServiceOverviewItemDto
             {
                 SubId = sub.SubscriptionId,
-                PlanName = sub.Plan.PlanName,
+                PlanName = sub.Plan?.PlanName,
                 PlanStatus = sub.Status,
                 SwapLimit = null,
                 Remaining_swap = sub.RemainingSwap,
                 Current_miligate = sub.CurrentMileage,
                 EndDate = sub.EndDate
-
             }).ToList();
 
             return new ServiceResult
             {
                 Status = 200,
-                Message = "Done",
+                Message = "Subscriptions retrieved successfully.",
                 Data = subscriptionDtos
             };
-
-
-
         }
+
         public async Task<ServiceResult> RegisterPlanAsync(string UserDriverId, string subcriptionId)
         {
             var getsub = await _unitOfWork.Subscriptions
@@ -102,11 +130,14 @@ namespace VoltSwap.BusinessLayer.Services
                 .FirstOrDefaultAsync( s => s.SubscriptionId == subcriptionId
                                         && s.UserDriverId == UserDriverId);
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            bool isExpired = getsub.EndDate < today;
-
-            if (!isExpired)
+            if (getsub.Status == "Active")
             {
-                return new ServiceResult(409, "Subscription is still active. You can change after it expires.");
+                return new ServiceResult(409, "Subscription is still active. You can only change after it expires.");
+            }
+
+            if (getsub.Status == "Inactive")
+            {
+                return new ServiceResult(409, "Subscription is inactive and cannot be changed.");
             }
             var durationDays = await _planService.GetDurationDays(getsub.PlanId);
 
@@ -137,11 +168,14 @@ namespace VoltSwap.BusinessLayer.Services
                                && s.UserDriverId == UserDriverId);
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            bool isExpired = getsub.EndDate < today;
-
-            if (!isExpired)
+            if (getsub.Status == "Active")
             {
-                return new ServiceResult(409, "Subscription is still active. You can change after it expires.");
+                return new ServiceResult(409, "Subscription is still active. You can only change after it expires.");
+            }
+
+            if (getsub.Status == "Inactive")
+            {
+                return new ServiceResult(409, "Subscription is inactive and cannot be changed.");
             }
 
             var durationDays = await _planService.GetDurationDays(newPlanId);

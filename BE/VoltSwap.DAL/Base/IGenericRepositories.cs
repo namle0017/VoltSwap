@@ -42,8 +42,10 @@ namespace VoltSwap.DAL.Base
         Task BulkCreateAsync(IEnumerable<T> entities);
 
         //Task<int> CreateAsync(T entity);
+
         void Update(T entity);
         Task UpdateAsync(T entity);
+        void UpdateRange(IEnumerable<T> entities);
 
         //Task<int> UpdateAsync(T entity);
 

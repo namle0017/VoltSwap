@@ -11,6 +11,8 @@ namespace VoltSwap.Common.DTOs
         public String StationId {  get; set; }
         public String StationName { get; set; }
         public string StationAddress { get; set; }
+        public decimal LocationLat { get; set; }
+        public decimal LocationLon { get; set; }
         public int TotalBattery { get; set; }
         public double AvailablePercent { get; set; }
         public int BatteryAvailable { get; set; }
