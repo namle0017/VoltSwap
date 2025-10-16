@@ -14,5 +14,16 @@ obj/
 # Secrets
 appsettings.Development.json
 appsettings.json
+appsettings.*.json  # Thêm để cover các env khác như Production, Staging
 .env
 .sonarqube
+
+# Dependency packages (nếu dùng NuGet)
+packages/
+*.nupkg
+
+# OS generated files
+.DS_Store
+Thumbs.db
+# Runtime data
+App_Data/
