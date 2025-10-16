@@ -132,10 +132,8 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
 
-
-
         //Tao ra transactionID
-        private async Task<string> GenerateTransactionId()
+        public async Task<string> GenerateTransactionId()
         {
             string transactionId;
             bool isDuplicated;
@@ -154,7 +152,7 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Tao ra SubscriptionId
-        private async Task<string> GenerateSubscriptionId()
+        public async Task<string> GenerateSubscriptionId()
         {
             string dayOnly = DateTime.Today.Day.ToString("D2");
             string subscriptionId;

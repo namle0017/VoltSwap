@@ -298,6 +298,5 @@ namespace VoltSwap.BusinessLayer.Services
             string adminId = userAdmin.UserId;
             return adminId;
         }
-
     }
 }

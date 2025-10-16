@@ -25,6 +25,8 @@ public partial class Subscription
 
     public DateTime CreateAt { get; set; }
 
+    public string PreviouseSubscriptionId { get; set; }
+
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 
     public virtual ICollection<BatterySwap> BatterySwaps { get; set; } = new List<BatterySwap>();

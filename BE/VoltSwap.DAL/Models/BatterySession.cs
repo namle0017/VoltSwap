@@ -13,9 +13,9 @@ public partial class BatterySession
 
     public string EventType { get; set; }
 
-    public decimal SocDelta { get; set; }
+    public decimal? SocDelta { get; set; }
 
-    public decimal EnergyDeltaWh { get; set; }
+    public decimal? EnergyDeltaWh { get; set; }
 
     public DateTime Timestamp { get; set; }
 

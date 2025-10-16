@@ -39,4 +39,15 @@ namespace VoltSwap.Common.DTOs
         public decimal? Current_miligate { get; set; }
         public DateOnly EndDate { get; set; }
     }
+
+    public class CurrentSubscriptionResquest
+    {
+        public string DriverId { get; set; }
+        public string CurrentSubscription { get; set; }
+    }
+
+    public class SubscriptionListReponse
+    {
+
+    }
 }

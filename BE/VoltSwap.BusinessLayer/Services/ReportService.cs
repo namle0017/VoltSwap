@@ -55,7 +55,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Note = requestDto.ReportNote,
                 CreateAt = DateTime.UtcNow.ToLocalTime(),
                 Status = "Processing",
-                ProcessesAt = null,
+                ProcessesAt = DateTime.MinValue,
             };
 
             await _reportRepo.CreateAsync(result);

@@ -181,13 +181,36 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 // Sinh 10 chữ số ngẫu nhiên
                 var random = new Random();
-                subscriptionId = $"SUB-{string.Concat(Enumerable.Range(0, 10).Select(_ => random.Next(0, 8).ToString()))}";
+                subscriptionId = $"SUB-{string.Concat(Enumerable.Range(0, 10).Select(_ => random.Next(0, 10).ToString()))}";
 
                 // Kiểm tra xem có trùng không
                 isDuplicated = await _subRepo.AnyAsync(u => u.SubscriptionId == subscriptionId);
 
             } while (isDuplicated);
             return subscriptionId;
+        }
+
+        //Hàm này sẽ để check xem lấy các subId có pin đang sử dụng không
+        //chỗ này chưa biết trả về Task<> gì nên để tạm
+        public async Task<List<Subscription>> GetPreviousSubscriptionAsync(CurrentSubscriptionResquest requestDto)
+        {
+            var getAllSub = await _subRepo.GetByIdAsync(requestDto.CurrentSubscription);
+            var getAllSubChain = new List<Subscription>();
+            if (getAllSub.PreviouseSubscriptionId == null)
+            {
+                getAllSubChain.Add(getAllSub);
+                return getAllSubChain;
+            }
+
+            while(getAllSub.PreviouseSubscriptionId != null)
+            {
+                var previousId = getAllSub.PreviouseSubscriptionId;
+                getAllSub = await _subRepo.GetByIdAsync(previousId);
+                if (getAllSub == null) break;
+            }
+            if (getAllSub != null) getAllSubChain.Add(getAllSub);  // Add cuối sau loop
+            getAllSubChain.Reverse();  // Optional: Từ cũ → mới
+            return getAllSubChain;
         }
     }
 }

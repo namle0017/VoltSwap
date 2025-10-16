@@ -67,7 +67,6 @@ public partial class VoltSwapDbContext : DbContext
         return connectionString;
     }
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder.UseSqlServer(GetConnectionString("DefaultConnection"));
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Appointment>(entity =>
@@ -728,6 +727,10 @@ public partial class VoltSwapDbContext : DbContext
                 .HasMaxLength(15)
                 .IsUnicode(false)
                 .HasColumnName("plan_id");
+            entity.Property(e => e.PreviouseSubscriptionId)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasColumnName("previouse_subscription_id");
             entity.Property(e => e.RemainingSwap).HasColumnName("remaining_swap");
             entity.Property(e => e.StartDate).HasColumnName("start_date");
             entity.Property(e => e.Status)

@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using VoltSwap.BusinessLayer.Base;
 using VoltSwap.Common.DTOs;
+using VoltSwap.DAL.Models;
 
 namespace VoltSwap.BusinessLayer.IServices
 {
@@ -14,5 +15,6 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<ServiceResult> GetUserSubscriptionsAsync(CheckSubRequest request);
         Task<ServiceResult> ChangePlanAsync(string UserDriverId, string subcriptionId, string newPlanId);
         Task<ServiceResult> RegisterPlanAsync(string UserDriverId, string subcriptionId);
+        Task<List<Subscription>> GetPreviousSubscriptionAsync(CurrentSubscriptionResquest requestDto);
     }
 }

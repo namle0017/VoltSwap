@@ -75,5 +75,13 @@ namespace VoltSwap.API.Controllers
             var result = await _transService.UpdateTransactionStatusAsync(requestDto);
             return StatusCode(result.Status, new { message = result.Message });
         }
+
+
+        [HttpGet("test")]
+        public async Task<IActionResult> Testing()
+        {
+            var result = await _transService.GenerateTransactionId();
+            return Ok(result);
+        }
     }
 }

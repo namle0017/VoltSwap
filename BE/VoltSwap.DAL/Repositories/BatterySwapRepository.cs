@@ -26,6 +26,7 @@ namespace VoltSwap.DAL.Repositories
                 .ToListAsync();
         }
 
+        //Chỗ này là truyền về pillarSlot để biết cục pin được đưa vào đâu
         public async Task<PillarSlot> GetPillarSlot(int batSlotid)
         {
             return await _context.PillarSlots.FirstOrDefaultAsync(slot => slot.SlotId == batSlotid);

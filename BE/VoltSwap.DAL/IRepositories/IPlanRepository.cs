@@ -11,5 +11,6 @@ namespace VoltSwap.DAL.IRepositories
     public interface IPlanRepository : IGenericRepositories<Plan>
     {
         Task<Plan?> GetPlanAsync(string planId);
+        Task<List<Fee>> GetAllFeeAsync(string planId);
     }
 }
