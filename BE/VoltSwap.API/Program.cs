@@ -35,6 +35,7 @@ builder.Services.AddCors(options =>
          .AllowCredentials();
     });
 });
+builder.Services.AddScoped<VehicleService>();
 builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddScoped<IPillarSlotRepository, PillarSlotRepository>();
 builder.Services.AddScoped<BookingService>();

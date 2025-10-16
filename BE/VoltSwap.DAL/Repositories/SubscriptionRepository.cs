@@ -22,7 +22,7 @@ namespace VoltSwap.DAL.Repositories
 
         public async Task<List<Subscription>> GetSubscriptionByUserIdAsync(string userId)
         {
-            var getSub = await _context.Subscriptions.Where(sub => sub.UserDriverId == userId && sub.Status == "Active")
+            var getSub = await _context.Subscriptions.Where(sub => sub.UserDriverId == userId && (sub.Status == "Active" || sub.Status == "Expired"))
                 .OrderByDescending(sub => sub.StartDate)
                 .Include(sub => sub.Plan)
                 .ToListAsync();
