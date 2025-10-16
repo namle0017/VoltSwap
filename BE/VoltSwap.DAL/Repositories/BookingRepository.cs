@@ -1,3 +1,5 @@
+
+﻿using System;
 ﻿using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -8,6 +10,7 @@ using VoltSwap.DAL.Base;
 using VoltSwap.DAL.Data;
 using VoltSwap.DAL.IRepositories;
 using VoltSwap.DAL.Models;
+
 
 namespace VoltSwap.DAL.Repositories
 {
@@ -41,10 +44,6 @@ namespace VoltSwap.DAL.Repositories
             // AP- + 7 số, ví dụ: AP-7577315  (10 ký tự)
             return "AP-" + Random.Shared.Next(0, 10_000_000).ToString("0000000");
         }
-
-
-   
-
         public async Task<List<PillarSlot>> GetBatteriesAvailableByStationAsync(string pillarId, int topNumber)
         {
             return await _context.PillarSlots
@@ -55,9 +54,5 @@ namespace VoltSwap.DAL.Repositories
             .Take(topNumber)
             .ToListAsync();
         }
-
-
-
-
     }
 }

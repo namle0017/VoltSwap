@@ -55,7 +55,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Note = requestDto.ReportNote,
                 CreateAt = DateTime.UtcNow.ToLocalTime(),
                 Status = "Processing",
-                ProcessesAt = null,
+                ProcessesAt = DateTime.MinValue,
             };
 
             await _reportRepo.CreateAsync(result);
@@ -95,7 +95,7 @@ namespace VoltSwap.BusinessLayer.Services
             var response = staffList.Select(staff => new StaffListResponse
             {
                 StaffId = staff.UserId,
-                StaffName = staff.UserName,
+                StaffName = staff.UserDriverName,
                 PhoneNumber = staff.UserTele,
                 StationId = staff.StationStaffs.FirstOrDefault()?.BatterySwapStation?.BatterySwapStationId,
                 StationName = staff.StationStaffs.FirstOrDefault()?.BatterySwapStation?.BatterySwapStationName,

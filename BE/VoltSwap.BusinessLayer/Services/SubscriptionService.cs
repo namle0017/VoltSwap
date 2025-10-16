@@ -38,7 +38,7 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<ServiceResult> UserPlanCheckerAsync(CheckSubRequest requestDto)
         {
-            var checkUserPlan = await _unitOfWork.Subscriptions.GetSubscriptionByUserIdAsync(requestDto.UserId);
+            var checkUserPlan = await _unitOfWork.Subscriptions.GetSubscriptionByUserIdAsync(requestDto.DriverId);
             if (checkUserPlan == null)
             {
                 //204 User chưa mua gì hết
@@ -64,7 +64,9 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<ServiceResult> GetUserSubscriptionsAsync(CheckSubRequest request)
         {
-            var userSubscriptions = await _unitOfWork.Subscriptions.GetSubscriptionByUserIdAsync(request.UserId);
+            var userSubscriptions = await _unitOfWork.Subscriptions
+                .GetSubscriptionByUserIdAsync(request.UserId);
+
             if (userSubscriptions == null || !userSubscriptions.Any())
             {
                 return new ServiceResult
@@ -73,28 +75,54 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "No subscriptions found for the user."
                 };
             }
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            bool hasChanges = false;
+
+            
+            foreach (var sub in userSubscriptions)
+            {
+                // Đã hết hạn nhưng vẫn đang active -> chuyển sang expired
+                if (sub.EndDate < today && sub.Status == "Active")
+                {
+                    sub.Status = "Expired";
+                    hasChanges = true;
+                }
+
+                // Đã quá 4 ngày kể từ EndDate -> inactive
+                else if (sub.EndDate.AddDays(4) < today && sub.Status == "Expired")
+                {
+                    sub.Status = "Inactive";
+                    hasChanges = true;
+                }
+            }
+
+            // Nếu có thay đổi -> cập nhật DB
+            if (hasChanges)
+            {
+                _unitOfWork.Subscriptions.UpdateRange(userSubscriptions);
+                await _unitOfWork.SaveChangesAsync();
+            }
+
             var subscriptionDtos = userSubscriptions.Select(sub => new ServiceOverviewItemDto
             {
                 SubId = sub.SubscriptionId,
-                PlanName = sub.Plan.PlanName,
+                PlanName = sub.Plan?.PlanName,
                 PlanStatus = sub.Status,
                 SwapLimit = null,
                 Remaining_swap = sub.RemainingSwap,
                 Current_miligate = sub.CurrentMileage,
                 EndDate = sub.EndDate
-
             }).ToList();
 
             return new ServiceResult
             {
                 Status = 200,
-                Message = "Done",
+                Message = "Subscriptions retrieved successfully.",
                 Data = subscriptionDtos
             };
-
-
-
         }
+
         public async Task<ServiceResult> RegisterPlanAsync(string UserDriverId, string subcriptionId)
         {
             var getsub = await _unitOfWork.Subscriptions
@@ -102,11 +130,14 @@ namespace VoltSwap.BusinessLayer.Services
                 .FirstOrDefaultAsync( s => s.SubscriptionId == subcriptionId
                                         && s.UserDriverId == UserDriverId);
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            bool isExpired = getsub.EndDate < today;
-
-            if (!isExpired)
+            if (getsub.Status == "Active")
             {
-                return new ServiceResult(409, "Subscription is still active. You can change after it expires.");
+                return new ServiceResult(409, "Subscription is still active. You can only change after it expires.");
+            }
+
+            if (getsub.Status == "Inactive")
+            {
+                return new ServiceResult(409, "Subscription is inactive and cannot be changed.");
             }
             var durationDays = await _planService.GetDurationDays(getsub.PlanId);
 
@@ -137,11 +168,14 @@ namespace VoltSwap.BusinessLayer.Services
                                && s.UserDriverId == UserDriverId);
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            bool isExpired = getsub.EndDate < today;
-
-            if (!isExpired)
+            if (getsub.Status == "Active")
             {
-                return new ServiceResult(409, "Subscription is still active. You can change after it expires.");
+                return new ServiceResult(409, "Subscription is still active. You can only change after it expires.");
+            }
+
+            if (getsub.Status == "Inactive")
+            {
+                return new ServiceResult(409, "Subscription is inactive and cannot be changed.");
             }
 
             var durationDays = await _planService.GetDurationDays(newPlanId);
@@ -181,13 +215,36 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 // Sinh 10 chữ số ngẫu nhiên
                 var random = new Random();
-                subscriptionId = $"SUB-{string.Concat(Enumerable.Range(0, 10).Select(_ => random.Next(0, 8).ToString()))}";
+                subscriptionId = $"SUB-{string.Concat(Enumerable.Range(0, 10).Select(_ => random.Next(0, 10).ToString()))}";
 
                 // Kiểm tra xem có trùng không
                 isDuplicated = await _subRepo.AnyAsync(u => u.SubscriptionId == subscriptionId);
 
             } while (isDuplicated);
             return subscriptionId;
+        }
+
+        //Hàm này sẽ để check xem lấy các subId có pin đang sử dụng không
+        //chỗ này chưa biết trả về Task<> gì nên để tạm
+        public async Task<List<Subscription>> GetPreviousSubscriptionAsync(CurrentSubscriptionResquest requestDto)
+        {
+            var getAllSub = await _subRepo.GetByIdAsync(requestDto.CurrentSubscription);
+            var getAllSubChain = new List<Subscription>();
+            if (getAllSub.PreviouseSubscriptionId == null)
+            {
+                getAllSubChain.Add(getAllSub);
+                return getAllSubChain;
+            }
+
+            while(getAllSub.PreviouseSubscriptionId != null)
+            {
+                var previousId = getAllSub.PreviouseSubscriptionId;
+                getAllSub = await _subRepo.GetByIdAsync(previousId);
+                if (getAllSub == null) break;
+            }
+            if (getAllSub != null) getAllSubChain.Add(getAllSub);  // Add cuối sau loop
+            getAllSubChain.Reverse();  // Optional: Từ cũ → mới
+            return getAllSubChain;
         }
     }
 }

@@ -23,7 +23,7 @@ public partial class Report
 
     public DateTime CreateAt { get; set; }
 
-    public DateTime? ProcessesAt { get; set; }
+    public DateTime ProcessesAt { get; set; }
 
     public virtual User UserAdmin { get; set; }
 

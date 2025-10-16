@@ -8,8 +8,8 @@ namespace VoltSwap.Common.DTOs
 {
     public class CreateBookingRequest
     {
-        public string BatterySwapStationId { get; set; }
-        public string UserDriverId { get; set; }
+        public string StationId { get; set; }
+        public string DriverId { get; set; }
         public string Note { get; set; }
         public string SubscriptionId { get; set; }
         public DateOnly DateBooking { get; set; }

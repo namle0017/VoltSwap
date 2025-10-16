@@ -80,7 +80,10 @@ namespace VoltSwap.DAL.Base
             tracker.State = EntityState.Modified;
             //_context.SaveChanges();
         }
-
+        public void UpdateRange(IEnumerable<T> entities)
+        {
+            _context.Set<T>().UpdateRange(entities);
+        }
         public async Task UpdateAsync(T entity)
         {
             await Task.Yield();                     // để tránh warning "method lacks 'await'"

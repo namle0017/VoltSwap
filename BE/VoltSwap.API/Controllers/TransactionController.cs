@@ -41,15 +41,15 @@ namespace VoltSwap.API.Controllers
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
 
-        //Hàm này để list ra transaction của user
-        [HttpPost("user-transaction-history-list")]
-        public async Task<IActionResult> UserTransaction([FromBody] string userId)
+        //Hàm này để trả về transaction histoy của user
+        [HttpGet("user-transaction-history-list/{userDriverId}")]
+        public async Task<IActionResult> UserTransactionHistory(string userDriverId)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
-            var result = await _transService.GetUserTransactionHistoryAsync(userId);
+            var result = await _transService.GetUserTransactionHistoryAsync(userDriverId);
             return Ok(result);
         }
 
@@ -74,6 +74,14 @@ namespace VoltSwap.API.Controllers
             }
             var result = await _transService.UpdateTransactionStatusAsync(requestDto);
             return StatusCode(result.Status, new { message = result.Message });
+        }
+
+
+        [HttpGet("test")]
+        public async Task<IActionResult> Testing()
+        {
+            var result = await _transService.GenerateTransactionId();
+            return Ok(result);
         }
     }
 }

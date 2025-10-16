@@ -68,5 +68,52 @@ namespace VoltSwap.BusinessLayer.Services
 
             return getPlan.DurationDays ?? 0;
         }
+
+        //Hàm này để lấy ra detail của plan bao gồm tên PlanDtos và Fee của plan đó planId
+        public async Task<ServiceResult> GetPlanDetailAsync(string planId)
+        {
+            var plan = await _planRepo.GetByIdAsync(planId);
+            var fees = await _unitOfWork.Plans.GetAllFeeAsync(planId);
+            var getFeeList = fees.Select(fee => new PlanFeeResponse
+            {
+                TypeOfFee = fee.TypeOfFee,
+                AmountFee = fee.Amount,
+                Unit = fee.Unit,
+                MinValue = fee.MinValue,
+                MaxValue = fee.MaxValue,
+                CalculationMethod = fee.CalculationMethod,
+                Description = fee.Description,
+            }).ToList();
+            if(plan == null && !fees.Any() && fees==null)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "Don't have any Plan"
+                };
+            }
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successfull",
+                Data = new PlanDetailResponse
+                {
+                    Plans = new PlanDtos
+                    {
+                        PlanId = plan.PlanId,
+                        PlanName = plan.PlanName,
+                        NumberBattery = plan.NumberOfBattery,
+                        DurationDays = plan.DurationDays,
+                        MilleageBaseUsed = plan.MileageBaseUsed,
+                        SwapLimit = plan.SwapLimit,
+                        Price = plan.Price,
+                    },
+                    PlanFees = getFeeList,
+                }
+            };
+
+
+        }
     }
-    }
+}

@@ -9,12 +9,12 @@ namespace VoltSwap.Common.DTOs
 {
     public class CheckSubRequest
     {
-        public String UserId { get; set; }
+        public String DriverId { get; set; }
     }
 
     public class SubRequest
     {
-        public String UserId { get; set; }
+        public String DriverId { get; set; }
         public string SubId { get; set; }
     }
 
@@ -38,5 +38,16 @@ namespace VoltSwap.Common.DTOs
         public int? Remaining_swap { get; set; }
         public decimal? Current_miligate { get; set; }
         public DateOnly EndDate { get; set; }
+    }
+
+    public class CurrentSubscriptionResquest
+    {
+        public string DriverId { get; set; }
+        public string CurrentSubscription { get; set; }
+    }
+
+    public class SubscriptionListReponse
+    {
+
     }
 }

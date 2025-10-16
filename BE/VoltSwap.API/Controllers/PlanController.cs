@@ -25,5 +25,16 @@ namespace VoltSwap.API.Controllers
                 getList.Data
             });
         }
+
+        [HttpGet("plan-detail/{planId}")]
+        public async Task<IActionResult> GetPlanDetail(string planId)
+        {
+            var getDetail = await _planService.GetPlanDetailAsync(planId);
+            return StatusCode(getDetail.Status, new
+            {
+                getDetail.Message,
+                getDetail.Data
+            });
+        }
     }
 }

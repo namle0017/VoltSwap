@@ -40,4 +40,9 @@ namespace VoltSwap.Common.DTOs
         public String UserAddress { get; set; }
         public String Supervisor { get; set; } = string.Empty;
     }
+
+    public class RefreshTokenRequest
+    {
+        public string RefreshToken { get; set; }
+    }
 }

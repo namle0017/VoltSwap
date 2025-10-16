@@ -64,7 +64,7 @@ namespace VoltSwap.BusinessLayer.Services
                     {
                         UserId = user.UserId,
                         UserEmail = user.UserEmail,
-                        UserName = user.UserName,
+                        UserName = user.UserDriverName,
                         UserRole = user.UserRole
                     }
                 }
@@ -91,7 +91,7 @@ namespace VoltSwap.BusinessLayer.Services
                 var newUser = new User()
                 {
                     UserId = userId,
-                    UserName = request.UserName,
+                    UserDriverName = request.UserName,
                     UserPasswordHash = GeneratedPasswordHash(request.UserPassword),
                     UserEmail = request.UserEmail,
                     UserTele = request.UserTele,
@@ -169,7 +169,7 @@ namespace VoltSwap.BusinessLayer.Services
                     {
                         UserId = user.UserId,
                         UserEmail = user.UserEmail,
-                        UserName = user.UserName,
+                        UserName = user.UserDriverName,
                         UserTele = user.UserTele,
                         UserRole = user.UserRole,
                     }
@@ -227,7 +227,7 @@ namespace VoltSwap.BusinessLayer.Services
                 {
                     new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
                     new Claim(ClaimTypes.Email, user.UserEmail),
-                    new Claim(ClaimTypes.Name, user.UserName),
+                    new Claim(ClaimTypes.Name, user.UserDriverName),
                     new Claim(ClaimTypes.Role, user.UserRole)
                 }),
                 Expires = DateTime.UtcNow.AddDays(1),
@@ -298,6 +298,5 @@ namespace VoltSwap.BusinessLayer.Services
             string adminId = userAdmin.UserId;
             return adminId;
         }
-
     }
 }

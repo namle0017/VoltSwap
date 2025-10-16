@@ -21,6 +21,7 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddOpenApi();
+builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<VoltSwapDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddCors(options =>
 {
@@ -34,6 +35,7 @@ builder.Services.AddCors(options =>
          .AllowCredentials();
     });
 });
+builder.Services.AddScoped<VehicleService>();
 builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddScoped<IPillarSlotRepository, PillarSlotRepository>();
 builder.Services.AddScoped<BookingService>();
@@ -55,6 +57,8 @@ builder.Logging.SetMinimumLevel(LogLevel.Warning);
 var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
+    app.UseSwagger();
+    app.UseSwaggerUI();
     app.UseDeveloperExceptionPage();
     app.MapScalarApiReference();
     app.MapOpenApi();

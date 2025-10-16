@@ -23,6 +23,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<PillarSlot> _pillarRepo;
         private readonly IGenericRepositories<BatterySession> _batSessionRepo;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ISubscriptionService _subService;
         private readonly IConfiguration _configuration;
         private readonly Random _random;
         public BatterySwapService(
@@ -33,6 +34,7 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<Subscription> subRepo,
             IGenericRepositories<Battery> batRepo,
             IGenericRepositories<BatterySession> batSessionRepo,
+            ISubscriptionService subService,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
         {
@@ -42,6 +44,7 @@ namespace VoltSwap.BusinessLayer.Services
             _pillarRepo = pillarRepo;
             _batSessionRepo = batSessionRepo;
             _batRepo = batRepo;
+            _subService = subService;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
             _random = new Random();
@@ -106,38 +109,46 @@ namespace VoltSwap.BusinessLayer.Services
             }
             //Cái này tìm subId để có thể update được currentMilleageBase và update được số lần swap
             var getSub = await _subRepo.GetByIdAsync(requestBatteryList.accessRequest.SubscriptionId);
+
             //Update cho những cục pin được đưa vào
             var getPillarSlot = await GetPillarSlot(requestBatteryList.accessRequest.StationId);
 
+            //Lúc này là bắt đầu update cục pin đc đưa vào
             foreach (var item in requestBatteryList.BatteryDtos)
             {
+                //Chỗ này là truyền về pillarSlot để biết cục pin được đưa vào đâu
                 var getSlot = await _unitOfWork.BatterySwap.GetPillarSlot(item.SlotId);
+                //Cái này là để tìm cục pin trong hệ thống
                 var updateBat = await _unitOfWork.Batteries.FindingBatteryById(item.BatteryId);
                 if (getSlot != null && updateBat != null)
                 {
+                    //khúc này là để cho nó tìm trong bat coi cục pin này đang là in using để từ đó đổi status lại
                     var updateBatSwapInHis = await _batSwapRepo.GetByIdAsync(bat => bat.BatteryOutId == item.BatteryId && bat.SubscriptionId == requestBatteryList.accessRequest.SubscriptionId && bat.Status == "in using");
+                    //Cái này là để tạo ra 1 bản ghi mới trong lịch sử swap
                     var updateBatSwapIn = new BatterySwap
                     {
                         SwapHistoryId = await GenerateBatterySwapId(),
                         SubscriptionId = requestBatteryList.accessRequest.SubscriptionId,
                         BatterySwapStationId = requestBatteryList.accessRequest.StationId,
-                        BatteryOutId = null,
+                        BatteryOutId = "Null",
                         BatteryInId = item.BatteryId,
                         SwapDate = DateOnly.FromDateTime(DateTime.Today),
                         Note = "",
                         Status = "Returned",
                         CreateAt = DateTime.UtcNow.ToLocalTime(),
                     };
-
+                    //Sau khi tạo ra 1 bảng là returned thì sẽ update lại cục pin 
                     getSlot.BatteryId = item.BatteryId;
                     getSlot.PillarStatus = "Use";
                     updateBat.BatteryStatus = "Charging";
                     updateBat.BatterySwapStationId = requestBatteryList.accessRequest.StationId;
+                    //Update lại cái pin được trả vô
                     updateBatSwapInHis.SwapDate = DateOnly.FromDateTime(DateTime.Today);
                     updateBatSwapInHis.Status = "Returned";
                     await _batSwapRepo.CreateAsync(updateBatSwapIn);
                     await _pillarRepo.UpdateAsync(getSlot);
                     await _batRepo.UpdateAsync(updateBat);
+                    await _batSwapRepo.UpdateAsync(updateBatSwapInHis);
                 }
             }
             var getSessionList = await GenerateBatterySession(requestBatteryList.accessRequest.SubscriptionId);
@@ -149,8 +160,12 @@ namespace VoltSwap.BusinessLayer.Services
             await _subRepo.UpdateAsync(getSub);
 
             await _unitOfWork.SaveChangesAsync();
+
+            //ĐÂY LÀ CÁI CHỖ ĐỂ LẤY RA ĐƯỢC LÀ CẦN MỞ BAO NHIÊU SLOT PINNNNNNNNNN
             int topNumber = await _unitOfWork.Subscriptions.GetNumberOfbatteryInSub(requestBatteryList.accessRequest.SubscriptionId);
+            //Chỗ này để đưa cho FE để FE hiển thị các slot pin available để user để pin vào
             var getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarIdAsync(requestBatteryList.pillarId, topNumber);
+            //lúc này là trả về các slot pin để FE hiển thị (bao gồm id pin và slotId)
             var dtoList = getPillarSlotList.Select(slot => new BatteryDto
             {
                 SlotId = slot.SlotId,
@@ -182,6 +197,8 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
 
+
+        //Hàm này để đưa ra các slot để hiển thị cho giả lập
         public async Task<List<PillarSlotDto>> GetPillarSlot(string stationId)
         {
             var pillarSlots = await _unitOfWork.Stations.GetBatteriesInPillarByStationIdAsync(stationId);
@@ -277,9 +294,9 @@ namespace VoltSwap.BusinessLayer.Services
 
 
         //Đây là hàm tính milleage base
-        public async Task<decimal> CalMilleageBase(List<BatterySession> batSession)
+        public async Task<decimal?> CalMilleageBase(List<BatterySession> batSession)
         {
-            decimal milleageBase = 0;
+            decimal? milleageBase = 0;
             foreach (var item in batSession)
             {
                 if (item.EventType == "use_end")
@@ -440,6 +457,7 @@ namespace VoltSwap.BusinessLayer.Services
                     return new ServiceResult { Status = 404, Message = "Battery to transfer out not found" };
                 }
             }
+
             // Xử lý Battery In
             if (!string.IsNullOrEmpty(requestDto.BatteryInId))
             {
@@ -515,15 +533,62 @@ namespace VoltSwap.BusinessLayer.Services
             return new ServiceResult
             {
                 Status = 200,
-                Message ="Successfull",
-                Data=new BillAfterStaffSwapOutResponse
+                Message = "Successfull",
+                Data = new BillAfterStaffSwapOutResponse
                 {
-                    BatterInId= requestDto.BatteryInId,
+                    BatterInId = requestDto.BatteryInId,
                     SlotId = requestDto.SlotId,
                     CreateAt = DateTime.UtcNow.ToLocalTime(),
                 }
             };
-
         }
+
+
+        //Hàm này để 
+        //public async Task<> ChangeSubIdAsync(ChangeBatteryRequest requestDto)
+        //{
+        //    var getBatteryList = await _unitOfWork.BatterySwap.GetBatteryInUsingAsync(requestDto.PreSubscriptionId);
+        //    foreach (var item in getBatteryList)
+        //    {
+        //        item.SubscriptionId = requestDto.NewSubscriptionId;
+        //        await _batSwapRepo.UpdateAsync(item);
+        //    }
+        //    await _unitOfWork.SaveChangesAsync();
+        //}
+
+        //public async Task<ServiceResult> StaffRemoveBattery(StaffNewBatteryInRequest requestDto)
+        //{
+        //    var battery = await _batRepo.GetByIdAsync(b => b.BatteryId == requestDto.BatteryInId);
+        //    if (battery == null)
+        //    {
+        //        return new ServiceResult { Status = 404, Message = "Battery not found" };
+        //    }
+        //    var pillarSlot = await _unitOfWork.Stations.GetPillarSlotAsync(requestDto.SlotId);
+        //    if (pillarSlot == null || pillarSlot.BatteryId != requestDto.BatteryInId)
+        //    {
+        //        return new ServiceResult { Status = 404, Message = "Battery not found in the specified slot" };
+        //    }
+        //    // Remove battery from pillar slot
+        //    pillarSlot.BatteryId = null;
+        //    pillarSlot.PillarStatus = "Not use";
+        //    pillarSlot.UpdateAt = DateTime.UtcNow.ToLocalTime();
+        //    await _pillarRepo.UpdateAsync(pillarSlot);
+        //    // Update battery status
+        //    battery.BatterySwapStationId = null;
+        //    battery.BatteryStatus = "In Use";
+        //    await _batRepo.UpdateAsync(battery);
+        //    await _unitOfWork.SaveChangesAsync();
+        //    return new ServiceResult
+        //    {
+        //        Status = 200,
+        //        Message = "Battery removed successfully",
+        //        Data = new
+        //        {
+        //            BatteryId = requestDto.BatteryInId,
+        //            SlotId = requestDto.SlotId,
+        //            RemovedAt = DateTime.UtcNow.ToLocalTime(),
+        //        }
+        //    };
+        //}
     }
 }

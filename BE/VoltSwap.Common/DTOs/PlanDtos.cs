@@ -10,11 +10,28 @@ namespace VoltSwap.Common.DTOs
     {
         public string PlanId {  get; set; }
         public string PlanName { get; set; }
-        public int NumberBattery { get; set; }
-        public int DurationDays { get; set; }
-        public decimal MilleageBaseUsed { get; set; }
-        public int SwapLimit { get; set; }
+        public int? NumberBattery { get; set; }
+        public int? DurationDays { get; set; }
+        public decimal? MilleageBaseUsed { get; set; }
+        public int? SwapLimit { get; set; }
         public decimal? Price { get; set; }
+    }
+
+    public class PlanDetailResponse
+    {
+        public PlanDtos Plans { get; set; }
+        public List<PlanFeeResponse> PlanFees { get; set; }
+    }
+
+    public class PlanFeeResponse
+    {
+        public string TypeOfFee { get; set; }
+        public decimal? AmountFee { get; set; }
+        public string Unit { get; set; }
+        public decimal MinValue { get; set; }
+        public decimal MaxValue { get; set; }
+        public String CalculationMethod { get; set; }
+        public string Description { get; set; }
     }
     public class ChangePlanCheckRequest
     {
@@ -24,6 +41,7 @@ namespace VoltSwap.Common.DTOs
     {
         public DateOnly EndDate { get; set; }
     }
+
     public class ChangePlanRequest
     {
         public string UserDriverId { get; set; }

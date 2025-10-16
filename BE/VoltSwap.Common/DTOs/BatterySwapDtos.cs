@@ -88,4 +88,12 @@ namespace VoltSwap.Common.DTOs
     {
         public string StationId { get; set; } = string.Empty;
     }
+
+    public class ChangeBatteryRequest
+    {
+        public string NewSubscriptionId { get; set; }
+        public string PreSubscriptionId { get; set; }
+        public string BatteryId { get; set; }
+    }
+
 }

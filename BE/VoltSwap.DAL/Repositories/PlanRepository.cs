@@ -24,5 +24,10 @@ namespace VoltSwap.DAL.Repositories
         {
             return await _context.Plans.FirstOrDefaultAsync(plan => plan.PlanId == planId);
         }
+
+        public async Task<List<Fee>> GetAllFeeAsync(string planId)
+        {
+            return await _context.Fees.Where(fee => fee.PlanId == planId && fee.Status == "Active").ToListAsync();
+        }
     }
 }
