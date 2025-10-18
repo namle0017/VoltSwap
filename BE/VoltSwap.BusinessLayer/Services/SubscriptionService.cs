@@ -65,7 +65,7 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<ServiceResult> GetUserSubscriptionsAsync(CheckSubRequest request)
         {
             var userSubscriptions = await _unitOfWork.Subscriptions
-                .GetSubscriptionByUserIdAsync(request.UserId);
+                .GetSubscriptionByUserIdAsync(request.DriverId);
 
             if (userSubscriptions == null || !userSubscriptions.Any())
             {
@@ -79,20 +79,19 @@ namespace VoltSwap.BusinessLayer.Services
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             bool hasChanges = false;
 
-            
+
             foreach (var sub in userSubscriptions)
             {
-                // Đã hết hạn nhưng vẫn đang active -> chuyển sang expired
-                if (sub.EndDate < today && sub.Status == "Active")
-                {
-                    sub.Status = "Expired";
-                    hasChanges = true;
-                }
-
-                // Đã quá 4 ngày kể từ EndDate -> inactive
-                else if (sub.EndDate.AddDays(4) < today && sub.Status == "Expired")
+                // Nếu đã quá 4 ngày kể từ EndDate -> Inactive 
+                if (sub.EndDate.AddDays(4) < today && sub.Status != "Inactive")
                 {
                     sub.Status = "Inactive";
+                    hasChanges = true;
+                }
+                // Nếu hết hạn nhưng chưa quá 4 ngày -> Expired
+                else if (sub.EndDate < today && sub.Status == "Active")
+                {
+                    sub.Status = "Expired";
                     hasChanges = true;
                 }
             }
@@ -104,16 +103,19 @@ namespace VoltSwap.BusinessLayer.Services
                 await _unitOfWork.SaveChangesAsync();
             }
 
-            var subscriptionDtos = userSubscriptions.Select(sub => new ServiceOverviewItemDto
-            {
-                SubId = sub.SubscriptionId,
-                PlanName = sub.Plan?.PlanName,
-                PlanStatus = sub.Status,
-                SwapLimit = null,
-                Remaining_swap = sub.RemainingSwap,
-                Current_miligate = sub.CurrentMileage,
-                EndDate = sub.EndDate
-            }).ToList();
+            var subscriptionDtos = userSubscriptions
+                .Where(sub => sub.Status != "Inactive") 
+                .Select(sub => new ServiceOverviewItemDto
+                {
+                    SubId = sub.SubscriptionId,
+                    PlanName = sub.Plan?.PlanName,
+                    PlanStatus = sub.Status,
+                    SwapLimit = null,
+                    Remaining_swap = sub.RemainingSwap,
+                    Current_miligate = sub.CurrentMileage,
+                    EndDate = sub.EndDate
+                })
+                .ToList();
 
             return new ServiceResult
             {
@@ -123,7 +125,7 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
-        public async Task<ServiceResult> RegisterPlanAsync(string UserDriverId, string subcriptionId)
+        public async Task<ServiceResult> RenewPlanAsync(string UserDriverId, string subcriptionId)
         {
             var getsub = await _unitOfWork.Subscriptions
                 .GetAllQueryable()
@@ -139,11 +141,13 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 return new ServiceResult(409, "Subscription is inactive and cannot be changed.");
             }
-            var durationDays = await _planService.GetDurationDays(getsub.PlanId);
 
+            var durationDays = await _planService.GetDurationDays(getsub.PlanId);
+            getsub.PreviousSubscriptionId = subcriptionId; 
             getsub.StartDate = today;
             getsub.EndDate = today.AddDays(durationDays);
             getsub.Status = "active";
+            _unitOfWork.Subscriptions.Update(getsub);
             await _unitOfWork.SaveChangesAsync();
 
             return new ServiceResult
@@ -153,6 +157,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = new
                 {
                     getsub.SubscriptionId,
+                    getsub.PreviousSubscriptionId,
                     getsub.PlanId,
                     getsub.StartDate,
                     getsub.EndDate,
@@ -181,6 +186,7 @@ namespace VoltSwap.BusinessLayer.Services
             var durationDays = await _planService.GetDurationDays(newPlanId);
 
             getsub.PlanId = newPlanId;
+            getsub.PreviousSubscriptionId = subcriptionId;
             getsub.StartDate = today;
             getsub.EndDate = today.AddDays(durationDays);
             getsub.Status = "active";
@@ -192,6 +198,7 @@ namespace VoltSwap.BusinessLayer.Services
             var data = new ChangePlanResponse
             {
                 SubscriptionId = newSubId,
+                PreviousSubcriptionId = subcriptionId,
                 PlanId = getsub.PlanId,
                 StartDate = getsub.StartDate,
                 EndDate = getsub.EndDate,
@@ -205,6 +212,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = data
             };
         }
+        
         //Tao ra SubscriptionId
         public async Task<string> GenerateSubscriptionId()
         {
@@ -230,15 +238,15 @@ namespace VoltSwap.BusinessLayer.Services
         {
             var getAllSub = await _subRepo.GetByIdAsync(requestDto.CurrentSubscription);
             var getAllSubChain = new List<Subscription>();
-            if (getAllSub.PreviouseSubscriptionId == null)
+            if (getAllSub.PreviousSubscriptionId == null)
             {
                 getAllSubChain.Add(getAllSub);
                 return getAllSubChain;
             }
 
-            while(getAllSub.PreviouseSubscriptionId != null)
+            while(getAllSub.PreviousSubscriptionId != null)
             {
-                var previousId = getAllSub.PreviouseSubscriptionId;
+                var previousId = getAllSub.PreviousSubscriptionId;
                 getAllSub = await _subRepo.GetByIdAsync(previousId);
                 if (getAllSub == null) break;
             }

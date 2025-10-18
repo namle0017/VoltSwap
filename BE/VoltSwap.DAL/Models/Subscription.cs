@@ -2,6 +2,7 @@
 #nullable disable
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace VoltSwap.DAL.Models;
 
@@ -25,7 +26,7 @@ public partial class Subscription
 
     public DateTime CreateAt { get; set; }
 
-    public string PreviouseSubscriptionId { get; set; }
+    public string PreviousSubscriptionId { get; set; }
 
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 
