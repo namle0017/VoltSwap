@@ -21,17 +21,17 @@ namespace VoltSwap.API.Controllers
         [HttpGet("subscription-user-list")]
         public async Task<IActionResult> GetSubscriptionUserList([FromQuery] CheckSubRequest req)
         {
-            if (string.IsNullOrWhiteSpace(req.UserId))
+            if (string.IsNullOrWhiteSpace(req.DriverId))
                 return BadRequest(new { message = "userId is required" });
 
-            var result = await _subService.GetUserSubscriptionsAsync(new CheckSubRequest { UserId = req.UserId  });
+            var result = await _subService.GetUserSubscriptionsAsync(new CheckSubRequest { DriverId = req.DriverId  });
             return StatusCode(result.Status, result);
         }
 
         [HttpPost("renew")]
         public async Task<IActionResult> RenewPlan([FromBody] RegisterPlanRequest req)
         {
-            var result = await _subService.RegisterPlanAsync(req.UserDriverId, req.SubscriptionId);
+            var result = await _subService.RenewPlanAsync(req.UserDriverId, req.SubscriptionId);
             return StatusCode(result.Status, new 
             { 
                 result.Message,

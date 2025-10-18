@@ -725,10 +725,10 @@ public partial class VoltSwapDbContext : DbContext
                 .HasMaxLength(15)
                 .IsUnicode(false)
                 .HasColumnName("plan_id");
-            entity.Property(e => e.PreviouseSubscriptionId)
+            entity.Property(e => e.PreviousSubscriptionId)
                 .HasMaxLength(20)
                 .IsUnicode(false)
-                .HasColumnName("previouse_subscription_id");
+                .HasColumnName("previous_subscription_id");
             entity.Property(e => e.RemainingSwap).HasColumnName("remaining_swap");
             entity.Property(e => e.StartDate).HasColumnName("start_date");
             entity.Property(e => e.Status)
@@ -933,7 +933,7 @@ public partial class VoltSwapDbContext : DbContext
             entity.Property(e => e.UserDriverName)
                 .IsRequired()
                 .HasMaxLength(100)
-                .HasColumnName("user_driver_name");
+                .HasColumnName("user_name");
             entity.Property(e => e.UserEmail)
                 .IsRequired()
                 .HasMaxLength(100)

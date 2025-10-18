@@ -209,7 +209,7 @@ namespace VoltSwap.BusinessLayer.Services
                 SlotNumber = slot.SlotNumber,
                 StationId = stationId,
                 PillarStatus = slot.PillarStatus,
-                BatteryStatus = slot.BatteryId != null ? slot.Battery.BatteryStatus : "Available",
+                BatteryStatus = slot.BatteryId != null ? slot.Battery.BatteryStatus : "Availables",
                 BatterySoc = slot.BatteryId != null ? slot.Battery.Soc : 0,
                 BatterySoh = slot.BatteryId != null ? slot.Battery.Soh : 0,
             }).ToList();
