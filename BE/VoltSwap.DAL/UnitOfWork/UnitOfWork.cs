@@ -22,6 +22,7 @@ namespace VoltSwap.DAL.UnitOfWork
         private IReportRepository? reportRepository;
         private IBookingRepository? bookingRepository;
         private IVehicleRepository? vehicleRepository;
+        private IStationStaffRepository? staitonStaffRepository;
 
         public UnitOfWork(VoltSwapDbContext context)
         {
@@ -149,6 +150,17 @@ namespace VoltSwap.DAL.UnitOfWork
                     vehicleRepository = (IVehicleRepository)new VehicleRepository(_context);
                 }
                 return vehicleRepository;
+            }
+        }
+        public IStationStaffRepository StationStaffs
+        {
+            get
+            {
+                if (staitonStaffRepository == null)
+                {
+                    staitonStaffRepository = (IStationStaffRepository)new StationStaffRepository(_context);
+                }
+                return staitonStaffRepository;
             }
         }
 

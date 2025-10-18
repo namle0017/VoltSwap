@@ -19,6 +19,8 @@ public partial class Battery
 
     public string BatteryStatus { get; set; }
 
+    public DateTime UpdateAt { get; set; }
+
     public virtual ICollection<BatterySession> BatterySessions { get; set; } = new List<BatterySession>();
 
     public virtual ICollection<BatterySwap> BatterySwapBatteryIns { get; set; } = new List<BatterySwap>();

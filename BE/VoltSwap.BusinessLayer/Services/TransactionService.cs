@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using VoltSwap.BusinessLayer.Base;
@@ -60,11 +61,12 @@ namespace VoltSwap.BusinessLayer.Services
                 TransactionType = requestDto.TransactionType,
                 Amount = requestDto.Amount,
                 Currency = "VND",
-                TransactionDate = DateTime.UtcNow,
+                TransactionDate = DateTime.UtcNow.ToLocalTime(),
                 PaymentMethod = "Bank transfer",
                 Status = "Pending",
                 Fee = requestDto.Fee,
                 TotalAmount = (requestDto.Amount + requestDto.Fee),
+                TransactionContext = transactionContext,
                 Note = $"Note for {requestDto.TransactionType} {subId}",
             };
             await _transRepo.CreateAsync(transactionDetail);
@@ -81,7 +83,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Status = "Inactive",
                 CreateAt = DateTime.UtcNow,
             };
-            
+
             await _subRepo.CreateAsync(subscriptionDetail);
             await _unitOfWork.SaveChangesAsync();
             var getTransactionList = await GetUserTransactionHistoryAsync(requestDto.DriverId);
@@ -273,5 +275,32 @@ namespace VoltSwap.BusinessLayer.Services
                 TransactionNote = t.Note
             }).ToList();
         }
+
+
+        public async Task<int> CreateTransactionBooking(BookingTransactionRequest requestDto)
+        {
+            string transactionId = await GenerateTransactionId();
+            string transactionContext = $"{requestDto.DriverId}-{requestDto.TransactionType.Replace(" ", "_").ToUpper()}-{transactionId.Substring(6)}";
+
+            var transactionDetail = new Transaction
+            {
+                TransactionId = transactionId,
+                SubscriptionId = requestDto.SubId,
+                UserDriverId = requestDto.DriverId,
+                TransactionType = requestDto.TransactionType,
+                Amount = requestDto.Amount,
+                Currency = "VND",
+                TransactionDate = DateTime.UtcNow.ToLocalTime(),
+                PaymentMethod = "Bank transfer",
+                Status = "Pending",
+                Fee = requestDto.Fee,
+                TotalAmount = (requestDto.Amount + requestDto.Fee),
+                TransactionContext = transactionContext,
+                Note = $"Note for {requestDto.TransactionType} {requestDto.SubId}",
+            };
+            await _transRepo.CreateAsync(transactionDetail);
+            return await _unitOfWork.SaveChangesAsync();
+        }
+
     }
 }

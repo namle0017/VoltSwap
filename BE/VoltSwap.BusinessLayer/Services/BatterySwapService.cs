@@ -22,6 +22,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<Subscription> _subRepo;
         private readonly IGenericRepositories<PillarSlot> _pillarRepo;
         private readonly IGenericRepositories<BatterySession> _batSessionRepo;
+        private readonly IBatteryService _batService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ISubscriptionService _subService;
         private readonly IConfiguration _configuration;
@@ -34,6 +35,7 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<Subscription> subRepo,
             IGenericRepositories<Battery> batRepo,
             IGenericRepositories<BatterySession> batSessionRepo,
+            IBatteryService batService,
             ISubscriptionService subService,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
@@ -45,6 +47,7 @@ namespace VoltSwap.BusinessLayer.Services
             _batSessionRepo = batSessionRepo;
             _batRepo = batRepo;
             _subService = subService;
+            _batService = batService;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
             _random = new Random();
@@ -202,6 +205,7 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<List<PillarSlotDto>> GetPillarSlot(string stationId)
         {
             var pillarSlots = await _unitOfWork.Stations.GetBatteriesInPillarByStationIdAsync(stationId);
+            var updateBatterySoc = await _batService.UpdateBatterySocAsync();
             var dtoList = pillarSlots.Select(slot => new PillarSlotDto
             {
                 SlotId = slot.SlotId,

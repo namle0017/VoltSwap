@@ -35,7 +35,7 @@ namespace VoltSwap.DAL.Repositories
             //AnyAsync sẽ trả về true fasle
             return await _context.BatterySwaps.AnyAsync(x => x.SubscriptionId == subId);
         }
-        
+
         public async Task<bool> CheckPlanAvailabel(string subId)
         {
             return await _context.Subscriptions.AnyAsync(x => x.SubscriptionId == subId);
@@ -47,7 +47,7 @@ namespace VoltSwap.DAL.Repositories
                 .Where(sub => sub.SubscriptionId == subId)
                 .Select(sub => sub.Plan.NumberOfBattery)
                 .FirstOrDefaultAsync();
-            return count??0;
+            return count ?? 0;
         }
     }
 }

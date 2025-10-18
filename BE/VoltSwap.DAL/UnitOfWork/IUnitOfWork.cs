@@ -21,6 +21,7 @@ namespace VoltSwap.DAL.UnitOfWork
         IReportRepository Reports { get; }
         IBookingRepository Bookings { get; }
         IVehicleRepository Vehicles { get; }
+        IStationStaffRepository StationStaffs { get; }
 
 
     }

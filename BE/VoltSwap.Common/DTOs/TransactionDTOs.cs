@@ -22,7 +22,7 @@ namespace VoltSwap.Common.DTOs
         public string PaymentStatus { get; set; } = "Pending";
         public string BankName { get; set; }
         public string TransactionContext { get; set; }
-        public string PaymentAccount {  get; set; }
+        public string PaymentAccount { get; set; }
     }
     public class TransactionListReponse
     {
@@ -30,10 +30,10 @@ namespace VoltSwap.Common.DTOs
         public decimal Amount { get; set; }
         public string PaymentStatus { get; set; }
         public string TransactionNote { get; set; }
-        public DateTime PaymentDate {  get; set; }
+        public DateTime PaymentDate { get; set; }
     }
 
-    public class  TransactionListForAdminResponse
+    public class TransactionListForAdminResponse
     {
         public string TransactionId { get; set; }
         public decimal Amount { get; set; }
@@ -47,5 +47,16 @@ namespace VoltSwap.Common.DTOs
     {
         public string RequestTransactionId { get; set; }
         public string NewStatus { get; set; }
+    }
+
+
+    public class BookingTransactionRequest
+    {
+        public string DriverId { get; set; }
+        public string SubId { get; set; }
+        public string TransactionType { get; set; }
+        public decimal Amount { get; set; }
+        public decimal TotalAmount { get; set; }
+        public decimal Fee { get; set; }
     }
 }
