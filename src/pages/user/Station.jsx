@@ -1,38 +1,85 @@
-import React, { useEffect, useState, useRef } from "react";
+// src/pages/user/Station.jsx
+import React, { useEffect, useRef, useState } from "react";
 import api from "@/api/api";
 import { useNavigate } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+// Leaflet default icon fix
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+    iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+});
+
+// User location icon
+const userIcon = L.divIcon({
+    className: "user-pin",
+    html: `<div style="
+    display:grid;place-items:center;width:28px;height:28px;border-radius:50%;
+    background:#2563eb;color:#fff;font-size:14px;font-weight:700;
+    box-shadow:0 0 0 3px rgba(37,99,235,.2)
+  ">🧍</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+});
+
+// distance (km)
+const haversineKm = (a, b) => {
+    if (!a || !b) return 0;
+    const R = 6371;
+    const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+    const dLon = ((b.lng - a.lng) * Math.PI) / 180;
+    const lat1 = (a.lat * Math.PI) / 180;
+    const lat2 = (b.lat * Math.PI) / 180;
+    const x =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(x));
+};
 
 export default function Station() {
     const navigate = useNavigate();
+
+    // BE state
     const [stations, setStations] = useState([]);
     const [subs, setSubs] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    // booking/modal
     const [selectedStation, setSelectedStation] = useState(null);
     const [selectedSub, setSelectedSub] = useState("");
     const [bookingDate, setBookingDate] = useState("");
     const [bookingTime, setBookingTime] = useState("");
     const [showModal, setShowModal] = useState(false);
-    const [loading, setLoading] = useState(true);
+
+    // navigate visualization
+    const [userPos, setUserPos] = useState(null);
+    const [targetId, setTargetId] = useState(null);
+    const [route, setRoute] = useState(null);
+    const mapRef = useRef(null);
     const arrivalTimer = useRef(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const userDriverId = localStorage.getItem("userId");
-
-                if (!token || !userDriverId) {
+                const userId = localStorage.getItem("userId");
+                if (!token || !userId) {
                     alert("Please log in again!");
                     navigate("/login");
                     return;
                 }
 
+                // ✅ BE hiện tại yêu cầu:
+                // - GET /Station/station-list
+                // - GET /Subscription/subscription-user-list?DriverId=DR-...
                 const [stationRes, subRes] = await Promise.all([
                     api.get("Station/station-list"),
-                    api.get(`Subscription/subscription-user-list?userId=${userDriverId}`),
+                    api.get(`/Subscription/subscription-user-list?DriverId=${userId}`),
                 ]);
-
-                console.log("✅ Station list:", stationRes.data);
-                console.log("✅ Subscription list:", subRes.data);
 
                 setStations(stationRes.data?.data || []);
                 setSubs(subRes.data?.data || []);
@@ -46,23 +93,56 @@ export default function Station() {
         fetchData();
     }, [navigate]);
 
-    // 🕒 Kiểm tra đã đến trạm chưa
+    // arrival check
     const startArrivalCheck = (stationName) => {
         if (arrivalTimer.current) clearTimeout(arrivalTimer.current);
-
         const askArrival = () => {
-            const answer = window.confirm(
-                `🚗 Bạn đã đến trạm "${stationName}" chưa?`
-            );
-            if (!answer) arrivalTimer.current = setTimeout(askArrival, 15000);
+            const yes = window.confirm(`🚗 Bạn đã đến trạm "${stationName}" chưa?`);
+            if (!yes) arrivalTimer.current = setTimeout(askArrival, 15000);
             else {
                 clearTimeout(arrivalTimer.current);
                 arrivalTimer.current = null;
-                alert("✅ Cảm ơn! Hệ thống đã xác nhận bạn đã đến trạm.");
+                alert("✅ Đã xác nhận bạn đã tới trạm.");
             }
         };
-
         arrivalTimer.current = setTimeout(askArrival, 15000);
+    };
+
+    // navigate: draw route & highlight
+    const handleNavigateVisual = (st) => {
+        setTargetId(st.stationId);
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const up = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    setUserPos(up);
+                    const tp = { lat: st.locationLat, lng: st.locationLon };
+                    setRoute([
+                        [up.lat, up.lng],
+                        [tp.lat, tp.lng],
+                    ]);
+
+                    if (mapRef.current) {
+                        const bounds = L.latLngBounds(
+                            L.latLng(up.lat, up.lng),
+                            L.latLng(tp.lat, tp.lng)
+                        );
+                        mapRef.current.fitBounds(bounds.pad(0.25));
+                    }
+                },
+                () => {
+                    const tp = { lat: st.locationLat, lng: st.locationLon };
+                    setUserPos(null);
+                    setRoute(null);
+                    if (mapRef.current) mapRef.current.setView([tp.lat, tp.lng], 15);
+                },
+                { enableHighAccuracy: true, maximumAge: 10000, timeout: 8000 }
+            );
+        } else {
+            const tp = { lat: st.locationLat, lng: st.locationLon };
+            if (mapRef.current) mapRef.current.setView([tp.lat, tp.lng], 15);
+        }
     };
 
     const handleBookSwap = (station) => {
@@ -70,7 +150,7 @@ export default function Station() {
         setShowModal(true);
     };
 
-    // ✅ Tạo booking và transaction tương ứng
+    // create booking
     const confirmBooking = async () => {
         if (!selectedSub || !bookingDate || !bookingTime)
             return alert("Please complete all fields");
@@ -82,73 +162,176 @@ export default function Station() {
             return;
         }
 
-        const formattedDate = new Date(bookingDate).toISOString().split("T")[0];
+        // Chuẩn hóa format ngày/giờ
+        const formattedDate = new Date(bookingDate).toISOString().split("T")[0]; // YYYY-MM-DD
+        const timeNorm =
+            bookingTime && bookingTime.length === 5 ? `${bookingTime}:00` : bookingTime; // HH:mm:ss
 
+        // Gửi payload đa dạng khóa để tương thích nhiều biến thể BE
         const payload = {
+            // --- các khóa cho BE biến thể A ---
             batterySwapStationId: selectedStation.stationId,
             userDriverId,
-            note: "Swap battery",
+            // --- các khóa cho BE biến thể B (song song, BE sẽ bỏ qua khóa lạ) ---
+            stationId: selectedStation.stationId,
+            driverId: userDriverId,
+            // --- dùng chung ---
             subscriptionId: selectedSub,
+            note: "Swap battery",
             dateBooking: formattedDate,
-            timeBooking: bookingTime,
+            timeBooking: timeNorm,
         };
-        console.log("📤 Sending booking payload:", payload);
 
         try {
             const res = await api.post("/Booking/createBooking", payload);
-            console.log("✅ Booking response:", res.data);
+            const appointment =
+                res?.data?.data?.appointment || res?.data?.appointment || {};
 
-            const appointment = res.data.data.appointment;
+            // Lưu lại để các màn khác có thể truy cập
+            localStorage.setItem("lastPlanId", appointment.subscriptionId || selectedSub);
+            localStorage.setItem("swap_stationId", selectedStation.stationId);
+            localStorage.setItem("swap_subscriptionId", selectedSub);
 
-            // ⚡ Gọi thêm API tạo transaction tạm
-            const transactionPayload = {
-                transactionId: appointment.appointmentId, // gắn appointmentId
-                amount: 0,
-                paymentStatus: "Pending",
-                transactionNote: appointment.note,
-                paymentDate: new Date().toISOString(),
-            };
-
-            console.log("💾 Creating transaction placeholder:", transactionPayload);
-            localStorage.setItem("lastPlanId", appointment.subscriptionId);
-
-            await api.post("/Transaction/transaction-user-list", {
-                PlanId: appointment.subscriptionId,
-                DriverId: userDriverId,
-                TransactionType: "History",
-            });
+            // (tuỳ hệ thống) gọi log lịch sử giao dịch — nếu BE không yêu cầu có thể bỏ
+            try {
+                await api.post("/Transaction/transaction-user-list", {
+                    PlanId: appointment.subscriptionId || selectedSub,
+                    DriverId: userDriverId,
+                    TransactionType: "History",
+                });
+            } catch {
+                // BE 405/400 ở API này thì bỏ qua, không chặn luồng đặt lịch
+            }
 
             alert(
-                `✅ Booking created successfully!\n📍 ${selectedStation.stationName}\n📅 ${bookingDate} ${bookingTime}\n🆔 Appointment: ${appointment.appointmentId}`
+                `✅ Booking created!\n📍 ${selectedStation.stationName}\n📅 ${bookingDate} ${bookingTime}`
             );
-
             setShowModal(false);
-            navigate("/user/transaction");
+
+            // Điều hướng sang StationSwap & truyền preset
+            navigate("/stations", {
+                state: {
+                    stationId: selectedStation.stationId,
+                    subscriptionId: selectedSub,
+                },
+            });
+
             startArrivalCheck(selectedStation.stationName);
         } catch (err) {
-            console.error("❌ Booking error:", err.response?.data || err);
-            alert("❌ Booking failed! Please check console for details.");
+            const v = err?.response?.data;
+            const msg =
+                (typeof v === "object" && (v.message || v.title)) ||
+                (typeof v === "string" && v) ||
+                err.message;
+            console.error("❌ Booking error:", err?.response || err);
+            alert(`❌ Booking failed!\n${msg || "Unknown error"}`);
         }
     };
 
     if (loading)
         return (
             <div className="flex justify-center mt-20">
-                <div className="h-10 w-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                <div className="h-10 w-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
             </div>
         );
+
+    const defaultCenter = [10.7769, 106.7009];
 
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             <h2 className="text-2xl font-bold mb-3">🗺️ Battery Swap Stations</h2>
 
-            <iframe
-                title="Map"
-                className="w-full h-72 rounded-2xl mb-6 shadow"
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3919.478471337726!2d106.6621921756895!3d10.776889659195996!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31752f2b2a8f1ed5%3A0x8a88f40d6b1f1e04!2sHUTECH%20University!5e0!3m2!1sen!2s!4v1699500131224!5m2!1sen!2s"
-                allowFullScreen
-            ></iframe>
+            {/* ==== MAP (Leaflet) ==== */}
+            <div className="rounded-2xl mb-6 shadow overflow-hidden">
+                <MapContainer
+                    center={defaultCenter}
+                    zoom={6}
+                    scrollWheelZoom
+                    className="h-80 w-full z-0"
+                    whenCreated={(m) => (mapRef.current = m)}
+                >
+                    <TileLayer
+                        attribution="&copy; OpenStreetMap"
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
 
+                    {/* Station markers */}
+                    {stations.map((st) => (
+                        <Marker key={st.stationId} position={[st.locationLat, st.locationLon]}>
+                            <Popup>
+                                <div className="text-sm">
+                                    <strong>{st.stationName}</strong>
+                                    <p className="text-gray-600">{st.stationAddress}</p>
+                                    <p className="text-gray-500">
+                                        ⚡ {st.batteryAvailable}/{st.totalBattery} batteries
+                                    </p>
+
+                                    {userPos && (
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            📏 ~
+                                            {haversineKm(userPos, {
+                                                lat: st.locationLat,
+                                                lng: st.locationLon,
+                                            }).toFixed(1)}
+                                            km • ETA ~
+                                            {Math.round(
+                                                (haversineKm(userPos, {
+                                                    lat: st.locationLat,
+                                                    lng: st.locationLon,
+                                                }) /
+                                                    40) *
+                                                60
+                                            )}{" "}
+                                            mins
+                                        </p>
+                                    )}
+
+                                    <div className="mt-2 flex gap-2">
+                                        <button
+                                            onClick={() => handleBookSwap(st)}
+                                            className="px-2 py-1 bg-black text-white text-xs rounded-lg"
+                                        >
+                                            🔋 Book Swap
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                handleNavigateVisual(st);
+                                                window.open(
+                                                    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                                        st.stationName
+                                                    )}`,
+                                                    "_blank"
+                                                );
+                                                startArrivalCheck(st.stationName);
+                                            }}
+                                            className="px-2 py-1 border text-xs rounded-lg hover:bg-gray-100"
+                                        >
+                                            📍 Navigate
+                                        </button>
+                                    </div>
+                                </div>
+                            </Popup>
+
+                            {targetId === st.stationId && (
+                                <Circle
+                                    center={[st.locationLat, st.locationLon]}
+                                    radius={450}
+                                    pathOptions={{
+                                        color: "#22c55e",
+                                        fillColor: "#22c55e",
+                                        fillOpacity: 0.15,
+                                    }}
+                                />
+                            )}
+                        </Marker>
+                    ))}
+
+                    {userPos && <Marker position={[userPos.lat, userPos.lng]} icon={userIcon} />}
+                    {route && <Polyline positions={route} dashArray="6 8" color="#2563eb" weight={4} />}
+                </MapContainer>
+            </div>
+
+            {/* ==== Station list ==== */}
             <h3 className="font-semibold mb-3">Nearby Stations</h3>
             <div className="space-y-4">
                 {stations.map((st) => {
@@ -158,7 +341,6 @@ export default function Station() {
                             : st.availablePercent >= 40
                                 ? "bg-yellow-400"
                                 : "bg-red-400";
-
                     return (
                         <div
                             key={st.stationId}
@@ -173,28 +355,26 @@ export default function Station() {
                                     <div
                                         className={`${color} h-2 rounded-full`}
                                         style={{ width: `${st.availablePercent}%` }}
-                                    ></div>
+                                    />
                                 </div>
                             </div>
                             <div className="space-x-2">
                                 <button
+                                    onClick={() => handleNavigateVisual(st)}
+                                    className="px-3 py-1 border rounded-lg hover:bg-gray-100"
+                                >
+                                    👀 Preview Route
+                                </button>
+                                <button
                                     onClick={() => {
-                                        const confirmNav = window.confirm(
-                                            `📍 Bạn có muốn mở Google Maps và bắt đầu kiểm tra đến trạm "${st.stationName}" không?`
+                                        handleNavigateVisual(st);
+                                        window.open(
+                                            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                                st.stationName
+                                            )}`,
+                                            "_blank"
                                         );
-
-                                        if (confirmNav) {
-                                            // 1️⃣ Mở bản đồ trạm
-                                            window.open(
-                                                `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                                    st.stationName
-                                                )}`,
-                                                "_blank"
-                                            );
-
-                                            // 2️⃣ Gọi hàm kiểm tra đến trạm
-                                            startArrivalCheck(st.stationName);
-                                        }
+                                        startArrivalCheck(st.stationName);
                                     }}
                                     className="px-3 py-1 border rounded-lg hover:bg-gray-100"
                                 >
@@ -212,7 +392,7 @@ export default function Station() {
                 })}
             </div>
 
-            {/* 🪟 Modal Booking */}
+            {/* ==== Modal Booking ==== */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
                     <div className="bg-white rounded-2xl p-6 shadow-lg w-[380px]">
@@ -220,9 +400,7 @@ export default function Station() {
                             Booking at {selectedStation?.stationName}
                         </h3>
 
-                        <label className="block text-sm font-medium mb-1">
-                            Select Subscription
-                        </label>
+                        <label className="block text-sm font-medium mb-1">Select Subscription</label>
                         <select
                             value={selectedSub}
                             onChange={(e) => setSelectedSub(e.target.value)}

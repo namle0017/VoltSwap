@@ -1,51 +1,152 @@
+/* eslint-disable no-unused-vars */
 // src/pages/StationSwap.jsx
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import {
     getStationList,
     validateSubscription,
     swapInBattery,
     swapOutBattery,
 } from "@/api/batterySwapApi";
+import api from "@/api/api";
 
+// === FALLBACK data ===
 const FALLBACK_STATIONS = [
     { stationId: "STA-10-03-7891", stationName: "Thu Duc Station (Fallback)" },
     { stationId: "STA-01-12-5678", stationName: "District 1 Station (Fallback)" },
 ];
 
 const isValidSubFormat = (sub) => /^SUB-\d{8}$/.test((sub || "").trim());
+const isPositiveMsg = (msg = "") => {
+    const m = String(msg).toLowerCase();
+    return (
+        m.includes("success") ||
+        m.includes("ok") ||
+        m.includes("please put your battery") ||
+        m.includes("validated") ||
+        m.includes("valid") ||
+        m.includes("please, take batteries")
+    );
+};
+
+// ===== Helpers cho lưới slot =====
+const shortId = (id) => {
+    if (!id) return "";
+    const s = String(id);
+    return s.length <= 8 ? s : s.slice(-8);
+};
+
+// Chuẩn hoá so sánh trạng thái (không sửa dữ liệu gốc)
+const isNotUse = (slot) =>
+    String(slot?.pillarStatus || "")
+        .toLowerCase()
+        .includes("not"); // "Not use", "Not Use", "NOT USE"...
+
+const isUse = (slot) =>
+    !isNotUse(slot) && String(slot?.pillarStatus || "").length > 0;
+
+const slotColorClass = (slot) => {
+    if (isNotUse(slot)) return "bg-emerald-500 text-white"; // trống
+    if (isUse(slot)) {
+        const batt = String(slot?.batteryStatus || "").toLowerCase();
+        if (batt.includes("maintenance")) return "bg-amber-200 text-amber-900";
+        if (batt.includes("charging")) return "bg-sky-200 text-sky-900";
+        return "bg-slate-400 text-white"; // in use / unknown -> xám
+    }
+    return "bg-slate-200 text-slate-700";
+};
+
+const slotTitle = (slot) => {
+    const lines = [
+        `Slot #${slot?.slotNumber ?? ""} (ID: ${slot?.slotId ?? ""})`,
+        `Pillar: ${slot?.pillarStatus ?? "-"}`,
+        `Battery Status: ${slot?.batteryStatus ?? "-"}`,
+    ];
+    if (slot?.batteryId) lines.push(`BatteryId: ${slot.batteryId}`);
+    if (typeof slot?.batterySoc !== "undefined") lines.push(`SoC: ${slot.batterySoc}%`);
+    if (typeof slot?.batterySoh !== "undefined") lines.push(`SoH: ${slot.batterySoh}%`);
+    return lines.join("\n");
+};
+
+const splitToPillars = (slots = []) => {
+    const ordered = [...slots].sort(
+        (a, b) => (a.slotNumber ?? 0) - (b.slotNumber ?? 0)
+    );
+    // 3 trụ × 20 ô
+    return [ordered.slice(0, 20), ordered.slice(20, 40), ordered.slice(40, 60)];
+};
+
+// LẤY DANH SÁCH SLOT từ mọi kiểu response BE có thể trả
+const extractSlotsFromResponse = (raw) => {
+    // raw có thể là object có data/pillarSlotDtos, hoặc là mảng trực tiếp
+    if (Array.isArray(raw)) return raw;
+    if (raw && typeof raw === "object") {
+        if (Array.isArray(raw.pillarSlotDtos)) return raw.pillarSlotDtos;
+        if (Array.isArray(raw.data)) return raw.data;
+    }
+    return [];
+};
 
 export default function StationSwap() {
+    const location = useLocation();
+    const [searchParams] = useSearchParams();
+
+    // === preset từ Booking ===
+    const presetStationId =
+        location.state?.stationId ||
+        searchParams.get("stationId") ||
+        localStorage.getItem("swap_stationId") ||
+        "";
+    const presetSubscriptionId =
+        location.state?.subscriptionId ||
+        searchParams.get("subscriptionId") ||
+        localStorage.getItem("swap_subscriptionId") ||
+        "";
+    const isPreset = Boolean(presetStationId && presetSubscriptionId);
+
+    // === states chính ===
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
-
-    // Stations
     const [stations, setStations] = useState([]);
     const [stationLoading, setStationLoading] = useState(true);
     const [stationError, setStationError] = useState("");
-
-    // Inputs
     const [stationId, setStationId] = useState("");
     const [subscriptionId, setSubscriptionId] = useState("");
     const [subError, setSubError] = useState("");
     const [submitting, setSubmitting] = useState(false);
-
-    // Slots từ BE (sau validate)
-    const [stationSlots, setStationSlots] = useState([]);
-
-    // Infos & results
     const [subscriptionInfo, setSubscriptionInfo] = useState(null);
+    const [stationSlots, setStationSlots] = useState([]);
     const [batteryIdsInput, setBatteryIdsInput] = useState("");
     const [swapInResult, setSwapInResult] = useState(null);
     const [swapOutResult, setSwapOutResult] = useState(null);
     const [swapInError, setSwapInError] = useState(null);
+    const [outOptions, setOutOptions] = useState([]);
+    const [autoPicked, setAutoPicked] = useState([]);
+    const [autoPickError, setAutoPickError] = useState("");
+    const [swapInCount, setSwapInCount] = useState(0);
 
-    // Bước 3 - tự động
-    const [outOptions, setOutOptions] = useState([]);      // danh sách pin khả dụng (Use + Available)
-    const [autoPicked, setAutoPicked] = useState([]);      // danh sách pin đã auto-chọn để swap-out
-    const [autoPickError, setAutoPickError] = useState(""); // lỗi nếu không đủ pin
-    const [swapInCount, setSwapInCount] = useState(0);     // số pin đã nộp ở bước 2
+    // === parse & load stations ===
+    const tryParseStations = (raw) => {
+        if (typeof raw === "string") {
+            try {
+                return JSON.parse(raw);
+            } catch {
+                return [];
+            }
+        }
+        if (Array.isArray(raw)) return raw;
+        if (raw && typeof raw === "object") {
+            if (Array.isArray(raw.stations)) return raw.stations;
+            if (Array.isArray(raw.data)) return raw.data;
+        }
+        return [];
+    };
+    // Lấy slot Not use để đón pin swap-in
+    const getFreeSlotIds = () =>
+        (stationSlots || [])
+            .filter((s) => String(s.pillarStatus).toLowerCase() === "not use")
+            .map((s) => s.slotId);
 
-    // Lấy pin khả dụng từ pillarSlotDtos: chỉ Use + Available
     const getAvailableFromSlots = (slots = []) => {
         return (slots || [])
             .filter(
@@ -59,24 +160,47 @@ export default function StationSwap() {
                 slotId: s.slotId,
             }));
     };
-
-    // Lấy slot Not use để đón pin swap-in
-    const getFreeSlotIds = () =>
-        (stationSlots || [])
-            .filter((s) => String(s.pillarStatus).toLowerCase() === "not use")
-            .map((s) => s.slotId);
-
-    const isPositiveMsg = (msg = "") => {
-        const m = String(msg).toLowerCase();
-        return (
-            m.includes("success") ||
-            m.includes("ok") ||
-            m.includes("please put your battery") ||
-            m.includes("validated") ||
-            m.includes("valid") ||
-            m.includes("Please, take batteries")
-        );
+    const loadStations = async () => {
+        setStationLoading(true);
+        setStationError("");
+        try {
+            const userDriverId = localStorage.getItem("userId");
+            let res;
+            try {
+                res = await api.post("Station/station-list", { DriverId: userDriverId });
+            } catch {
+                res = await getStationList();
+            }
+            let list = tryParseStations(res.data);
+            list = list.map((s, i) => ({
+                stationId: s.stationId ?? s.id ?? s.code ?? `STA-${i}`,
+                stationName: s.stationName ?? s.name ?? s.label ?? `Station ${i + 1}`,
+            }));
+            if (!list.length) throw new Error("Danh sách trạm rỗng từ BE");
+            setStations(list);
+        } catch (e) {
+            console.error("getStationList error:", e?.response?.data || e);
+            setStationError(
+                e?.response?.data?.message || e?.message || "Không tải được danh sách trạm từ BE."
+            );
+            setStations(FALLBACK_STATIONS);
+        } finally {
+            setStationLoading(false);
+        }
     };
+
+    useEffect(() => {
+        loadStations();
+    }, []);
+
+    // === Auto fill preset ===
+    useEffect(() => {
+        if (!stationLoading && isPreset) {
+            setStationId(presetStationId);
+            setSubscriptionId(presetSubscriptionId);
+            setTimeout(() => doValidate(presetSubscriptionId, presetStationId), 0);
+        }
+    }, [stationLoading]); // eslint-disable-line
 
     const requiredBatteryCount = useMemo(() => {
         const o = subscriptionInfo || {};
@@ -89,147 +213,79 @@ export default function StationSwap() {
         );
     }, [subscriptionInfo]);
 
-    const tryParseStations = (raw) => {
-        if (typeof raw === "string") {
-            const lower = raw.trim().toLowerCase();
-            if (lower.startsWith("<!doctype") || lower.startsWith("<html")) return [];
-            try {
-                const parsed = JSON.parse(raw);
-                return tryParseStations(parsed);
-            } catch {
-                return [];
-            }
-        }
-        if (Array.isArray(raw)) return raw;
-        if (raw && typeof raw === "object") {
-            if (Array.isArray(raw.stations)) return raw.stations;
-            if (Array.isArray(raw.data)) return raw.data;
-        }
-        return [];
+    const resetAll = () => {
+        setStep(1);
+        setStationId("");
+        setSubscriptionId("");
+        setSubError("");
+        setSubscriptionInfo(null);
+        setBatteryIdsInput("");
+        setSwapInResult(null);
+        setSwapOutResult(null);
+        setStationSlots([]);
+        setSwapInError(null);
+        setOutOptions([]);
+        setAutoPicked([]);
+        setAutoPickError("");
+        setSwapInCount(0);
     };
 
-    const loadStations = async () => {
-        setStationLoading(true);
-        setStationError("");
-        try {
-            const res = await getStationList();
-            console.log("🔍 Raw /get-station-list:", res.data);
-            let list = tryParseStations(res.data);
-            list = list.map((s, i) => ({
-                stationId: s.stationId ?? s.id ?? s.code ?? `STA-${i}`,
-                stationName: s.stationName ?? s.name ?? s.label ?? `Station ${i + 1}`,
-            }));
-            if (!list.length) throw new Error("Danh sách trạm rỗng từ BE");
-            setStations(list);
-        } catch (e) {
-            console.error(
-                "getStationList error:",
-                e?.response?.status,
-                e?.response?.data || e?.message
-            );
-            setStationError(
-                e?.response?.data?.message ||
-                e?.message ||
-                "Không tải được danh sách trạm từ BE (có thể BE trả HTML)."
-            );
-            setStations(FALLBACK_STATIONS);
-        } finally {
-            setStationLoading(false);
-        }
-    };
 
-    useEffect(() => {
-        loadStations();
-    }, []);
-
-    // B1: validate
-    const handleValidate = async (e) => {
-        e.preventDefault();
+    // === validate subscription ===
+    const doValidate = async (sub, sta) => {
         setSubError("");
         setSwapInError(null);
-
-        const sub = subscriptionId.trim();
-
-        if (!stationId) {
-            setSubError("Vui lòng chọn trạm trước.");
-            return;
-        }
-        if (!isValidSubFormat(sub)) {
-            setSubError("Sai định dạng Subscription ID. Ví dụ đúng: SUB-18779758");
-            return;
-        }
+        const subTrim = (sub || "").trim();
+        if (!sta) return setSubError("Vui lòng chọn trạm trước.");
+        if (!isValidSubFormat(subTrim))
+            return setSubError("Sai định dạng Subscription ID. Ví dụ: SUB-18779758");
 
         setSubmitting(true);
         setLoading(true);
         try {
-            const res = await validateSubscription(sub, stationId);
-            console.log("🔎 validate-subscription raw:", res.data);
-
-            if (!res || typeof res.data !== "object" || Array.isArray(res.data)) {
-                setSubError("BE trả dữ liệu không hợp lệ (không phải JSON).");
-                return;
-            }
-
+            const res = await validateSubscription(subTrim, sta);
             const data = res.data;
+            if (!data || typeof data !== "object")
+                throw new Error("BE trả dữ liệu không hợp lệ");
 
-            const explicitInvalid =
-                data.isValid === false ||
-                String(data.status || "").toLowerCase() === "invalid";
-            if (explicitInvalid) {
-                setSubError(data.error || data.message || "Subscription không hợp lệ.");
+            if (data.isValid === false || data.status?.toLowerCase() === "invalid") {
+                setSubError(data.message || "Subscription không hợp lệ.");
                 return;
             }
 
-            const positiveFlags =
+            const positive =
                 data.isValid === true ||
                 data.valid === true ||
                 String(data.status || "").toLowerCase() === "valid" ||
                 isPositiveMsg(data.message);
 
-            const serverEchoMatches =
-                !data.subscriptionId || String(data.subscriptionId).trim() === sub;
-
-            const hasPackageInfo =
-                data.packagePins || data.batteryCount || data.numberOfBatteries;
-
-            if (positiveFlags || (serverEchoMatches && hasPackageInfo)) {
-                const info = data.data ?? data;
-                setSubscriptionInfo(info);
-                setSubError("");
-
-                if (Array.isArray(info?.pillarSlotDtos)) {
-                    setStationSlots(info.pillarSlotDtos);
-                    console.log(
-                        "📦 Loaded slots from subscription info:",
-                        info.pillarSlotDtos.length
-                    );
-                } else {
-                    setStationSlots([]);
-                    console.warn("⚠️ pillarSlotDtos không có trong response.");
-                }
-
-                setStep(2);
-            } else {
-                setSubError(
-                    data.error || data.message || "Không xác thực được Subscription."
-                );
+            if (!positive) {
+                setSubError(data.message || "Không xác thực được Subscription.");
+                return;
             }
+
+            // info có thể là object hoặc mảng
+            const info = data.data ?? data;
+            setSubscriptionInfo(info);
+
+            // 🔧 Quan trọng: rút slots từ mọi format (mảng trực tiếp, data[], pillarSlotDtos[])
+            const slots = extractSlotsFromResponse(info);
+            setStationSlots(slots);
+
+            setStep(2);
         } catch (err) {
-            console.error(
-                "validate error:",
-                err?.response?.status,
-                err?.response?.data || err?.message
+            setSubError(
+                `❌ ${err?.response?.data?.message || err?.message || "Không xác thực được Subscription."}`
             );
-            const msg =
-                err?.response?.data?.message ||
-                err?.response?.data ||
-                err?.message ||
-                "Không xác thực được Subscription.";
-            setSubError(`❌ ${msg}`);
         } finally {
             setSubmitting(false);
             setLoading(false);
         }
+    };
+
+    const handleValidate = (e) => {
+        e.preventDefault();
+        doValidate(subscriptionId, stationId);
     };
 
     // B2: swap-in
@@ -398,41 +454,13 @@ export default function StationSwap() {
         }
     };
 
-    const resetAll = () => {
-        setStep(1);
-        setStationId("");
-        setSubscriptionId("");
-        setSubError("");
-        setSubscriptionInfo(null);
-        setBatteryIdsInput("");
-        setSwapInResult(null);
-        setSwapOutResult(null);
-        setStationSlots([]);
-        setSwapInError(null);
-        setOutOptions([]);
-        setAutoPicked([]);
-        setAutoPickError("");
-        setSwapInCount(0);
-    };
-
-    // ---- UI ----
+    // === UI ===
     return (
-        <div className="p-6 max-w-3xl mx-auto space-y-6">
-            <h1 className="text-2xl font-bold text-center">📗 Battery Swap - BE Integration</h1>
+        <div className="p-6 max-w-5xl mx-auto space-y-6">
+            <h1 className="text-2xl font-bold text-center">📗 Battery Swap Simulation</h1>
 
             {stationLoading && (
-                <div className="card p-4 text-gray-600">Đang tải danh sách trạm...</div>
-            )}
-            {!stationLoading && stationError && (
-                <div className="card p-4 bg-yellow-50 text-yellow-800 space-y-3">
-                    <div className="font-semibold">Cảnh báo: {stationError}</div>
-                    <div className="text-sm">
-                        Đang dùng danh sách trạm dự phòng (Fallback) để bạn có thể tiếp tục test.
-                    </div>
-                    <button className="btn-secondary" onClick={loadStations}>
-                        Thử tải lại
-                    </button>
-                </div>
+                <div className="text-gray-600 text-center">Đang tải danh sách trạm...</div>
             )}
 
             {!stationLoading && (
@@ -440,7 +468,6 @@ export default function StationSwap() {
                     {step === 1 && (
                         <form onSubmit={handleValidate} className="card p-6 space-y-3">
                             <h2 className="text-base font-semibold">Bước 1: Chọn trạm & nhập Subscription</h2>
-
                             <select
                                 className="p-3 border rounded-lg w-full"
                                 value={stationId}
@@ -475,15 +502,40 @@ export default function StationSwap() {
                         </form>
                     )}
 
+                    {/* Lưới TRỤ PIN hiển thị NGAY sau validate */}
                     {subscriptionInfo && (
-                        <div className="card p-4">
-                            <div className="font-semibold mb-1">Thông tin gói thuê</div>
-                            <pre className="bg-gray-50 p-3 rounded text-sm overflow-x-auto">
-                                {JSON.stringify(subscriptionInfo, null, 2)}
-                            </pre>
-                            {requiredBatteryCount > 0 && (
-                                <div className="text-sm text-gray-600">
-                                    Số pin cần nộp theo gói: <b>{requiredBatteryCount}</b>
+                        <div className="card p-6 space-y-3">
+                            <h2 className="text-base font-semibold">⚡ Trạng thái các trụ pin tại trạm</h2>
+
+                            {stationSlots.length === 0 ? (
+                                <div className="text-gray-500 text-sm text-center">
+                                    Không có dữ liệu slot. Vui lòng thử lại hoặc kiểm tra Subscription.
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-3 gap-4">
+                                    {splitToPillars(stationSlots).map((pillarSlots, idx) => (
+                                        <div key={idx} className="bg-gray-50 rounded-lg p-2 border">
+                                            <h4 className="text-center font-semibold mb-2 text-gray-700">
+                                                Trụ {idx + 1}
+                                            </h4>
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {pillarSlots.map((slot, i) => (
+                                                    <div
+                                                        key={slot?.slotId ?? i}
+                                                        title={slotTitle(slot)}
+                                                        className={`h-12 rounded-md flex items-center justify-center text-[11px] font-semibold ${slotColorClass(slot)} transition-colors`}
+                                                    >
+                                                        <div className="flex flex-col items-center leading-tight">
+                                                            <span>#{slot?.slotNumber ?? "-"}</span>
+                                                            {slot?.batteryId && (
+                                                                <span className="opacity-90">{shortId(slot.batteryId)}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>

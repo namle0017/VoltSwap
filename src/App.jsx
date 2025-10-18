@@ -46,6 +46,8 @@ import Payment from "@/pages/user/Payment";
 import Vehicle from "@/pages/user/Vehicle";
 import Support from "@/pages/user/Support";
 import Profile from "@/pages/user/Profile";
+import "leaflet/dist/leaflet.css";
+
 
 const router = createBrowserRouter([
   /** Public site */
@@ -58,9 +60,9 @@ const router = createBrowserRouter([
       { path: "services", element: <ServicesPage /> },
       { path: "benefits", element: <BenefitsPage /> },
       { path: "contact", element: <ContactPage /> },
-      { path: "stations", element: <StationSwap /> },
     ],
   },
+  { path: "stations", element: <StationSwap /> },
 
   /** User app (after login as Driver/Customer) */
   {
