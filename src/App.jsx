@@ -1,5 +1,9 @@
 // src/App.jsx
-import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Navigate,
+} from "react-router-dom";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 /** Layouts */
@@ -23,7 +27,11 @@ import StationSwap from "@/pages/StationSwap";
 import AdminPage from "@/pages/admin/AdminPage";
 import CustomerManagement from "@/pages/admin/CustomerManagement";
 import ComplaintsManagement from "@/pages/admin/ComplaintsManagement";
-
+import Reports from "@/pages/admin/Reports";
+import Employees from "@/pages/admin/Employees";
+import Stations from "@/pages/admin/Stations";
+import Subscription from "@/pages/admin/Subscription";
+import PaymentInfo from "@/pages/admin/PaymentInfo";
 /** Staff pages */
 import Overview from "@/pages/staff/Overview";
 import Inventory from "@/pages/staff/Inventory";
@@ -47,7 +55,6 @@ import Vehicle from "@/pages/user/Vehicle";
 import Support from "@/pages/user/Support";
 import Profile from "@/pages/user/Profile";
 import "leaflet/dist/leaflet.css";
-
 
 const router = createBrowserRouter([
   /** Public site */
@@ -117,6 +124,11 @@ const router = createBrowserRouter([
           { index: true, element: <AdminPage /> },
           { path: "customers", element: <CustomerManagement /> },
           { path: "complaints", element: <ComplaintsManagement /> },
+          { path: "reports", element: <Reports /> },
+          { path: "employees", element: <Employees /> },
+          { path: "stations", element: <Stations /> },
+          { path: "subscriptions", element: <Subscription /> },
+          { path: "payments", element: <PaymentInfo /> },
           // { path: "transactions", element: <TransactionManagement /> }, // add later if needed
         ],
       },

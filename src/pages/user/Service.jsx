@@ -1,171 +1,228 @@
+// src/pages/user/Service.jsx
 import React, { useEffect, useState } from "react";
 import api from "@/api/api";
 import { useNavigate } from "react-router-dom";
 
 export default function Service() {
-    const navigate = useNavigate();
-    const [subs, setSubs] = useState([]);
-    const [selected, setSelected] = useState("");
-    const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const [subs, setSubs] = useState([]);
+  const [selected, setSelected] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [showRenewModal, setShowRenewModal] = useState(false);
 
-    useEffect(() => {
-        const fetchPlans = async () => {
-            try {
-                const res = await api.get("/Plan/plan-list");
+  // 🧭 Load danh sách subscription đang dùng
+  useEffect(() => {
+    const fetchSubs = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const userId = localStorage.getItem("userId");
 
-                // 🧠 đảm bảo dữ liệu luôn là mảng
-                const data = Array.isArray(res.data)
-                    ? res.data
-                    : Array.isArray(res.data.data)
-                        ? res.data.data
-                        : Array.isArray(res.data.planList)
-                            ? res.data.planList
-                            : [];
-
-                console.log("✅ Plan list response:", res.data);
-                setSubs(data);
-
-                const active = data.find((s) => s.status === "active");
-                setSelected(active?.planId || data[0]?.planId || "");
-            } catch (err) {
-                console.error("❌ Error fetching plans:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchPlans();
-    }, []);
-
-    if (loading)
-        return (
-            <div className="flex justify-center items-center min-h-screen">
-                <div className="h-10 w-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-            </div>
+        const res = await api.get(
+          `/Subscription/subscription-user-list?DriverId=${userId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
 
-    const current = subs.find((s) => s.planId === selected);
+        const data = Array.isArray(res.data?.data) ? res.data.data : [];
+        setSubs(data);
+        setSelected(data[0]?.subId || "");
+      } catch (err) {
+        console.error("❌ Error fetching subscriptions:", err);
+        alert("Failed to load subscriptions!");
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    fetchSubs();
+  }, []);
+
+  const current = subs.find((s) => s.subId === selected);
+
+  // ♻️ Renew plan
+  const handleRenew = async () => {
+    if (!current) return alert("No active subscription to renew!");
+    const driverId = localStorage.getItem("userId");
+    const token = localStorage.getItem("token");
+
+    try {
+      await api.post(
+        "/Subscription/renew",
+        {
+          userDriverId: driverId,
+          subscriptionId: current.subId,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      alert("✅ Subscription renewed successfully!");
+      navigate("/user/transaction");
+    } catch (error) {
+      console.error("❌ Renew failed:", error);
+      alert("Failed to renew subscription!");
+    } finally {
+      setShowRenewModal(false);
+    }
+  };
+
+  if (loading)
     return (
-        <div className="p-6 bg-gray-50 min-h-screen">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                📦 Subscription
-            </h2>
-
-            {subs.length === 0 && (
-                <div className="text-center bg-white p-8 rounded-2xl shadow-md border max-w-xl mx-auto">
-                    <h3 className="text-xl font-semibold mb-2">
-                        You don't have a subscription yet
-                    </h3>
-                    <p className="text-gray-600 mb-5">
-                        Register now to enjoy battery swaps and exclusive benefits.
-                    </p>
-                    <button
-                        onClick={() => navigate("/user/service/register")}
-                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-                    >
-                        ➕ Register new Service
-                    </button>
-                </div>
-            )}
-
-            {current && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* LEFT CARD - CURRENT PLAN */}
-                    <div
-                        className="p-6 rounded-2xl shadow-lg text-gray-800"
-                        style={{
-                            background: "linear-gradient(135deg, #a5f3fc 0%, #c084fc 100%)",
-                        }}
-                    >
-                        <h3 className="text-lg text-gray-700 mb-1">Current subscription</h3>
-                        <h2 className="text-3xl font-bold text-blue-900 mb-2">
-                            {current.planName}
-                        </h2>
-                        <p className="text-sm text-gray-700 mb-4">
-                            <strong>Plan ID:</strong> {current.planId}
-                        </p>
-
-                        <label className="block text-sm mb-1 font-semibold">
-                            Select Subscription
-                        </label>
-                        <select
-                            className="w-full border rounded-lg p-2 mb-2 focus:ring-2 focus:ring-blue-500"
-                            value={selected}
-                            onChange={(e) => setSelected(e.target.value)}
-                        >
-                            {subs.map((s) => (
-                                <option key={s.planId} value={s.planId}>
-                                    {s.planName} — {s.price.toLocaleString()}₫
-                                </option>
-                            ))}
-                        </select>
-
-                        <p className="text-sm text-green-800 mb-4">
-                            ✅ Valid until {current.expireDate || "2025-12-31"}
-                        </p>
-
-                        <div className="flex justify-between items-center mb-4">
-                            <div>
-                                <p className="text-gray-600 text-sm">Status</p>
-                                <p className="font-semibold text-green-700 capitalize">
-                                    {current.status || "active"}
-                                </p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-2xl font-bold text-blue-900">
-                                    {current.price?.toLocaleString() || 0}₫
-                                </p>
-                                <p className="text-gray-600 text-sm">/ month</p>
-                            </div>
-                        </div>
-
-                        <div className="bg-white bg-opacity-30 rounded-xl p-3 mb-4">
-                            <p className="font-semibold">Battery Mileage</p>
-                            <p className="text-sm text-gray-700">
-                                {current.milleageBaseUsed
-                                    ? `${current.milleageBaseUsed} km/month`
-                                    : "Unlimited"}
-                            </p>
-                        </div>
-
-                        <button
-                            onClick={() => navigate("/user/service/change")}
-                            className="w-full bg-black text-white rounded-lg py-2 hover:bg-gray-900 transition mb-3 flex items-center justify-center gap-2"
-                        >
-                            <span>🔁</span> Change Service →
-                        </button>
-
-                        <button
-                            onClick={() => navigate("/user/service/register")}
-                            className="w-full bg-indigo-600 text-white rounded-lg py-2 hover:bg-indigo-700 transition flex items-center justify-center gap-2"
-                        >
-                            <span>➕</span> Register new Service
-                        </button>
-                    </div>
-
-                    {/* RIGHT CARD - STATS */}
-                    <div className="p-6 bg-white rounded-2xl shadow-lg">
-                        <h3 className="text-lg font-semibold mb-4 text-gray-700">
-                            Usage Statistics
-                        </h3>
-
-                        <div className="space-y-4">
-                            <div className="p-4 rounded-xl bg-blue-50 text-center">
-                                <p className="text-3xl font-bold text-blue-600">28</p>
-                                <p className="text-gray-600 text-sm">Swaps this month</p>
-                            </div>
-                            <div className="p-4 rounded-xl bg-green-50 text-center">
-                                <p className="text-3xl font-bold text-green-600">1,250 km</p>
-                                <p className="text-gray-600 text-sm">Distance traveled</p>
-                            </div>
-                            <div className="p-4 rounded-xl bg-purple-50 text-center">
-                                <p className="text-3xl font-bold text-purple-600">80,000₫</p>
-                                <p className="text-gray-600 text-sm">Total Charge</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="h-10 w-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
     );
+
+  // 🧩 Nếu chưa có gói nào -> hiện form register
+  if (!current)
+    return (
+      <div className="text-center bg-white p-8 rounded-2xl shadow-md border max-w-xl mx-auto mt-16">
+        <h3 className="text-xl font-semibold mb-2">
+          You don't have a subscription yet
+        </h3>
+        <p className="text-gray-600 mb-5">
+          Register now to enjoy battery swaps and exclusive benefits.
+        </p>
+        <button
+          onClick={() => navigate("/user/service/register")}
+          className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+        >
+          ➕ Register new Service
+        </button>
+      </div>
+    );
+
+  return (
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+        📦 Subscription
+      </h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* LEFT CARD - CURRENT PLAN */}
+        <div
+          className="p-6 rounded-2xl shadow-lg text-gray-800"
+          style={{
+            background: "linear-gradient(135deg, #a5f3fc 0%, #c084fc 100%)",
+          }}
+        >
+          <h3 className="text-lg text-gray-700 mb-1">Current subscription</h3>
+          <h2 className="text-3xl font-bold text-blue-900 mb-2">
+            {current.planName}
+          </h2>
+          <div className="mb-4">
+            <label className="block text-gray-700 font-semibold mb-1">
+              Select Subscription:
+            </label>
+            <select
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+              className="w-full border px-3 py-2 rounded-lg bg-white"
+            >
+              {subs.map((s) => (
+                <option key={s.subId} value={s.subId}>
+                  {s.subId} — {s.planName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <p className="text-gray-600 text-sm">Status</p>
+              <p className="font-semibold text-green-700 capitalize">
+                {current.planStatus || "Active"}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-gray-600 text-sm">End Date</p>
+              <p className="font-semibold text-gray-800">
+                {current.endDate || "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white bg-opacity-30 rounded-xl p-3 mb-4">
+            <p className="font-semibold">Battery Usage</p>
+            <p className="text-sm text-gray-700">
+              Remaining swaps: {current.remaining_swap} | Mileage:{" "}
+              {current.current_miligate} km
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => navigate("/user/service/change")}
+              className="w-full bg-black text-white rounded-lg py-2 hover:bg-gray-900 transition mb-1 flex items-center justify-center gap-2"
+            >
+              <span>🔁</span> Change Plan →
+            </button>
+
+            <button
+              onClick={() => setShowRenewModal(true)}
+              className="w-full bg-blue-600 text-white rounded-lg py-2 hover:bg-blue-700 transition flex items-center justify-center gap-2"
+            >
+              <span>♻️</span> Renew Plan
+            </button>
+
+            <button
+              onClick={() => navigate("/user/service/register")}
+              className="w-full bg-indigo-500 text-white rounded-lg py-2 hover:bg-indigo-600 transition flex items-center justify-center gap-2"
+            >
+              <span>➕</span> Register new Service
+            </button>
+          </div>
+        </div>
+
+        {/* RIGHT CARD - STATISTICS */}
+        <div className="p-6 bg-white rounded-2xl shadow-lg">
+          <h3 className="text-lg font-semibold mb-4 text-gray-700">
+            Usage Statistics
+          </h3>
+
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-blue-50 text-center">
+              <p className="text-3xl font-bold text-blue-600">28</p>
+              <p className="text-gray-600 text-sm">Swaps this month</p>
+            </div>
+            <div className="p-4 rounded-xl bg-green-50 text-center">
+              <p className="text-3xl font-bold text-green-600">1,250 km</p>
+              <p className="text-gray-600 text-sm">Distance traveled</p>
+            </div>
+            <div className="p-4 rounded-xl bg-purple-50 text-center">
+              <p className="text-3xl font-bold text-purple-600">80,000₫</p>
+              <p className="text-gray-600 text-sm">Total Charge</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 🔹 Modal xác nhận Renew */}
+      {showRenewModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-[90%] max-w-md shadow-2xl text-center">
+            <h3 className="text-xl font-semibold text-gray-800 mb-3">
+              Renew Subscription
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Do you want to renew your current plan{" "}
+              <strong>{current.planName}</strong>?
+            </p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => setShowRenewModal(false)}
+                className="px-5 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRenew}
+                className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
