@@ -151,37 +151,82 @@ export default function Vehicle() {
         }
     };
 
-    // ✅ Xoá xe: optimistic remove + refetch (có _ts chống cache)
+    // ✅ DELETE đúng theo BE: /Vehicle/delete-vehicle + query
     const handleDeleteVehicle = async (vin) => {
         if (!window.confirm("🗑️ Are you sure you want to delete this vehicle?")) return;
 
+        const VIN = (vin || "").trim();
+        const VIN_LC = VIN.toLowerCase();
+
+        // Optimistic UI
+        const prev = vehicles;
+        setVehicles((cur) => cur.filter((x) => (x.vin || "").trim() !== VIN));
+
+        // chỉ dùng 1 endpoint, thử vài casing của param (query only)
+        const queries = [
+            { VIN: VIN, UserDriverId: driverId },
+            { Vin: VIN, UserDriverId: driverId },
+            { vin: VIN, UserDriverId: driverId },
+            { VIN: VIN, userDriverId: driverId },
+            { vin: VIN, driverId: driverId },
+        ];
+
+        let deleted = false;
+        let lastErr = null;
+
         try {
-            // Optimistic UI: xoá ngay trên FE
-            setVehicles((prev) => prev.filter((x) => x.vin !== vin));
-            // nếu VIN đang pending recommend thì bỏ luôn
-            const VIN = (vin || "").trim().toLowerCase();
-            setPendingRecs((prev) => prev.filter((x) => x !== VIN));
+            for (const q of queries) {
+                try {
+                    console.log("🗑️ DELETE /Vehicle/delete-vehicle", q);
+                    await api.delete("/Vehicle/delete-vehicle", {
+                        params: { ...q, _ts: Date.now() }, // chống cache
+                    });
 
-            console.log("📡 DELETE /Vehicle/delete-vehicle", {
-                VIN: vin,
-                UserDriverId: driverId,
-            });
+                    // Verify: refetch list rồi kiểm tra VIN còn hay không
+                    const res = await api.get("/Vehicle/vehicle-list", {
+                        params: { UserDriverId: driverId, _ts: Date.now() },
+                    });
+                    const raw =
+                        (Array.isArray(res.data) && res.data) ||
+                        (Array.isArray(res.data?.data) && res.data.data) ||
+                        [];
+                    const mapped = raw.map(mapVehicle);
+                    setVehicles(mapped);
 
-            await api.delete("/Vehicle/delete-vehicle", {
-                params: { VIN: vin, UserDriverId: driverId, _ts: Date.now() },
-            });
-
-            // Đồng bộ lại với BE để chắc chắn
-            await fetchVehicles();
-
-            alert("✅ Vehicle deleted successfully!");
-        } catch (err) {
-            console.error("❌ Failed to delete vehicle:", err);
-            alert("❌ Failed to delete vehicle. Check BE endpoint.");
-            // rollback/dong bo lại
-            await fetchVehicles();
+                    const still = mapped.some(
+                        (v) => (v.vin || "").trim().toLowerCase() === VIN_LC
+                    );
+                    if (!still) {
+                        deleted = true;
+                        break;
+                    }
+                    // nếu BE trả 200 nhưng vẫn còn → thử casing kế tiếp
+                } catch (e) {
+                    lastErr = e; // lưu lại lỗi cuối
+                    // thử casing tiếp theo
+                }
+            }
+        } finally {
+            if (!deleted) {
+                // rollback nếu server chưa xóa thật
+                setVehicles(prev);
+                const apiMsg =
+                    lastErr?.response?.data?.message ||
+                    (typeof lastErr?.response?.data === "string"
+                        ? lastErr.response.data
+                        : "") ||
+                    (lastErr ? JSON.stringify(lastErr?.response?.data || {}) : "Server error");
+                alert(
+                    "❌ Failed to delete on server.\n" +
+                    (apiMsg ||
+                        "Route đúng là /Vehicle/delete-vehicle nhưng query param chưa trúng. Kiểm tra Swagger: tên param chính xác (VIN/UserDriverId hay vin/driverId).")
+                );
+            } else {
+                alert("✅ Vehicle deleted successfully!");
+            }
         }
     };
+
 
     return (
         <div className="min-h-screen bg-gray-50 p-6">
