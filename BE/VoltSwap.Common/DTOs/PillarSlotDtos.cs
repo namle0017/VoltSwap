@@ -18,4 +18,18 @@ namespace VoltSwap.Common.DTOs
         public decimal BatterySoc { get; set; }
         public decimal BatterySoh { get; set; }
     }
+
+    public class StaffPillarSlotDto
+    {
+        public int SlotId { get; set; }
+        public int NumberOfSlotEmpty { get; set; }
+        /// <summary>
+        /// red: <=20%
+        /// </summary>
+        public int NumberOfSlotRed { get; set; }
+        //green: >=90%
+        public int NumberOfSlotGreen { get; set; }
+        //yellow : 21<=x<=90
+        public int NumberOfSlotYellow { get; set; }
+    }
 }

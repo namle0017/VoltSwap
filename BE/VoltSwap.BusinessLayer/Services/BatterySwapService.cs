@@ -1,4 +1,5 @@
 ﻿using Azure.Core;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -11,6 +12,7 @@ using VoltSwap.Common.DTOs;
 using VoltSwap.DAL.Base;
 using VoltSwap.DAL.Models;
 using VoltSwap.DAL.UnitOfWork;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace VoltSwap.BusinessLayer.Services
 {
@@ -22,6 +24,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<Subscription> _subRepo;
         private readonly IGenericRepositories<PillarSlot> _pillarRepo;
         private readonly IGenericRepositories<BatterySession> _batSessionRepo;
+        private readonly IBatteryService _batService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ISubscriptionService _subService;
         private readonly IConfiguration _configuration;
@@ -34,6 +37,7 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<Subscription> subRepo,
             IGenericRepositories<Battery> batRepo,
             IGenericRepositories<BatterySession> batSessionRepo,
+            IBatteryService batService,
             ISubscriptionService subService,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
@@ -45,6 +49,7 @@ namespace VoltSwap.BusinessLayer.Services
             _batSessionRepo = batSessionRepo;
             _batRepo = batRepo;
             _subService = subService;
+            _batService = batService;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
             _random = new Random();
@@ -202,6 +207,7 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<List<PillarSlotDto>> GetPillarSlot(string stationId)
         {
             var pillarSlots = await _unitOfWork.Stations.GetBatteriesInPillarByStationIdAsync(stationId);
+            var updateBatterySoc = await _batService.UpdateBatterySocAsync();
             var dtoList = pillarSlots.Select(slot => new PillarSlotDto
             {
                 SlotId = slot.SlotId,
@@ -590,5 +596,40 @@ namespace VoltSwap.BusinessLayer.Services
         //        }
         //    };
         //}
+
+
+        //Nemo: cái này để tính ra được số lượt đổi pin theo tháng
+        public async Task<List<BatterySwapMonthlyResponse>> GetBatterySwapMonthly()
+        {
+            var currentYear = DateTime.UtcNow.ToLocalTime().Year;
+            var getBatterySwap = await _batSwapRepo.GetAllQueryable()
+                                    .Where(bs => bs.SwapDate.Year == currentYear && bs.Status == "Returned")
+                                    .GroupBy(bs => bs.SwapDate.Month)
+                                    .Select(bs => new
+                                    {
+                                        Month = bs.Key,
+                                        BatterySwapInMonth = bs.Count() / 2,
+                                    })
+                                    .ToListAsync();
+
+            // Tạo danh sách 12 tháng trong năm
+            var result = Enumerable.Range(1, 12)
+                .Select(m =>
+                {
+                    var monthData = getBatterySwap.FirstOrDefault(d => d.Month == m);
+                    int count = monthData?.BatterySwapInMonth ?? 0;
+
+                    return new BatterySwapMonthlyResponse
+                    {
+                        Month = m,
+                        BatterySwapInMonth = count,
+                        AvgBatterySwap = (int)Math.Round(
+                            count / (double)DateTime.DaysInMonth(currentYear, m), 0)
+                    };
+                })
+                .ToList();
+
+            return result;
+        }
     }
 }

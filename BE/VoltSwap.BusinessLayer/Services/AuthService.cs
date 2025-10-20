@@ -53,9 +53,9 @@ namespace VoltSwap.BusinessLayer.Services
 
             return new ServiceResult
             {
-                Status= 200,
+                Status = 200,
                 Message = "Login successfull",
-                Data= new LoginResponse
+                Data = new LoginResponse
                 {
                     Token = token,
                     RefreshToken = refreshToken.Token,
@@ -138,7 +138,7 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             var user = await _userRepo.GetByIdAsync(storedToken.UserId);
-            if (user == null || user.Status=="Active")
+            if (user == null || user.Status == "Active")
             {
                 return new ServiceResult
                 {
@@ -262,12 +262,12 @@ namespace VoltSwap.BusinessLayer.Services
 
         private string GeneratedPasswordHash(String password) => BCrypt.Net.BCrypt.HashPassword(password);
 
-        private bool VerifyPasswords(String passwordRquest, string passwrodHash)=> BCrypt.Net.BCrypt.Verify(passwordRquest, passwrodHash);
+        private bool VerifyPasswords(String passwordRquest, string passwrodHash) => BCrypt.Net.BCrypt.Verify(passwordRquest, passwrodHash);
         private async Task<string> GenerateUserId(string userRole)
         {
             Guid id = Guid.NewGuid();
             int code = Math.Abs(id.GetHashCode() % 100000000);
-            string userID="";
+            string userID = "";
 
             string prefix = userRole.Trim().ToLower() switch
             {

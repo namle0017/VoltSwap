@@ -8,7 +8,7 @@ namespace VoltSwap.Common.DTOs
 {
     public class StationListResponse
     {
-        public String StationId {  get; set; }
+        public String StationId { get; set; }
         public String StationName { get; set; }
         public string StationAddress { get; set; }
         public decimal LocationLat { get; set; }
@@ -46,4 +46,10 @@ namespace VoltSwap.Common.DTOs
     }
 
 
+    public class StationSubResponse
+    {
+        public string StationId { get; set; }
+        public string StationName { get; set; }
+        public string StationAddress { get; set; }
+    }
 }

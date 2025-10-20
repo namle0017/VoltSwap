@@ -62,12 +62,12 @@ namespace VoltSwap.Common.DTOs
 
     //Đây sẽ là bắt đầu cho phần transfer pin giữa các trạm hay giả lập cho staff
     public class StaffBatteryRequest
-    { 
+    {
         public String StationId { get; set; }
         public string StaffId { get; set; }
         public String? BatteryOutId { get; set; }
         public String? BatteryInId { get; set; }
-        public  string SubId { get; set; }
+        public string SubId { get; set; }
     }
 
     public class StaffNewBatteryInRequest
@@ -94,6 +94,14 @@ namespace VoltSwap.Common.DTOs
         public string NewSubscriptionId { get; set; }
         public string PreSubscriptionId { get; set; }
         public string BatteryId { get; set; }
+    }
+
+    //Nemo: Dto cho tính lượt đổi pin theo tháng
+    public class BatterySwapMonthlyResponse
+    {
+        public int Month { get; set; }
+        public int BatterySwapInMonth { get; set; }
+        public int AvgBatterySwap { get; set; }
     }
 
 }

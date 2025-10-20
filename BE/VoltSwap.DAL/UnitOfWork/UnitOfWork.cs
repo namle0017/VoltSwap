@@ -22,7 +22,8 @@ namespace VoltSwap.DAL.UnitOfWork
         private IReportRepository? reportRepository;
         private IBookingRepository? bookingRepository;
         private IVehicleRepository? vehicleRepository;
-        private IFeeRepository? FeeRepository;
+        private IStationStaffRepository? staitonStaffRepository;
+        private IPillarSlotRepository? pillarSlotRepository;
 
         public UnitOfWork(VoltSwapDbContext context)
         {
@@ -152,16 +153,26 @@ namespace VoltSwap.DAL.UnitOfWork
                 return vehicleRepository;
             }
         }
-        public IFeeRepository Fees
+        public IStationStaffRepository StationStaffs
         {
             get
             {
-                if (FeeRepository == null)
+                if (staitonStaffRepository == null)
                 {
-                    FeeRepository = (IFeeRepository)new 
-                        FeeRepository(_context);
+                    staitonStaffRepository = (IStationStaffRepository)new StationStaffRepository(_context);
                 }
-                return FeeRepository;
+                return staitonStaffRepository;
+            }
+        }
+        public IPillarSlotRepository PillarSlots
+        {
+            get
+            {
+                if (pillarSlotRepository == null)
+                {
+                    pillarSlotRepository = (IPillarSlotRepository)new PillarSlotRepository(_context);
+                }
+                return pillarSlotRepository;
             }
         }
 

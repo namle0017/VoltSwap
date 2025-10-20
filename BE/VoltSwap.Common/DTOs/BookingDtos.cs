@@ -18,8 +18,6 @@ namespace VoltSwap.Common.DTOs
         public string SubscriptionId { get; set; }
         public DateOnly DateBooking { get; set; }
         public TimeOnly TimeBooking { get; set; }
-
-
     }
     public class BookingResponse
     {
@@ -33,5 +31,18 @@ namespace VoltSwap.Common.DTOs
         public DateOnly DateBooking { get; set; }
         public TimeOnly TimeBooking { get; set; }
         public DateTime CreateBookingAt { get; set; }
+    }
+    public class SubBookingResponse
+    {
+        public string AppointmentId { get; set; }
+        public StationSubResponse BatterySwapStation { get; set; }
+        public string SubscriptionId { get; set; }
+        public DateOnly DateBooking { get; set; }
+        public TimeOnly TimeBooking { get; set; }
+    }
+
+    public class SubBooking
+    {
+        public string SubId { get; set; }
     }
 }

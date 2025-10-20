@@ -6,10 +6,8 @@ using System.Threading.Tasks;
 
 namespace VoltSwap.BusinessLayer.IServices
 {
-
-    public interface IPillarSlotService
+    public interface IBatteryService
     {
- 
-
+        Task<int> UpdateBatterySocAsync();
     }
 }

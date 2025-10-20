@@ -69,8 +69,8 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<ServiceResult> AdminAsignStaff(StaffAssignedRequest request)
         {
-            var report  = await _reportRepo.GetByIdAsync(request.ReportId);
-            if(report == null)
+            var report = await _reportRepo.GetByIdAsync(request.ReportId);
+            if (report == null)
             {
                 return new ServiceResult
                 {
@@ -110,7 +110,7 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<ServiceResult> GetDriverContact(string driverID)
         {
             var driverContact = await _unitOfWork.Reports.GetDriverContact(driverID);
-            if(driverContact == null)
+            if (driverContact == null)
             {
                 return new ServiceResult
                 {
