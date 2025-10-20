@@ -94,7 +94,7 @@ namespace VoltSwap.API.Controllers
         }
 
         // Nemo: API cho confirm chuyển tiền
-        [HttpGet("confirm-payment")]
+        [HttpGet("confirm-payment/{transactionId}")]
         public async Task<IActionResult> ConfirmPayment([FromQuery] string transactionId)
         {
             if (!ModelState.IsValid)

@@ -135,10 +135,14 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Nemo: Làm thêm hàm để có thể confirm sau khi đã chuyển tiền
+        // renew : Not Done
+        // register : Not Done
+        // Booking : Not Done
+        // Cancel : Not Done
         public async Task<IServiceResult> ConfirmPaymentAsync(string transactionId)
         {
             var transaction = await _transRepo.GetByIdAsync(t => t.TransactionId == transactionId);
-            transaction.Status = "Waiting";
+            transaction.Status = "Pending";
             if (transaction == null)
             {
                 return new ServiceResult
@@ -147,6 +151,7 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "Something wrong! Please contact to admin for support",
                 };
             }
+            transaction.Status = "Waiting";
             await _transRepo.UpdateAsync(transaction);
             await _unitOfWork.SaveChangesAsync();
 
@@ -449,5 +454,4 @@ namespace VoltSwap.BusinessLayer.Services
 
     //    return result;
     //}
-}
 }

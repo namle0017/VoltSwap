@@ -22,6 +22,7 @@ namespace VoltSwap.DAL.UnitOfWork
         IBookingRepository Bookings { get; }
         IVehicleRepository Vehicles { get; }
         IStationStaffRepository StationStaffs { get; }
+        IPillarSlotRepository PillarSlots { get; }
 
 
     }

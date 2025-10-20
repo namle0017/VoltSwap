@@ -23,6 +23,7 @@ namespace VoltSwap.DAL.UnitOfWork
         private IBookingRepository? bookingRepository;
         private IVehicleRepository? vehicleRepository;
         private IStationStaffRepository? staitonStaffRepository;
+        private IPillarSlotRepository? pillarSlotRepository;
 
         public UnitOfWork(VoltSwapDbContext context)
         {
@@ -161,6 +162,17 @@ namespace VoltSwap.DAL.UnitOfWork
                     staitonStaffRepository = (IStationStaffRepository)new StationStaffRepository(_context);
                 }
                 return staitonStaffRepository;
+            }
+        }
+        public IPillarSlotRepository PillarSlots
+        {
+            get
+            {
+                if (pillarSlotRepository == null)
+                {
+                    pillarSlotRepository = (IPillarSlotRepository)new PillarSlotRepository(_context);
+                }
+                return pillarSlotRepository;
             }
         }
 

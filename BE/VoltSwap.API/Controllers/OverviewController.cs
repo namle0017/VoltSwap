@@ -12,14 +12,9 @@ namespace VoltSwap.API.Controllers
         private readonly OverviewService _overviewService;
         public OverviewController(OverviewService overviewService)
         {
-            _overviewService  = overviewService;
+            _overviewService = overviewService;
         }
 
-        [HttpGet("number-driver")]
-        public async Task<IActionResult> GetNumberOfDriver()
-        {
-            var result = await _overviewService.GetNumberOfDriver();
-            return Ok(result);
-        }
+
     }
 }
