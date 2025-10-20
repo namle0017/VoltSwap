@@ -27,6 +27,8 @@ public partial class Appointment
 
     public virtual BatterySwapStation BatterySwapStation { get; set; }
 
+    public virtual ICollection<PillarSlot> PillarSlots { get; set; } = new List<PillarSlot>();
+
     public virtual Subscription Subscription { get; set; }
 
     public virtual User UserDriver { get; set; }

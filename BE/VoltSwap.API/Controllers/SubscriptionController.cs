@@ -24,14 +24,24 @@ namespace VoltSwap.API.Controllers
             if (string.IsNullOrWhiteSpace(req.DriverId))
                 return BadRequest(new { message = "userId is required" });
 
-            var result = await _subService.GetUserSubscriptionsAsync(new CheckSubRequest { DriverId = req.DriverId  });
+            var result = await _subService.GetUserSubscriptionsAsync(new CheckSubRequest { DriverId = req.DriverId });
             return StatusCode(result.Status, result);
         }
+        //[HttpPost("create")]
+        //public async Task<IActionResult> CreatePlan([FromBody] RegisterPlanRequest req)
+        //{
+        //    var result = await _subService.RegisterSubcriptionAsync(req.UserDriverId, req.PlanId);
+        //    return StatusCode(result.Status, new 
+        //    { 
+        //        result.Message,
+        //        result.Data
+        //    });
+        //}
 
         [HttpPost("renew")]
-        public async Task<IActionResult> RenewPlan([FromBody] RegisterPlanRequest req)
+        public async Task<IActionResult> RenewPlan([FromBody] SubRequest req)
         {
-            var result = await _subService.RenewPlanAsync(req.UserDriverId, req.SubscriptionId);
+            var result = await _subService.RenewSubcriptionAsync(req.DriverId, req.SubId);
             return StatusCode(result.Status, new 
             { 
                 result.Message,
@@ -42,7 +52,7 @@ namespace VoltSwap.API.Controllers
         [HttpPost("change")]
         public async Task<IActionResult> CanChange([FromBody] ChangePlanRequest req)
         {
-            var result = await _subService.ChangePlanAsync(req.UserDriverId, req.SubscriptionId, req.NewPlanId);
+            var result = await _subService.ChangeSubcriptionAsync(req.UserDriverId, req.SubscriptionId, req.NewPlanId);
             return StatusCode(result.Status, new
             {
                 result.Message,

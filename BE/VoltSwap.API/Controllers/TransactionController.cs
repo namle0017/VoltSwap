@@ -16,7 +16,17 @@ namespace VoltSwap.API.Controllers
         {
             _transService = transService;
         }
-
+        //hàm này để admin approve 
+        [HttpPost("admin-approve-transaction")]
+        public async Task<IActionResult> ApproveTransactionAdmin([FromBody] ApproveTransactionRequest requestDto)
+        {
+            if(!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var transaction = await _transService.UpdateTransactionStatusAsync_V2(requestDto);
+            return StatusCode(transaction.Status,transaction.Message);
+        }
 
         [HttpPost("transaction-user-list")]
         public async Task<IActionResult> TransactionApiClient([FromBody] TransactionRequest requestDto)
@@ -53,7 +63,7 @@ namespace VoltSwap.API.Controllers
             return Ok(result);
         }
 
-        //Hàm này để admin trả về status của transaction
+       
         [HttpGet("admin-transaction-list")]
         public async Task<IActionResult> AdminTransaction()
         {
@@ -65,16 +75,16 @@ namespace VoltSwap.API.Controllers
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
 
-        [HttpPost("admin-approve-transaction")]
-        public async Task<IActionResult> ApproveTransaction([FromBody] ApproveTransactionRequest requestDto)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-            var result = await _transService.UpdateTransactionStatusAsync(requestDto);
-            return StatusCode(result.Status, new { message = result.Message });
-        }
+        //[HttpPost("admin-approve-transaction")]
+        //public async Task<IActionResult> ApproveTransaction([FromBody] ApproveTransactionRequest requestDto)
+        //{
+        //    if (!ModelState.IsValid)
+        //    {
+        //        return BadRequest(ModelState);
+        //    }
+        //    var result = await _transService.UpdateTransactionStatusAsync(requestDto);
+        //    return StatusCode(result.Status, new { message = result.Message });
+        //}
 
 
         [HttpGet("test")]

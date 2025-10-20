@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +9,7 @@ using VoltSwap.BusinessLayer.Base;
 using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.Common.DTOs;
 using VoltSwap.DAL.Base;
+using VoltSwap.DAL.IRepositories;
 using VoltSwap.DAL.Models;
 using VoltSwap.DAL.UnitOfWork;
 
@@ -17,23 +19,33 @@ namespace VoltSwap.BusinessLayer.Services
     {
         private readonly IGenericRepositories<Transaction> _transRepo;
         private readonly IGenericRepositories<User> _driverRepo;
+        private readonly IPillarSlotRepository _slotRepo;
         private readonly IGenericRepositories<Subscription> _subRepo;
+        private readonly IGenericRepositories<Appointment> _appoinmentRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
         private readonly IPlanService _plansService;
+        private static readonly TimeZoneInfo VN_TZ =
+    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)
+        ? TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time")
+        : TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
         public TransactionService(
             IServiceProvider serviceProvider,
             IGenericRepositories<User> driverRepo,
             IGenericRepositories<Transaction> transRepo,
             IGenericRepositories<Subscription> subRepo,
+            IGenericRepositories<Appointment> appointmentRepo,
+            IPillarSlotRepository slotRepo,
             IPlanService plansService,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
         {
+            _appoinmentRepo = appointmentRepo;
             _transRepo = transRepo;
             _driverRepo = driverRepo;
             _subRepo = subRepo;
             _plansService = plansService;
+            _slotRepo = slotRepo;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
         }
@@ -46,7 +58,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             // chỗ này thì để tạo transactionid và SubId đang lỗi chỗ này
             //Nếu chạy chỗ này thì kêu gọi 2 hàm để generate ra transId và SubId và 2 cái này đều sẽ lấy số random cộng với là sẽ check lại nếu bị vấn đề dup id để tránh conflict
-            //Nhưng mà chỗ này đang lỗi conflict :))))))))))))))
+           
             string transactionId = await GenerateTransactionId();
             string subId = await GenerateSubscriptionId();
 
@@ -66,6 +78,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Fee = requestDto.Fee,
                 TotalAmount = (requestDto.Amount + requestDto.Fee),
                 Note = $"Note for {requestDto.TransactionType} {subId}",
+                TransactionContext = transactionContext,
             };
             await _transRepo.CreateAsync(transactionDetail);
 
@@ -212,6 +225,7 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "Transaction not found."
                 };
             }
+            transaction.ConfirmDate= DateTime.UtcNow.ToLocalTime();
             transaction.Status = requestDto.NewStatus;
             _transRepo.UpdateAsync(transaction);
             await _unitOfWork.SaveChangesAsync();
@@ -231,6 +245,95 @@ namespace VoltSwap.BusinessLayer.Services
                 Status = 200,
                 Message = "Transaction status updated successfully."
             };
+        }
+
+        public async Task<ServiceResult> UpdateTransactionStatusAsync_V2(ApproveTransactionRequest requestDto)
+        {
+            var transaction = await _transRepo.GetByIdAsync(t => t.TransactionId == requestDto.RequestTransactionId);
+            if (transaction == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Transaction not found."
+                };
+            }
+            transaction.Status = requestDto.NewStatus;
+            transaction.ConfirmDate = DateTime.UtcNow.ToLocalTime();
+             await _transRepo.UpdateAsync(transaction);
+            await _unitOfWork.SaveChangesAsync();
+            // Nếu transaction được duyệt (approved), cập nhật trạng thái 
+            if (requestDto.NewStatus.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                var type = transaction.TransactionType .Trim().ToLowerInvariant();
+                switch (type)
+                {
+                    case "register":
+                    case "renew plan":
+                    case "change plan":
+                        var subscription = await _unitOfWork.Subscriptions
+                             .GetAllQueryable()
+                             .FirstOrDefaultAsync(s => s.SubscriptionId == transaction.SubscriptionId);
+                        if (subscription != null)
+                        {
+                            subscription.Status = "Active";
+                            await _unitOfWork.Subscriptions.UpdateAsync(subscription);
+                            await _unitOfWork.SaveChangesAsync();
+                        }
+                        break;
+
+                    case "booking":
+                        var appoinmentPending = await _unitOfWork.Bookings
+                                                    .GetAllQueryable()
+                                                     .AsTracking() 
+                                                     .FirstOrDefaultAsync(a =>
+                                                         a.SubscriptionId == transaction.SubscriptionId &&
+                                                         a.Status == "Pending");
+                        if (appoinmentPending == null)
+                        {
+                            return new ServiceResult { Status = 404, Message = "No pending appointment for this subscription." };
+                        }
+
+                        int  locked = await _slotRepo.LockSlotsAsync(appoinmentPending.BatterySwapStationId,appoinmentPending.SubscriptionId,appoinmentPending.AppointmentId);
+                        var secondsRemaining = CalculateCancelCountdownSeconds(appoinmentPending, addExtraHour: true);
+
+                        appoinmentPending.Status = "Not Done";
+                        await _unitOfWork.Bookings.UpdateAsync(appoinmentPending);
+                        await _unitOfWork.SaveChangesAsync();
+
+                        return new ServiceResult
+                        {
+                            Status = 200,
+                            Message = $"Transaction status updated successfully { secondsRemaining }, {locked}",
+                          
+                        }; 
+                    
+                }
+
+            }
+            
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Transaction status updated successfully."
+            };
+        }
+        private static DateTime ToUtcFromVn(DateTime vnLocal)
+        {
+            var unspecified = DateTime.SpecifyKind(vnLocal, DateTimeKind.Unspecified);
+            return TimeZoneInfo.ConvertTimeToUtc(unspecified, VN_TZ);
+        }
+
+        private static int CalculateCancelCountdownSeconds(Appointment appointment, bool addExtraHour = true)
+        {
+            var nowUtc = DateTime.UtcNow;
+            var scheduledLocalVn = appointment.DateBooking.ToDateTime(appointment.TimeBooking);
+            var scheduledUtc = ToUtcFromVn(scheduledLocalVn);
+            var expireAtUtc = addExtraHour ? scheduledUtc.AddHours(1) : scheduledUtc;
+            var realSecondsRemaining = (expireAtUtc - nowUtc).TotalSeconds;
+            var scaledSeconds = realSecondsRemaining * (10.0 / 3600.0);
+            if (scaledSeconds <= 0) return 0;
+            return (int)Math.Ceiling(scaledSeconds);
         }
 
         //Hàm này để lấy lịch sử transaction của user

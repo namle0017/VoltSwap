@@ -8,11 +8,7 @@ using VoltSwap.DAL.Models;
 
 namespace VoltSwap.DAL.IRepositories
 {
-    public interface IBookingRepository: IGenericRepositories<Appointment>
-
+    public  interface IFeeRepository : IGenericRepositories<Fee>
     {
-        Task<Appointment?> GetNotDoneriptionIdAsync(string subscriptionId);
-
-        Task<Appointment> CreateAsync(Appointment appointment);
     }
 }

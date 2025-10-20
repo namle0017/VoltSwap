@@ -24,6 +24,12 @@ namespace VoltSwap.DAL.Repositories
         {
             _context = context;
         }
+        public async Task<Appointment?> GetNotDoneriptionIdAsync(string subscriptionId)
+        {
+            return await _context.Appointments
+                .Where(a => a.SubscriptionId == subscriptionId && a.Status == "Not Done")
+                .FirstOrDefaultAsync();
+        }
         public async Task<Appointment> CreateAsync(Appointment appointment)
         {
 

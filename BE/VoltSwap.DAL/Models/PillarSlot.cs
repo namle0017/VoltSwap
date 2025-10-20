@@ -13,11 +13,15 @@ public partial class PillarSlot
 
     public string BatteryId { get; set; }
 
+    public string AppointmentId { get; set; }
+
     public int SlotNumber { get; set; }
 
     public string PillarStatus { get; set; }
 
     public DateTime UpdateAt { get; set; }
+
+    public virtual Appointment Appointment { get; set; }
 
     public virtual Battery Battery { get; set; }
 

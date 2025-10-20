@@ -95,7 +95,7 @@ namespace VoltSwap.BusinessLayer.Services
             var response = staffList.Select(staff => new StaffListResponse
             {
                 StaffId = staff.UserId,
-                StaffName = staff.UserDriverName,
+                StaffName = staff.UserName,
                 PhoneNumber = staff.UserTele,
                 StationId = staff.StationStaffs.FirstOrDefault()?.BatterySwapStation?.BatterySwapStationId,
                 StationName = staff.StationStaffs.FirstOrDefault()?.BatterySwapStation?.BatterySwapStationName,

@@ -14,10 +14,10 @@ namespace VoltSwap.API.Controllers
         {
             _vehicleService = vehicleService;
         }
-        [HttpPut("assign-vehicle")]
-        public async Task<IActionResult> AssignVehicle([FromBody] CheckDriverVehicleRequest request)
+        [HttpPost("Create-vehicle")]
+        public async Task<IActionResult> CreateVehicle([FromBody] CreateDriverVehicleRequest request)
         {
-            var result = await _vehicleService.AssignVehicleToUserAsync(request.VIN, request.UserDriverId);
+            var result = await _vehicleService.CreateDriverVehicleAsync(request);
             return StatusCode(result.Status, new
             {
                 result.Message
@@ -39,11 +39,7 @@ namespace VoltSwap.API.Controllers
         [HttpDelete("delete-vehicle")]
         public async Task<IActionResult> DeleteVehicle([FromQuery] CheckDriverVehicleRequest request)
         {
-            var result = await _vehicleService.DeleteDriverVehicleAsync(new CheckDriverVehicleRequest
-            {
-                UserDriverId = request.UserDriverId,
-                VIN = request.VIN
-            });
+            var result = await _vehicleService.DeleteDriverVehicleAsync(request);
             return StatusCode(result.Status, new
             {
                 result.Message

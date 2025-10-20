@@ -11,10 +11,11 @@ namespace VoltSwap.BusinessLayer.IServices
 {
     public interface ISubscriptionService
     {
+        //Task<ServiceResult> RegisterSubcriptionAsync(string DriverId, string PlanId);
         Task<ServiceResult> UserPlanCheckerAsync(CheckSubRequest requestDto);
         Task<ServiceResult> GetUserSubscriptionsAsync(CheckSubRequest request);
-        Task<ServiceResult> ChangePlanAsync(string UserDriverId, string subcriptionId, string newPlanId);
-        Task<ServiceResult> RenewPlanAsync(string UserDriverId, string subcriptionId);
+        Task<ServiceResult> ChangeSubcriptionAsync(string DriverId, string SubId, string newPlanId);
+        Task<ServiceResult> RenewSubcriptionAsync(string DriverId, string SubId);
         Task<List<Subscription>> GetPreviousSubscriptionAsync(CurrentSubscriptionResquest requestDto);
     }
 }
