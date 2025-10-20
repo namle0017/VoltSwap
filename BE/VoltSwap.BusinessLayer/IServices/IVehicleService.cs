@@ -10,7 +10,7 @@ namespace VoltSwap.BusinessLayer.IServices
 {
     public interface IVehicleService
     {
-        Task<ServiceResult> AssignVehicleToUserAsync(string vin, string userDriverId);
+        Task<ServiceResult> CreateDriverVehicleAsync(CreateDriverVehicleRequest request);
         Task<ServiceResult> DeleteDriverVehicleAsync(CheckDriverVehicleRequest request);
         Task<ServiceResult> GetUserVehiclesAsync(CheckDriverRequest request);
 

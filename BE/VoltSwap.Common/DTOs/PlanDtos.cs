@@ -51,6 +51,7 @@ namespace VoltSwap.Common.DTOs
 
     public class ChangePlanResponse
     {
+        public string TransactionId { get; set; }
         public string SubscriptionId { get; set; }
         public string PreviousSubcriptionId { get; set; }
         public string PlanId { get; set; }
@@ -61,7 +62,7 @@ namespace VoltSwap.Common.DTOs
     public class RegisterPlanRequest
     {
         public string UserDriverId { get; set; }
-        public string SubscriptionId { get; set; }
+        public string PlanId { get; set; }
 
     }
     public class RegisterPlanResponse

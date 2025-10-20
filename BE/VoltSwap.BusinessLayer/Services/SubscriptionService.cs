@@ -19,18 +19,26 @@ namespace VoltSwap.BusinessLayer.Services
 {
     public class SubscriptionService : BaseService, ISubscriptionService
     {
+        private readonly IGenericRepositories<Transaction> _transRepo;
+        private readonly IGenericRepositories<Fee> _feeRepo;
         private readonly IPlanService _planService;
         private readonly IGenericRepositories<Subscription> _subRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
+
+
         public SubscriptionService(
             IServiceProvider serviceProvider,
             IGenericRepositories<Subscription> subRepo,
+            IGenericRepositories<Transaction> transRepo,
+            IGenericRepositories<Fee> feeRepo,
             PlanService planService,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
         {
             _subRepo = subRepo;
+            _transRepo = transRepo;
+            _feeRepo = feeRepo;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
             _planService = planService;
@@ -124,13 +132,46 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = subscriptionDtos
             };
         }
-
-        public async Task<ServiceResult> RenewPlanAsync(string UserDriverId, string subcriptionId)
+        //Hàm đăng ký subcription mới
+        //public async Task<ServiceResult> RegisterSubcriptionAsync( string DriverId, string PlanId)
+        //{
+        //    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        //    var durationDays = await _planService.GetDurationDays(PlanId);
+        //    var newSubId = await GenerateSubscriptionId();
+        //    var newSubscription = new Subscription
+        //    {
+        //        SubscriptionId = newSubId,
+        //        UserDriverId = DriverId,
+        //        PlanId = PlanId,
+        //        StartDate = today,
+        //        EndDate = today.AddDays(durationDays),
+        //        Status = "Active",
+        //        CurrentMileage = 0,
+        //        RemainingSwap = 0,
+        //        CreateAt = DateTime.UtcNow
+        //    };
+        //    await _unitOfWork.Subscriptions.CreateAsync(newSubscription);
+        //    await _unitOfWork.SaveChangesAsync();
+        //    return new ServiceResult
+        //    {
+        //        Status = 201,
+        //        Message = "Subscription registered successfully.",
+        //        Data = new
+        //        {
+        //            newSubscription.SubscriptionId,
+        //            newSubscription.PlanId,
+        //            newSubscription.StartDate,
+        //            newSubscription.EndDate,
+        //            newSubscription.Status
+        //        }
+        //    };
+        //}
+        public async Task<ServiceResult> RenewSubcriptionAsync(string DriverId, string SubId)
         {
             var getsub = await _unitOfWork.Subscriptions
                 .GetAllQueryable()
-                .FirstOrDefaultAsync(s => s.SubscriptionId == subcriptionId
-                                        && s.UserDriverId == UserDriverId);
+                .FirstOrDefaultAsync(s => s.SubscriptionId == SubId
+                                        && s.UserDriverId == DriverId);
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             if (getsub.Status == "Active")
             {
@@ -143,12 +184,37 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             var durationDays = await _planService.GetDurationDays(getsub.PlanId);
-            getsub.PreviousSubscriptionId = subcriptionId;
+            getsub.PreviousSubscriptionId = SubId;
             getsub.StartDate = today;
             getsub.EndDate = today.AddDays(durationDays);
-            getsub.Status = "Active";
+            getsub.Status = "Inactive";
             _unitOfWork.Subscriptions.Update(getsub);
             await _unitOfWork.SaveChangesAsync();
+
+            //Tạo transaction cho việc renew
+            var newTransId = await GenerateTransactionId();
+            var price = await _planService.GetPriceByPlanId(getsub.PlanId);
+            string transactionContext = $"{DriverId}-RENEW_PACKAGE-{newTransId.Substring(6)}";
+            var newTransaction = new Transaction
+            {
+                TransactionId = newTransId,
+                SubscriptionId = getsub.SubscriptionId,
+                UserDriverId = DriverId,
+                TransactionType = "Renew",
+                Amount = price,
+                Currency = "VND",
+                TransactionDate = DateTime.UtcNow,
+                PaymentMethod = "Bank transfer",
+                Status = "Pending",
+                Fee = 0,
+                TotalAmount = price,
+                Note = $"Note for renew {getsub.SubscriptionId}",
+                TransactionContext = transactionContext,
+            };
+
+            await _unitOfWork.Trans.CreateAsync(newTransaction);
+            await _unitOfWork.SaveChangesAsync();
+
 
             return new ServiceResult
             {
@@ -156,6 +222,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "Subscription renewed successfully.",
                 Data = new
                 {
+                    newTransId,
                     getsub.SubscriptionId,
                     getsub.PreviousSubscriptionId,
                     getsub.PlanId,
@@ -165,12 +232,12 @@ namespace VoltSwap.BusinessLayer.Services
                 }
             };
         }
-        public async Task<ServiceResult> ChangePlanAsync(string UserDriverId, string subcriptionId, string newPlanId)
+        public async Task<ServiceResult> ChangeSubcriptionAsync(string DriverId, string SubId, string newPlanId)
         {
             var getsub = await _unitOfWork.Subscriptions
                 .GetAllQueryable()
-                .FirstOrDefaultAsync(s => s.SubscriptionId == subcriptionId
-                               && s.UserDriverId == UserDriverId);
+                .FirstOrDefaultAsync(s => s.SubscriptionId == SubId
+                               && s.UserDriverId == DriverId);
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             if (getsub.Status == "Active")
@@ -183,13 +250,50 @@ namespace VoltSwap.BusinessLayer.Services
                 return new ServiceResult(409, "Subscription is inactive and cannot be changed.");
             }
 
+            //Tạo transaction cho việc change plan
+            var newTransId = await GenerateTransactionId();
+            var price = await _planService.GetPriceByPlanId(getsub.PlanId);
+            string transactionContext = $"{DriverId}-CHANGE_PACKAGE-{newTransId.Substring(6)}";
+
+            //kiểm tra xem plan mới có số lương pin hơn plan cũ không
+            var newPlanBattery = await _planService.GetSwapLimitByPlanId(newPlanId);
+            var currentPlanBattery = await _planService.GetSwapLimitByPlanId(getsub.PlanId);
+            decimal deposit = 0;
+            if (newPlanBattery > currentPlanBattery)
+            {
+                var FeeDeposit = await _feeRepo.GetAllQueryable()
+                      .FirstOrDefaultAsync(fee => fee.TypeOfFee == "battery_deposit" && fee.PlanId == newPlanId);
+                deposit = (newPlanBattery - currentPlanBattery) * FeeDeposit.Amount;
+
+            }
+
+
+            var newTransaction = new Transaction
+            {
+                TransactionId = newTransId,
+                SubscriptionId = getsub.SubscriptionId,
+                UserDriverId = DriverId,
+                TransactionType = "Change plan",
+                Amount = price,
+                Currency = "VND",
+                TransactionDate = DateTime.UtcNow,
+                PaymentMethod = "Bank transfer",
+                Status = "Pending",
+                Fee = deposit,
+                TotalAmount = price + deposit,
+                Note = $"Note for change {getsub.SubscriptionId}",
+                TransactionContext = transactionContext,
+            };
+
+            await _unitOfWork.Trans.CreateAsync(newTransaction);
+            await _unitOfWork.SaveChangesAsync();
             var durationDays = await _planService.GetDurationDays(newPlanId);
 
             getsub.PlanId = newPlanId;
-            getsub.PreviousSubscriptionId = subcriptionId;
+            getsub.PreviousSubscriptionId = SubId;
             getsub.StartDate = today;
             getsub.EndDate = today.AddDays(durationDays);
-            getsub.Status = "active";
+            getsub.Status = "Inactive";
 
             _unitOfWork.Subscriptions.Update(getsub);
             await _unitOfWork.SaveChangesAsync();
@@ -197,8 +301,9 @@ namespace VoltSwap.BusinessLayer.Services
             var newSubId = await GenerateSubscriptionId();
             var data = new ChangePlanResponse
             {
+                TransactionId = newTransId,
                 SubscriptionId = newSubId,
-                PreviousSubcriptionId = subcriptionId,
+                PreviousSubcriptionId = SubId,
                 PlanId = getsub.PlanId,
                 StartDate = getsub.StartDate,
                 EndDate = getsub.EndDate,
@@ -230,6 +335,24 @@ namespace VoltSwap.BusinessLayer.Services
 
             } while (isDuplicated);
             return subscriptionId;
+        }
+        //Tao ra transactionID
+        public async Task<string> GenerateTransactionId()
+        {
+            string transactionId;
+            bool isDuplicated;
+            string dayOnly = DateTime.Today.Day.ToString("D2");
+            do
+            {
+                // Sinh 10 chữ số ngẫu nhiên
+                var random = new Random();
+                transactionId = $"TRANS-{dayOnly}-{string.Concat(Enumerable.Range(0, 10).Select(_ => random.Next(0, 10).ToString()))}";
+
+                // Kiểm tra xem có trùng không
+                isDuplicated = await _unitOfWork.Trans.AnyAsync(u => u.TransactionId == transactionId);
+
+            } while (isDuplicated);
+            return transactionId;
         }
 
         //Hàm này sẽ để check xem lấy các subId có pin đang sử dụng không

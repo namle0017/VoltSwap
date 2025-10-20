@@ -31,25 +31,33 @@ namespace VoltSwap.BusinessLayer.Services
             _unitOfWork = unitOfWork;
             _configuration = configuration;
         }
-        public async Task<ServiceResult> AssignVehicleToUserAsync(string vin, string userDriverId)
+        public async Task<ServiceResult> CreateDriverVehicleAsync(CreateDriverVehicleRequest request)
         {
-            // Tìm xe có VIN trùng và chưa gán user
-            var vehicle = await _unitOfWork.Vehicles
-                .GetAllQueryable()
-                .FirstOrDefaultAsync(v => v.Vin == vin);
-
-            if (vehicle == null)
-                return new ServiceResult(404, "Vehicle not found.");
-
-            // Gán user vào xe
-            vehicle.UserDriverId = userDriverId;
-
-            _unitOfWork.Vehicles.Update(vehicle);
+            var checkExistVehicle = await _unitOfWork.Vehicles.GetAllQueryable()
+                .FirstOrDefaultAsync(vehicle => vehicle.UserDriverId == request.DriverId && vehicle.Vin == request.VIN);
+            if (checkExistVehicle != null)
+            {
+                return new ServiceResult
+                {
+                    Status = 409,
+                    Message = "Vehicle already exists for the Driver."
+                };
+            }
+            var newVehicle = new DriverVehicle
+            {
+                UserDriverId = request.DriverId,
+                Vin =  request.VIN,
+                VehicleModel = request.VehicleModel,
+                NumberOfBattery = request.NumberOfBat,
+                CreatedAt = DateTime.UtcNow.ToLocalTime(),
+            };
+            await _unitOfWork.Vehicles.CreateAsync(newVehicle);
             await _unitOfWork.SaveChangesAsync();
-
-            return new ServiceResult { 
-                Status = 200, 
-                Message = "Vehicle assigned to user successfully." };
+            return new ServiceResult
+            {
+                Status = 201,
+                Message = "Vehicle added successfully."
+            };
         }
 
         public async Task<ServiceResult> DeleteDriverVehicleAsync(CheckDriverVehicleRequest request)

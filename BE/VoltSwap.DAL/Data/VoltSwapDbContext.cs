@@ -446,6 +446,8 @@ public partial class VoltSwapDbContext : DbContext
 
             entity.ToTable("pillar_slots");
 
+            entity.HasIndex(e => e.AppointmentId, "IX_pillar_slots_appointment_id");
+
             entity.HasIndex(e => e.BatteryId, "IX_pillar_slots_battery_id");
 
             entity.HasIndex(e => e.BatterySwapPillarId, "IX_pillar_slots_battery_swap_pillar_id");
@@ -453,6 +455,10 @@ public partial class VoltSwapDbContext : DbContext
             entity.HasIndex(e => e.SlotNumber, "IX_pillar_slots_slot_number");
 
             entity.Property(e => e.SlotId).HasColumnName("slot_id");
+            entity.Property(e => e.AppointmentId)
+                .HasMaxLength(15)
+                .IsUnicode(false)
+                .HasColumnName("appointment_id");
             entity.Property(e => e.BatteryId)
                 .HasMaxLength(15)
                 .IsUnicode(false)
@@ -471,6 +477,10 @@ public partial class VoltSwapDbContext : DbContext
             entity.Property(e => e.UpdateAt)
                 .HasColumnType("datetime")
                 .HasColumnName("update_at");
+
+            entity.HasOne(d => d.Appointment).WithMany(p => p.PillarSlots)
+                .HasForeignKey(d => d.AppointmentId)
+                .HasConstraintName("FK_pillar_slots_appointment_id");
 
             entity.HasOne(d => d.Battery).WithMany(p => p.PillarSlots)
                 .HasForeignKey(d => d.BatteryId)

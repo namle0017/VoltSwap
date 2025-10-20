@@ -12,5 +12,7 @@ namespace VoltSwap.BusinessLayer.IServices
     {
         Task<ServiceResult> GetPlanAsync();
         Task<int> GetDurationDays(string planId);
+        Task<decimal> GetPriceByPlanId(string planId);
+        Task<int> GetSwapLimitByPlanId(string newPlanId);
     }
 }

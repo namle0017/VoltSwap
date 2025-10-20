@@ -68,6 +68,34 @@ namespace VoltSwap.BusinessLayer.Services
 
             return getPlan.DurationDays ?? 0;
         }
+        public async Task<decimal> GetPriceByPlanId(string planId)
+        {
+            var getPlan = await _planRepo.GetByIdAsync(planId);
+
+            if (getPlan == null)
+            {
+                // Ghi log hoặc ném lỗi tùy theo logic của hệ thống
+                throw new Exception($"Plan with ID '{planId}' not found.");
+                // hoặc nếu bạn muốn chỉ trả về 0 thay vì lỗi:
+                // return 0;
+            }
+
+            return getPlan.Price ?? 0;
+        }
+        public async Task<int> GetSwapLimitByPlanId(string newPlanId)
+        {
+            var getPlan = await _planRepo.GetByIdAsync(newPlanId);
+
+            if (getPlan == null)
+            {
+                // Ghi log hoặc ném lỗi tùy theo logic của hệ thống
+                throw new Exception($"Plan with ID '{newPlanId}' not found.");
+                // hoặc nếu bạn muốn chỉ trả về 0 thay vì lỗi:
+                // return 0;
+            }
+
+            return getPlan.NumberOfBattery ?? 0;
+        }
 
         //Hàm này để lấy ra detail của plan bao gồm tên PlanDtos và Fee của plan đó planId
         public async Task<ServiceResult> GetPlanDetailAsync(string planId)
