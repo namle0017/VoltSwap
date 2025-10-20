@@ -104,7 +104,7 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             var subscriptionDtos = userSubscriptions
-                .Where(sub => sub.Status != "Inactive") 
+                .Where(sub => sub.Status != "Inactive")
                 .Select(sub => new ServiceOverviewItemDto
                 {
                     SubId = sub.SubscriptionId,
@@ -129,7 +129,7 @@ namespace VoltSwap.BusinessLayer.Services
         {
             var getsub = await _unitOfWork.Subscriptions
                 .GetAllQueryable()
-                .FirstOrDefaultAsync( s => s.SubscriptionId == subcriptionId
+                .FirstOrDefaultAsync(s => s.SubscriptionId == subcriptionId
                                         && s.UserDriverId == UserDriverId);
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             if (getsub.Status == "Active")
@@ -143,10 +143,10 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             var durationDays = await _planService.GetDurationDays(getsub.PlanId);
-            getsub.PreviousSubscriptionId = subcriptionId; 
+            getsub.PreviousSubscriptionId = subcriptionId;
             getsub.StartDate = today;
             getsub.EndDate = today.AddDays(durationDays);
-            getsub.Status = "active";
+            getsub.Status = "Active";
             _unitOfWork.Subscriptions.Update(getsub);
             await _unitOfWork.SaveChangesAsync();
 
@@ -212,7 +212,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = data
             };
         }
-        
+
         //Tao ra SubscriptionId
         public async Task<string> GenerateSubscriptionId()
         {
@@ -244,7 +244,7 @@ namespace VoltSwap.BusinessLayer.Services
                 return getAllSubChain;
             }
 
-            while(getAllSub.PreviousSubscriptionId != null)
+            while (getAllSub.PreviousSubscriptionId != null)
             {
                 var previousId = getAllSub.PreviousSubscriptionId;
                 getAllSub = await _subRepo.GetByIdAsync(previousId);

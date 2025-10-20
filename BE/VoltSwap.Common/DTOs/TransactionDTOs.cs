@@ -59,4 +59,32 @@ namespace VoltSwap.Common.DTOs
         public decimal TotalAmount { get; set; }
         public decimal Fee { get; set; }
     }
+
+
+    // Nemo: Dto cho tính toán monthly revenue
+    public class MonthlyRevenueResponse
+    {
+        public double TotalRevenue { get; set; }
+        public double MonthlyPnl { get; set; }
+    }
+
+
+    // Nemo: Dto cho tính toán ở mỗi gói
+    //public class MonthlySubscriptionResponse
+    //{
+    //    public string PlanId { get; set; }
+    //    public string PlanName { get; set; }
+    //    public double TotalAmountInMonth { get; set; }
+    //    public double PercentPnlInMonth { get; set; }
+    //}
+
+
+    // Nemo: Dto cho tính toán số lượng khách trong hệ thộng theo plan
+    public class MonthlySubscriptionResponse
+    {
+        public string PlanId { get; set; }
+        public string PlanName { get; set; }
+        public int TotalDriver { get; set; }
+        public double PercentDriverByPlan { get; set; }
+    }
 }

@@ -49,5 +49,6 @@ namespace VoltSwap.DAL.Repositories
                 .FirstOrDefaultAsync();
             return count ?? 0;
         }
+
     }
 }

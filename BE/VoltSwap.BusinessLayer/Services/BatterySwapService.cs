@@ -595,4 +595,7 @@ namespace VoltSwap.BusinessLayer.Services
         //    };
         //}
     }
+
+    //Nemo: cái này để tính ra được số lượt đổi pin theo tháng
+
 }

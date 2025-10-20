@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Runtime.CompilerServices;
 using System.Transactions;
 using VoltSwap.BusinessLayer.Base;
 using VoltSwap.BusinessLayer.Services;
@@ -74,6 +75,37 @@ namespace VoltSwap.API.Controllers
             }
             var result = await _transService.UpdateTransactionStatusAsync(requestDto);
             return StatusCode(result.Status, new { message = result.Message });
+        }
+
+
+        [HttpGet("payment-detail")]
+        public async Task<IActionResult> GetPaymentDetail([FromQuery] string transactionId)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _transService.GetTransactionDetailAsync(transactionId);
+            return StatusCode(result.Status, new 
+            { 
+                message = result.Message, 
+                Data = result,
+            });
+        }
+
+        // Nemo: API cho confirm chuyển tiền
+        [HttpGet("confirm-payment")]
+        public async Task<IActionResult> ConfirmPayment([FromQuery] string transactionId)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _transService.ConfirmPaymentAsync(transactionId);
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+            });
         }
     }
 }

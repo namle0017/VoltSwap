@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,7 +37,7 @@ namespace VoltSwap.BusinessLayer.Services
         //Cái này để gọi khi mà người dùng cần update sẽ đưa ra các thông tin của người dùng theo DriverUpdate
         public async Task<IServiceResult> GetDriverUpdateInformationAsync(UserRequest requestDto)
         {
-            var getUser = await _unitOfWork.Users.CheckUserActive(requestDto.UserId);
+            var getUser = await _unitOfWork.Users.GetByIdAsync(us => us.UserId == requestDto.UserId && us.Status == "Active");
             if (getUser == null)
             {
                 return new ServiceResult
@@ -91,7 +92,7 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<IServiceResult> GetStaffUpdateInformationAsync(UserRequest requestDto)
         {
-            var getUser = await _unitOfWork.Users.CheckUserActive(requestDto.UserId);
+            var getUser = await _unitOfWork.Users.GetByIdAsync(us => us.UserId == requestDto.UserId && us.Status == "Active");
             if (getUser == null)
             {
                 return new ServiceResult
@@ -178,6 +179,14 @@ namespace VoltSwap.BusinessLayer.Services
                 Status = 200,
                 Message = "Update staff information successfully",
             };
+        }
+
+
+        // Nemo: Lấy số lượng driver
+        public async Task<int> GetNumberOfDriver()
+        {
+            int numberOfDriver = await _unitOfWork.Users.GetNumberOfDriverAsync();
+            return numberOfDriver;
         }
     }
 }

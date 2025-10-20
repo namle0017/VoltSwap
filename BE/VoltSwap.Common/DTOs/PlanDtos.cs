@@ -72,4 +72,10 @@ namespace VoltSwap.Common.DTOs
         public DateOnly EndDate { get; set; }
         public string Status { get; set; }
     }
+
+    public class FindPlanBySubId
+    {
+        public string PlanId { get; set; }
+        public string PlanName { get; set; }
+    }
 }

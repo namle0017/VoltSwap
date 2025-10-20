@@ -45,4 +45,11 @@ namespace VoltSwap.Common.DTOs
         public string PhoneNumber { get; set; }
     }
 
+
+    public class StationSubResponse
+    {
+        public string StationId { get; set; }
+        public string StationName { get; set; }
+        public string StationAddress { get; set; }
+    }
 }
