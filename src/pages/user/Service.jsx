@@ -48,8 +48,8 @@ export default function Service() {
       await api.post(
         "/Subscription/renew",
         {
-          userDriverId: driverId,
-          subscriptionId: current.subId,
+          driverId: driverId,
+          subId: current.subId,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );

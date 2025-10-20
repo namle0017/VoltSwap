@@ -79,7 +79,12 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
         if (user?.userRole === "Admin") {
           alert("✅ Admin login successful! Redirecting...");
           navigate("/admin");
-        } else {
+        }
+        if (user?.userRole === "Staff") {
+          alert("✅ Staff login successful! Redirecting...");
+          navigate("/staff");
+        }
+        if (user?.userRole === "Driver") {
           alert("✅ Login successful!");
           navigate("/user/service");
         }
@@ -127,8 +132,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
             {forgotMode
               ? "Reset Password"
               : mode === "login"
-                ? "Welcome Back"
-                : "Create Account"}
+              ? "Welcome Back"
+              : "Create Account"}
           </h2>
 
           {/* Form */}
@@ -222,8 +227,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
               {forgotMode
                 ? "Send Reset Link"
                 : mode === "login"
-                  ? "Sign In"
-                  : "Create Account"}
+                ? "Sign In"
+                : "Create Account"}
             </button>
           </form>
 

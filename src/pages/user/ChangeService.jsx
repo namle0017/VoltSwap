@@ -1,4 +1,4 @@
-// src/pages/user/ChangeService.jsx
+/* eslint-disable no-unused-vars */
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/api/api";
@@ -11,28 +11,42 @@ export default function ChangeService() {
   const [currentSubId, setCurrentSubId] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 🧭 Load dữ liệu
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [planDetail, setPlanDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // 🧠 Icon logic theo loại phí
+  const getFeeIcon = (type) => {
+    const key = type.toLowerCase();
+    if (key.includes("mileage")) return "🚗";
+    if (key.includes("swap")) return "🔄";
+    if (key.includes("penalty") || key.includes("late")) return "⚠️";
+    if (key.includes("booking")) return "📅";
+    if (key.includes("deposit")) return "💰";
+    return "📌";
+  };
+
+  // 🧭 Load danh sách plan & subscription hiện tại
   useEffect(() => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
         const userDriverId = localStorage.getItem("userId");
 
-        // 1️⃣ Lấy danh sách tất cả plan
         const planRes = await api.get("/Plan/plan-list");
         const planList = Array.isArray(planRes.data.data)
           ? planRes.data.data
           : [];
         setPlans(planList);
 
-        // 2️⃣ Lấy subscription hiện tại
         const subRes = await api.get(
           `/Subscription/subscription-user-list?DriverId=${userDriverId}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
         if (subRes.data?.data?.length > 0) {
-          const activeSub = subRes.data.data[0]; // Giả định lấy gói đầu tiên trong danh sách trả về
+          const activeSub = subRes.data.data[0];
           const foundPlan = planList.find(
             (p) => p.planName === activeSub.planName
           );
@@ -51,7 +65,22 @@ export default function ChangeService() {
     fetchData();
   }, []);
 
-  // 🔁 Xử lý đổi gói
+  // 🔍 Xem chi tiết plan (show modal)
+  const handleViewPlanDetail = async (planId) => {
+    try {
+      setDetailLoading(true);
+      const res = await api.get(`/Plan/plan-detail/${planId}`);
+      setPlanDetail(res.data?.data);
+      setShowModal(true);
+    } catch (err) {
+      console.error("❌ Failed to fetch plan details:", err);
+      alert("Cannot load plan details!");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  // 🔁 Đổi gói
   const handleChangePlan = async () => {
     if (!selected) return alert("Please select a new plan!");
     if (selected.planId === currentPlan?.planId)
@@ -106,7 +135,7 @@ export default function ChangeService() {
           </div>
         )}
 
-        {/* 📋 Danh sách gói */}
+        {/* 📋 List Plan */}
         <div className="overflow-x-auto">
           <table className="w-full text-center border-collapse">
             <thead>
@@ -116,7 +145,7 @@ export default function ChangeService() {
                 <th>Duration</th>
                 <th>Mileage</th>
                 <th>Price (₫)</th>
-                <th>Status</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -136,17 +165,19 @@ export default function ChangeService() {
                       : "Unlimited"}
                   </td>
                   <td>{p.price.toLocaleString()}</td>
-                  <td>
-                    {currentPlan?.planId === p.planId ? (
-                      <span className="text-green-600 font-semibold">
-                        In Use
-                      </span>
-                    ) : (
+                  <td className="space-x-2">
+                    <button
+                      onClick={() => handleViewPlanDetail(p.planId)}
+                      className="px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded-lg"
+                    >
+                      ℹ️ Details
+                    </button>
+                    {currentPlan?.planId !== p.planId && (
                       <button
                         onClick={() => setSelected(p)}
-                        className={`px-3 py-1 rounded-full ${
+                        className={`px-3 py-1 rounded-lg ${
                           selected?.planId === p.planId
-                            ? "bg-yellow-400 text-black font-semibold"
+                            ? "bg-yellow-400 font-semibold"
                             : "bg-yellow-200 hover:bg-yellow-300"
                         }`}
                       >
@@ -160,7 +191,7 @@ export default function ChangeService() {
           </table>
         </div>
 
-        {/* 🎛 Nút hành động */}
+        {/* 🎛 Buttons */}
         <div className="text-center mt-10 space-x-3">
           <button
             onClick={handleChangePlan}
@@ -181,6 +212,79 @@ export default function ChangeService() {
           </button>
         </div>
       </div>
+
+      {/* 🌟 MODAL */}
+      {showModal && planDetail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 transition-opacity">
+          <div className="bg-white rounded-xl shadow-xl w-11/12 max-w-3xl transform transition-all scale-100 p-6">
+            <h2 className="text-2xl font-bold mb-4 text-center">
+              Plan Details: {planDetail.plans.planName}
+            </h2>
+
+            <div className="mb-4">
+              <p>
+                <strong>Price:</strong>{" "}
+                {planDetail.plans.price.toLocaleString()}₫
+              </p>
+              <p>
+                <strong>Batteries:</strong> {planDetail.plans.numberBattery}
+              </p>
+              <p>
+                <strong>Duration:</strong> {planDetail.plans.durationDays} days
+              </p>
+              <p>
+                <strong>Mileage:</strong> {planDetail.plans.milleageBaseUsed} km
+              </p>
+            </div>
+
+            <h3 className="font-semibold text-lg mb-2">📑 Fee Details</h3>
+            <table className="w-full text-center border-collapse border">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-2">Icon</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Unit</th>
+                  <th>Range</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {planDetail.planFees.map((fee, index) => (
+                  <tr key={index} className="border">
+                    <td className="text-lg">{getFeeIcon(fee.typeOfFee)}</td>
+                    <td>{fee.typeOfFee}</td>
+                    <td>{fee.amountFee}</td>
+                    <td>{fee.unit}</td>
+                    <td>
+                      {fee.minValue} - {fee.maxValue}
+                    </td>
+                    <td>{fee.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="text-right mt-6">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 mr-2"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setSelected(planDetail.plans);
+                  setShowModal(false);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Select This Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

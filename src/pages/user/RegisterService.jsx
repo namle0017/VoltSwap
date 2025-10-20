@@ -1,4 +1,4 @@
-// src/pages/user/RegisterService.jsx
+/* eslint-disable no-unused-vars */
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/api/api";
@@ -9,18 +9,32 @@ export default function RegisterService() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Load danh sách gói thuê từ BE
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [planDetail, setPlanDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // Icon logic theo loại phí
+  const getFeeIcon = (type) => {
+    const key = type.toLowerCase();
+    if (key.includes("mileage")) return "🚗";
+    if (key.includes("swap")) return "🔄";
+    if (key.includes("penalty") || key.includes("late")) return "⚠️";
+    if (key.includes("booking")) return "📅";
+    if (key.includes("deposit")) return "💰";
+    return "📌";
+  };
+
+  // Load danh sách plan
   useEffect(() => {
     const fetchPlans = async () => {
       try {
         const res = await api.get("/Plan/plan-list");
         if (res.data && Array.isArray(res.data.data)) {
           setPlans(res.data.data);
-        } else {
-          console.warn("⚠️ Unexpected response format:", res.data);
         }
-      } catch (error) {
-        console.error("❌ Failed to fetch plans:", error);
+      } catch (err) {
+        console.error("❌ Failed to fetch plans:", err);
         alert("Failed to load plans!");
       } finally {
         setLoading(false);
@@ -29,9 +43,24 @@ export default function RegisterService() {
     fetchPlans();
   }, []);
 
-  // ✅ Đăng ký gói thuê
+  // Xem chi tiết plan và show modal
+  const handleViewPlanDetail = async (planId) => {
+    try {
+      setDetailLoading(true);
+      const res = await api.get(`/Plan/plan-detail/${planId}`);
+      setPlanDetail(res.data?.data);
+      setShowModal(true);
+    } catch (err) {
+      console.error("❌ Failed to fetch plan details:", err);
+      alert("Cannot load plan details!");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  // Đăng ký gói thuê
   const register = async () => {
-    if (!selected) return alert("Please select a plan first!");
+    if (!selected) return alert("Please choose a plan first!");
 
     const token = localStorage.getItem("token");
     const driverId = localStorage.getItem("userId");
@@ -53,7 +82,7 @@ export default function RegisterService() {
       navigate("/user/transaction");
     } catch (err) {
       console.error("❌ Registration error:", err.response?.data || err);
-      alert("❌ Registration failed! Please check console for details.");
+      alert("❌ Registration failed!");
     }
   };
 
@@ -72,7 +101,6 @@ export default function RegisterService() {
           ⚡ Choose Your Subscription
         </h2>
 
-        {/* Bảng hiển thị danh sách gói */}
         <div className="overflow-x-auto">
           <table className="w-full text-center border-collapse">
             <thead>
@@ -81,10 +109,9 @@ export default function RegisterService() {
                 <th>Batteries</th>
                 <th>Mileage (km)</th>
                 <th>Price (₫)</th>
-                <th></th>
+                <th>Action</th>
               </tr>
             </thead>
-
             <tbody>
               {plans.length === 0 ? (
                 <tr>
@@ -110,12 +137,18 @@ export default function RegisterService() {
                         : "Unlimited"}
                     </td>
                     <td>{p.price.toLocaleString()}</td>
-                    <td>
+                    <td className="space-x-2">
+                      <button
+                        onClick={() => handleViewPlanDetail(p.planId)}
+                        className="px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded-lg"
+                      >
+                        ℹ️ Details
+                      </button>
                       <button
                         onClick={() => setSelected(p)}
                         className={`px-3 py-1 rounded-full ${
                           selected?.planId === p.planId
-                            ? "bg-yellow-400 text-black font-semibold"
+                            ? "bg-yellow-400 font-semibold"
                             : "bg-yellow-200 hover:bg-yellow-300"
                         }`}
                       >
@@ -129,7 +162,6 @@ export default function RegisterService() {
           </table>
         </div>
 
-        {/* Nút hành động */}
         <div className="text-center mt-8 space-x-3">
           <button
             onClick={register}
@@ -150,6 +182,82 @@ export default function RegisterService() {
           </button>
         </div>
       </div>
+
+      {/* Modal */}
+      {showModal && planDetail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-11/12 max-w-3xl p-6 transform transition-all">
+            <h2 className="text-2xl font-bold mb-4 text-center">
+              Plan Details: {planDetail.plans.planName}
+            </h2>
+
+            <div className="mb-4">
+              <p>
+                <strong>Price:</strong>{" "}
+                {planDetail.plans.price.toLocaleString()}₫
+              </p>
+              <p>
+                <strong>Batteries:</strong> {planDetail.plans.numberBattery}
+              </p>
+              <p>
+                <strong>Duration:</strong> {planDetail.plans.durationDays} days
+              </p>
+              <p>
+                <strong>Mileage:</strong> {planDetail.plans.milleageBaseUsed} km
+              </p>
+            </div>
+
+            <h3 className="font-semibold text-lg mb-2">📑 Fee Details</h3>
+            <table className="w-full text-center border-collapse border">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-2">Icon</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Unit</th>
+                  <th>Range</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {planDetail.planFees.map((fee, index) => (
+                  <tr key={index} className="border">
+                    <td className="text-lg">{getFeeIcon(fee.typeOfFee)}</td>
+                    <td>{fee.typeOfFee}</td>
+                    <td>{fee.amountFee}</td>
+                    <td>{fee.unit}</td>
+                    <td>
+                      {fee.minValue} - {fee.maxValue}
+                    </td>
+                    <td>{fee.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="text-right mt-6">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 mr-2"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setSelected(planDetail.plans);
+                  setShowModal(false);
+                  alert(
+                    `✅ ${planDetail.plans.planName} selected! Now press Confirm Registration.`
+                  );
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Select This Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
