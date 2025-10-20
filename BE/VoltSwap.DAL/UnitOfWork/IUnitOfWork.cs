@@ -1,9 +1,10 @@
-﻿using VoltSwap.DAL.Data;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using VoltSwap.DAL.Base;
+using VoltSwap.DAL.Data;
 using VoltSwap.DAL.IRepositories;
 
 namespace VoltSwap.DAL.UnitOfWork

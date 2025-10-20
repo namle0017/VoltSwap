@@ -11,5 +11,6 @@ namespace VoltSwap.BusinessLayer.IServices
     public interface IBookingService
     {
         Task<ServiceResult> CreateBookingAsync(CreateBookingRequest request);
+        Task<ServiceResult> CancelBookingAsync(CancelBookingRequest request);
     }
 }

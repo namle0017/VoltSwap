@@ -38,15 +38,49 @@ namespace VoltSwap.DAL.Repositories
             foreach (var slot in slotsToLock)
             {
                 slot.PillarStatus = "Lock";
-                
+                slot.AppointmentId = bookingId;
                 _context.PillarSlots.Update(slot);
+                
             }
-             
-            
-            return await _context.SaveChangesAsync(); ;
+
+
+            return await _context.SaveChangesAsync(); 
 
 
         }
+        public async Task<int> UnlockSlotsByAppointmentIdAsync(string appointmentId)
+        {
+            if (string.IsNullOrWhiteSpace(appointmentId)) return 0;
+
+            var slots = await _context.PillarSlots
+                .Where(ps => ps.AppointmentId == appointmentId && ps.PillarStatus == SLOT_LOCK)
+                .ToListAsync();
+
+            if (slots.Count == 0) return 0;
+
+            foreach (var slot in slots)
+            {
+                slot.PillarStatus = SLOT_USE;
+                slot.AppointmentId = null;           // giải liên kết
+                slot.UpdateAt = DateTime.UtcNow;
+            }
+
+            _context.PillarSlots.UpdateRange(slots);
+            return await _context.SaveChangesAsync();
+        }
+
+        public async Task<List<PillarSlot>> GetAvailableSlotsAtStationAsync(string stationId, int take)
+        {
+            return await _context.PillarSlots
+                .Include(ps => ps.BatterySwapPillar)
+                .Where(ps => ps.BatterySwapPillar.BatterySwapStationId == stationId
+                             && ps.PillarStatus == "Use")
+                .OrderByDescending(ps => ps.BatterySwapPillarId)
+                .ThenByDescending(ps => ps.SlotNumber)
+                .Take(take)
+                .ToListAsync();
+        }
+
 
     }
 }

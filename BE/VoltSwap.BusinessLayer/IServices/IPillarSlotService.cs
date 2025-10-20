@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace VoltSwap.BusinessLayer.IServices
 {
-    internal interface IPillarSlotService
+
+    public interface IPillarSlotService
     {
+ 
+
     }
 }
