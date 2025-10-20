@@ -4,13 +4,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "@/api/api";
 
 export default function Payment() {
-  const { id } = useParams(); // Transaction ID
+  const { id } = useParams(); // Transaction ID from URL
   const [transaction, setTransaction] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const navigate = useNavigate();
 
-  // 🔹 Load transaction details directly via API
+  // 🔹 Load transaction details (GET with query params)
   useEffect(() => {
     const loadTransactionDetail = async () => {
       try {
@@ -21,7 +21,6 @@ export default function Payment() {
           return;
         }
 
-        // ✅ Call API using GET with query parameter
         const res = await api.get(`/Transaction/payment-detail`, {
           params: { transactionId: id },
         });
@@ -45,7 +44,7 @@ export default function Payment() {
     loadTransactionDetail();
   }, [id, navigate]);
 
-  // 🔹 Confirm Payment
+  // 🔹 Confirm Payment using new API (POST with body)
   const handlePayment = async () => {
     if (!transaction) return;
 
@@ -58,8 +57,11 @@ export default function Payment() {
 
     setProcessing(true);
     try {
-      await api.put(`/Transaction/Pay/${transaction.transactionId}`);
-      alert("✅ Payment successful!");
+      await api.get(`/Transaction/confirm-payment`, {
+        params: { transactionId: id },
+      });
+
+      alert("✅ Payment confirmed successfully!");
       navigate("/user/transaction");
     } catch (err) {
       console.error("❌ Payment failed:", err.response?.data || err);
@@ -98,15 +100,13 @@ export default function Payment() {
     ? new Date(transaction.paymentDate).toLocaleString()
     : "Not yet paid";
 
-  // 🔹 Bank Info from API (fallback mock if missing)
+  // 🔹 Bank Info from API
   const bankInfo = {
     bankName: transaction.bankName || "N/A",
     accountNumber: transaction.paymentAccount || "N/A",
     transactionContext: transaction.transactionContext || "N/A",
-    method: "Bank Transfer",
   };
 
-  // 🔹 Copy function
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     alert("📋 Copied to clipboard!");
