@@ -4,59 +4,47 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "@/api/api";
 
 export default function Payment() {
-    const { id } = useParams(); // transactionId
+    const { id } = useParams(); // Transaction ID from URL
     const [transaction, setTransaction] = useState(null);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const navigate = useNavigate();
 
-    // 🔹 Load transaction details (POST list then filter)
+    // 🔹 Load transaction details (GET with query params)
     useEffect(() => {
-        const loadDetail = async () => {
+        const loadTransactionDetail = async () => {
             try {
                 const userId = localStorage.getItem("userId");
-                const planId = localStorage.getItem("lastPlanId") || "PLAN-DEFAULT";
-
                 if (!userId) {
-                    alert("Please log in again!");
+                    alert("⚠ Please log in again!");
                     navigate("/login");
                     return;
                 }
 
-                const payload = {
-                    PlanId: planId,
-                    DriverId: userId,
-                    TransactionType: "History",
-                };
+                const res = await api.get(`/Transaction/payment-detail`, {
+                    params: { transactionId: id },
+                });
 
-                const res = await api.post(
-                    "/Transaction/transaction-user-list",
-                    payload
-                );
-                const list = res.data?.data || [];
-                const found = list.find((t) => t.transactionId === id);
+                const data = res.data?.data?.data;
 
-                if (!found) {
-                    alert("❌ Transaction not found");
+                if (!data) {
+                    alert("❌ Transaction not found!");
                     return;
                 }
 
-                setTransaction(found);
+                setTransaction(data);
             } catch (err) {
-                console.error(
-                    "❌ Cannot load transaction detail:",
-                    err.response?.data || err
-                );
-                alert("❌ Cannot load transaction detail");
+                console.error("❌ Failed to load detail:", err.response?.data || err);
+                alert("⚠ Unable to load transaction details");
             } finally {
                 setLoading(false);
             }
         };
 
-        loadDetail();
+        loadTransactionDetail();
     }, [id, navigate]);
 
-    // 💰 Handle payment
+    // 🔹 Confirm Payment using new API (POST with body)
     const handlePayment = async () => {
         if (!transaction) return;
 
@@ -65,36 +53,38 @@ export default function Payment() {
             return navigate("/user/transaction");
         }
 
-        if (!window.confirm("Confirm payment for this transaction?")) return;
+        if (!window.confirm("💰 Do you want to proceed with the payment?")) return;
 
         setProcessing(true);
         try {
-            const res = await api.put(
-                `/Transaction/Pay/${transaction.transactionId}`
-            );
-            alert("✅ Payment successful!");
+            await api.get(`/Transaction/confirm-payment`, {
+                params: { transactionId: id },
+            });
+
+            alert("✅ Payment confirmed successfully!");
             navigate("/user/transaction");
         } catch (err) {
             console.error("❌ Payment failed:", err.response?.data || err);
-            alert("❌ Payment failed!");
+            alert("❌ Payment failed! Please try again.");
         } finally {
             setProcessing(false);
         }
     };
 
-    // 🌀 Loading state
-    if (loading)
+    // 🌀 Loading State
+    if (loading) {
         return (
             <div className="flex flex-col items-center mt-20 text-gray-600">
                 <div className="animate-spin h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full mb-3"></div>
                 <p>Loading payment details...</p>
             </div>
         );
+    }
 
-    if (!transaction)
+    if (!transaction) {
         return (
             <div className="text-center mt-20 text-gray-600">
-                <p>Transaction not found.</p>
+                <p>❌ Transaction not found.</p>
                 <button
                     onClick={() => navigate("/user/transaction")}
                     className="mt-4 px-5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold"
@@ -103,17 +93,18 @@ export default function Payment() {
                 </button>
             </div>
         );
+    }
 
+    // 🔹 Format payment date
     const formattedDate = transaction.paymentDate
         ? new Date(transaction.paymentDate).toLocaleString()
         : "Not yet paid";
 
-    // 🔹 Mock thông tin ngân hàng (hiện hardcode, có thể fetch sau)
+    // 🔹 Bank Info from API
     const bankInfo = {
-        bankName: "Vietcombank",
-        accountNumber: "1234567890123456",
-        accountHolder: "Nguyen Ngoc Dang Nam Kiẹt",
-        method: "Bank Transfer",
+        bankName: transaction.bankName || "N/A",
+        accountNumber: transaction.paymentAccount || "N/A",
+        transactionContext: transaction.transactionContext || "N/A",
     };
 
     const copyToClipboard = (text) => {
@@ -130,46 +121,32 @@ export default function Payment() {
 
                 {/* 🏦 Bank Transfer Card */}
                 <div className="border rounded-xl p-5 mb-6 shadow-sm hover:shadow-md transition">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="font-semibold text-lg text-gray-800 flex items-center gap-2">
-                            Bank Transfer
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">
-                                Recommended
-                            </span>
-                        </h3>
-                    </div>
+                    <h3 className="font-semibold text-lg text-gray-800 mb-4 flex items-center gap-2">
+                        Bank Transfer
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">
+                            Recommended
+                        </span>
+                    </h3>
 
-                    <div className="flex flex-col sm:flex-row items-center gap-5">
-                        <img
-                            src="https://cdn-icons-png.flaticon.com/512/483/483408.png"
-                            alt="Bank Transfer"
-                            className="w-24 h-24 rounded-md object-cover"
-                        />
-
-                        <div className="flex-1 text-gray-700 space-y-2">
-                            <p>
-                                <span className="font-semibold text-gray-600">Bank Name: </span>
-                                {bankInfo.bankName}
-                            </p>
-                            <p className="flex items-center gap-2">
-                                <span className="font-semibold text-gray-600">
-                                    Account Number (STK):{" "}
-                                </span>
-                                {bankInfo.accountNumber}
-                                <button
-                                    onClick={() => copyToClipboard(bankInfo.accountNumber)}
-                                    className="ml-1 text-gray-500 hover:text-blue-600"
-                                >
-                                    📋
-                                </button>
-                            </p>
-                            <p>
-                                <span className="font-semibold text-gray-600">
-                                    Account Holder:{" "}
-                                </span>
-                                {bankInfo.accountHolder}
-                            </p>
-                        </div>
+                    <div className="space-y-3 text-gray-700">
+                        <p>
+                            <span className="font-semibold">Bank Name: </span>
+                            {bankInfo.bankName}
+                        </p>
+                        <p className="flex items-center gap-2">
+                            <span className="font-semibold">Account Number:</span>
+                            {bankInfo.accountNumber}
+                            <button
+                                onClick={() => copyToClipboard(bankInfo.accountNumber)}
+                                className="text-gray-500 hover:text-blue-600"
+                            >
+                                📋
+                            </button>
+                        </p>
+                        <p>
+                            <span className="font-semibold">Transaction Context:</span>{" "}
+                            {bankInfo.transactionContext}
+                        </p>
                     </div>
                 </div>
 
@@ -184,23 +161,27 @@ export default function Payment() {
                             <span className="font-semibold">{transaction.transactionId}</span>
                         </p>
                         <p className="flex justify-between">
-                            <span>Amount to Pay</span>
+                            <span>Amount</span>
                             <span className="font-semibold text-blue-700">
                                 {transaction.amount?.toLocaleString()} VND
                             </span>
                         </p>
-                        <p className="flex justify-between items-center">
+                        <p className="flex justify-between">
                             <span>Payment Status</span>
                             <span
                                 className={`text-sm px-3 py-1 rounded-md border ${transaction.paymentStatus === "success"
-                                    ? "bg-green-100 text-green-700 border-green-300"
-                                    : transaction.paymentStatus === "fail"
-                                        ? "bg-red-100 text-red-700 border-red-300"
-                                        : "bg-yellow-100 text-yellow-700 border-yellow-300"
+                                        ? "bg-green-100 text-green-700 border-green-300"
+                                        : transaction.paymentStatus === "fail"
+                                            ? "bg-red-100 text-red-700 border-red-300"
+                                            : "bg-yellow-100 text-yellow-700 border-yellow-300"
                                     }`}
                             >
                                 {transaction.paymentStatus}
                             </span>
+                        </p>
+                        <p className="flex justify-between">
+                            <span>Payment Date</span>
+                            <span>{formattedDate}</span>
                         </p>
                     </div>
 
@@ -208,10 +189,10 @@ export default function Payment() {
                         onClick={handlePayment}
                         disabled={processing || transaction.paymentStatus !== "Pending"}
                         className={`mt-5 w-full py-3 rounded-lg text-white font-semibold transition ${transaction.paymentStatus !== "Pending"
-                            ? "bg-gray-400 cursor-not-allowed"
-                            : processing
-                                ? "bg-gray-500"
-                                : "bg-blue-600 hover:bg-blue-700"
+                                ? "bg-gray-400 cursor-not-allowed"
+                                : processing
+                                    ? "bg-gray-500"
+                                    : "bg-blue-600 hover:bg-blue-700"
                             }`}
                     >
                         {processing ? "Processing..." : "Confirm Payment"}

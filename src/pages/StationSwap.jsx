@@ -29,44 +29,18 @@ const isPositiveMsg = (msg = "") => {
     );
 };
 
-// ===== Helpers cho lưới slot =====
-const shortId = (id) => {
-    if (!id) return "";
-    const s = String(id);
-    return s.length <= 8 ? s : s.slice(-8);
-};
-
-// Chuẩn hoá so sánh trạng thái (không sửa dữ liệu gốc)
+// ===== Helpers cho lưới slot (đơn giản hoá cho người dùng) =====
 const isNotUse = (slot) =>
-    String(slot?.pillarStatus || "")
-        .toLowerCase()
-        .includes("not"); // "Not use", "Not Use", "NOT USE"...
+    String(slot?.pillarStatus || "").toLowerCase().includes("not"); // Not use
 
 const isUse = (slot) =>
     !isNotUse(slot) && String(slot?.pillarStatus || "").length > 0;
 
-const slotColorClass = (slot) => {
-    if (isNotUse(slot)) return "bg-emerald-500 text-white"; // trống
-    if (isUse(slot)) {
-        const batt = String(slot?.batteryStatus || "").toLowerCase();
-        if (batt.includes("maintenance")) return "bg-amber-200 text-amber-900";
-        if (batt.includes("charging")) return "bg-sky-200 text-sky-900";
-        return "bg-slate-400 text-white"; // in use / unknown -> xám
-    }
-    return "bg-slate-200 text-slate-700";
-};
-
-const slotTitle = (slot) => {
-    const lines = [
-        `Slot #${slot?.slotNumber ?? ""} (ID: ${slot?.slotId ?? ""})`,
-        `Pillar: ${slot?.pillarStatus ?? "-"}`,
-        `Battery Status: ${slot?.batteryStatus ?? "-"}`,
-    ];
-    if (slot?.batteryId) lines.push(`BatteryId: ${slot.batteryId}`);
-    if (typeof slot?.batterySoc !== "undefined") lines.push(`SoC: ${slot.batterySoc}%`);
-    if (typeof slot?.batterySoh !== "undefined") lines.push(`SoH: ${slot.batterySoh}%`);
-    return lines.join("\n");
-};
+/** Chỉ 2 màu:
+ *  - Xanh (emerald): Not use (mở/đang trống để thao tác)
+ *  - Xám (slate): Use (đang khoá/đang dùng/không khả dụng)
+ */
+const slotColorClass = (slot) => (isNotUse(slot) ? "bg-emerald-500" : "bg-slate-400");
 
 const splitToPillars = (slots = []) => {
     const ordered = [...slots].sort(
@@ -78,7 +52,6 @@ const splitToPillars = (slots = []) => {
 
 // LẤY DANH SÁCH SLOT từ mọi kiểu response BE có thể trả
 const extractSlotsFromResponse = (raw) => {
-    // raw có thể là object có data/pillarSlotDtos, hoặc là mảng trực tiếp
     if (Array.isArray(raw)) return raw;
     if (raw && typeof raw === "object") {
         if (Array.isArray(raw.pillarSlotDtos)) return raw.pillarSlotDtos;
@@ -141,25 +114,7 @@ export default function StationSwap() {
         }
         return [];
     };
-    // Lấy slot Not use để đón pin swap-in
-    const getFreeSlotIds = () =>
-        (stationSlots || [])
-            .filter((s) => String(s.pillarStatus).toLowerCase() === "not use")
-            .map((s) => s.slotId);
 
-    const getAvailableFromSlots = (slots = []) => {
-        return (slots || [])
-            .filter(
-                (s) =>
-                    String(s?.pillarStatus).toLowerCase() === "use" &&
-                    String(s?.batteryStatus).toLowerCase() === "available" &&
-                    s?.batteryId
-            )
-            .map((s) => ({
-                batteryId: s.batteryId,
-                slotId: s.slotId,
-            }));
-    };
     const loadStations = async () => {
         setStationLoading(true);
         setStationError("");
@@ -230,7 +185,6 @@ export default function StationSwap() {
         setSwapInCount(0);
     };
 
-
     // === validate subscription ===
     const doValidate = async (sub, sta) => {
         setSubError("");
@@ -264,11 +218,10 @@ export default function StationSwap() {
                 return;
             }
 
-            // info có thể là object hoặc mảng
             const info = data.data ?? data;
             setSubscriptionInfo(info);
 
-            // 🔧 Quan trọng: rút slots từ mọi format (mảng trực tiếp, data[], pillarSlotDtos[])
+            // lấy slots từ mọi format
             const slots = extractSlotsFromResponse(info);
             setStationSlots(slots);
 
@@ -288,7 +241,20 @@ export default function StationSwap() {
         doValidate(subscriptionId, stationId);
     };
 
-    // B2: swap-in
+    // === swap-in (giữ nguyên logic) ===
+    const getFreeSlotIds = () =>
+        (stationSlots || []).filter((s) => isNotUse(s)).map((s) => s.slotId);
+
+    const getAvailableFromSlots = (slots = []) =>
+        (slots || [])
+            .filter(
+                (s) =>
+                    String(s?.pillarStatus).toLowerCase() === "use" &&
+                    String(s?.batteryStatus).toLowerCase() === "available" &&
+                    s?.batteryId
+            )
+            .map((s) => ({ batteryId: s.batteryId, slotId: s.slotId }));
+
     const handleSwapIn = async () => {
         setSwapInError(null);
 
@@ -314,15 +280,12 @@ export default function StationSwap() {
             return;
         }
 
-        // map BatteryId -> SlotId
         const batteryDtos = ids.map((batteryId, idx) => ({
             batteryId,
             slotId: freeSlotIds[idx],
         }));
 
-        // ghi nhớ số pin đã nộp để bước 3 auto-chọn đúng bằng số này (nếu gói không quy định)
         setSwapInCount(ids.length);
-
         setLoading(true);
         try {
             const payload = {
@@ -335,19 +298,15 @@ export default function StationSwap() {
                 pillarId: stationId,
             };
 
-            console.log("📤 Swap-In payload:", payload);
             const res = await swapInBattery(payload);
-            console.log("✅ Swap-In success:", res.status, res.data);
             setSwapInResult(res.data);
 
-            // Danh sách pin khả dụng BE trả về (nếu có)
             const raw = res?.data?.data ?? res?.data ?? {};
             const fromBE = (raw.BatteryDtos || raw.batteryDtos || []).map((it) => ({
                 batteryId: it.batteryId ?? it.BatteryId,
                 slotId: it.slotId ?? it.SlotId,
             }));
 
-            // Lọc BE theo Use + Available dựa trên stationSlots hiện có
             const statusMap = new Map(
                 (stationSlots || []).map((s) => [
                     String(s.batteryId || ""),
@@ -364,25 +323,19 @@ export default function StationSwap() {
                 return st && st.pillarStatus === "use" && st.batteryStatus === "available";
             });
 
-            // Fallback nếu BE không trả hoặc lọc xong rỗng
             if (options.length === 0) {
-                options = getAvailableFromSlots(subscriptionInfo?.pillarSlotDtos);
-                console.warn(
-                    "⚠️ BE không trả BatteryDtos (hoặc không hợp lệ), dùng fallback từ pillarSlotDtos:",
-                    options.length
-                );
+                options = getAvailableFromSlots(extractSlotsFromResponse(subscriptionInfo));
             }
 
             setOutOptions(options);
 
-            // ✅ AUTO-PICK & AUTO CALL SWAP-OUT
             const mustPick = requiredBatteryCount > 0 ? requiredBatteryCount : ids.length;
             if (options.length < mustPick) {
                 setAutoPicked([]);
                 setAutoPickError(
                     `Không đủ pin khả dụng để nhận. Cần ${mustPick}, đang có ${options.length}.`
                 );
-                setStep(3); // vẫn sang step 3 để hiển thị lỗi + danh sách hiện có
+                setStep(3);
                 return;
             }
 
@@ -391,7 +344,6 @@ export default function StationSwap() {
             setAutoPickError("");
             setStep(3);
 
-            // Gọi swap-out ngay lập tức với danh sách auto-picked
             await doSwapOut(chosen);
         } catch (err) {
             const status = err?.response?.status;
@@ -402,7 +354,7 @@ export default function StationSwap() {
                     message: data.message,
                     wrongBatteries: Array.isArray(data.data) ? data.data : [],
                 });
-                return; // ở lại step 2 để người dùng sửa
+                return;
             }
 
             let msg = `Swap-In thất bại${status ? ` (status ${status})` : ""}`;
@@ -421,7 +373,7 @@ export default function StationSwap() {
         }
     };
 
-    // HÀM DÙNG CHUNG ĐỂ GỌI SWAP-OUT VỚI DANH SÁCH ĐÃ CHỌN
+    // === swap-out (giữ nguyên logic) ===
     const doSwapOut = async (picked) => {
         setLoading(true);
         try {
@@ -502,10 +454,23 @@ export default function StationSwap() {
                         </form>
                     )}
 
-                    {/* Lưới TRỤ PIN hiển thị NGAY sau validate */}
+                    {/* Lưới TRỤ PIN (chỉ 2 màu) hiển thị NGAY sau validate */}
                     {subscriptionInfo && (
                         <div className="card p-6 space-y-3">
-                            <h2 className="text-base font-semibold">⚡ Trạng thái các trụ pin tại trạm</h2>
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-base font-semibold">⚡ Trạng thái các trụ pin tại trạm</h2>
+                                {/* Legend hai màu */}
+                                <div className="flex items-center gap-4 text-xs text-gray-600">
+                                    <span className="inline-flex items-center gap-1">
+                                        <span className="w-3 h-3 rounded bg-emerald-500 inline-block" />
+                                        Mở (Not use)
+                                    </span>
+                                    <span className="inline-flex items-center gap-1">
+                                        <span className="w-3 h-3 rounded bg-slate-400 inline-block" />
+                                        Khoá (Use)
+                                    </span>
+                                </div>
+                            </div>
 
                             {stationSlots.length === 0 ? (
                                 <div className="text-gray-500 text-sm text-center">
@@ -514,24 +479,18 @@ export default function StationSwap() {
                             ) : (
                                 <div className="grid grid-cols-3 gap-4">
                                     {splitToPillars(stationSlots).map((pillarSlots, idx) => (
-                                        <div key={idx} className="bg-gray-50 rounded-lg p-2 border">
+                                        <div key={idx} className="bg-gray-50 rounded-lg p-3 border">
                                             <h4 className="text-center font-semibold mb-2 text-gray-700">
                                                 Trụ {idx + 1}
                                             </h4>
+                                            {/* 4 cột × 5 hàng = 20 ô. Chỉ hiển thị màu, không text/tooltip */}
                                             <div className="grid grid-cols-4 gap-2">
                                                 {pillarSlots.map((slot, i) => (
                                                     <div
                                                         key={slot?.slotId ?? i}
-                                                        title={slotTitle(slot)}
-                                                        className={`h-12 rounded-md flex items-center justify-center text-[11px] font-semibold ${slotColorClass(slot)} transition-colors`}
-                                                    >
-                                                        <div className="flex flex-col items-center leading-tight">
-                                                            <span>#{slot?.slotNumber ?? "-"}</span>
-                                                            {slot?.batteryId && (
-                                                                <span className="opacity-90">{shortId(slot.batteryId)}</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
+                                                        aria-label={isNotUse(slot) ? "Mở" : "Khoá"}
+                                                        className={`h-10 rounded-md ${slotColorClass(slot)} transition-colors`}
+                                                    />
                                                 ))}
                                             </div>
                                         </div>
@@ -549,7 +508,7 @@ export default function StationSwap() {
                                 Nhập mỗi mã pin trên <b>một dòng</b> hoặc phân tách bằng dấu phẩy.
                                 <br />
                                 <span className="inline-block mt-1 px-2 py-1 rounded bg-blue-50 text-blue-700">
-                                    Gợi ý: hệ thống sẽ gán lần lượt vào các Slot đang <b>Not use</b>.
+                                    Gợi ý: hệ thống sẽ gán lần lượt vào các ô <b>màu xanh</b> (Not use).
                                 </span>
                             </div>
 
@@ -565,50 +524,6 @@ export default function StationSwap() {
                             {swapInError?.message && (
                                 <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm">
                                     <div className="font-medium mb-1">{swapInError.message}</div>
-                                    {Array.isArray(swapInError.wrongBatteries) &&
-                                        swapInError.wrongBatteries.length > 0 && (
-                                            <ul className="list-disc list-inside">
-                                                {swapInError.wrongBatteries.map((b, i) => (
-                                                    <li key={i}>
-                                                        <span className="font-semibold">{b.batteryId}</span>
-                                                        {typeof b.slotId !== "undefined" && (
-                                                            <span className="opacity-70"> (slot {b.slotId})</span>
-                                                        )}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    <div className="mt-1">
-                                        Vui lòng nhập <b>đúng mã pin</b> đã/đang gắn với subscription này.
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Preview BatteryId -> SlotId */}
-                            {batteryIdsInput.trim() && (
-                                <div className="bg-gray-50 border rounded-lg p-3 text-sm">
-                                    <div className="font-medium mb-2">Xem trước SlotId sẽ gửi lên BE:</div>
-                                    <ul className="list-disc list-inside space-y-1">
-                                        {(() => {
-                                            const ids = batteryIdsInput
-                                                .split(/[\n,]/g)
-                                                .map((s) => s.trim())
-                                                .filter(Boolean);
-                                            const freeIds = getFreeSlotIds();
-                                            return ids.map((id, idx) => (
-                                                <li key={idx}>
-                                                    <span className="text-gray-700">{id}</span>
-                                                    <span className="text-gray-400"> → </span>
-                                                    <span className="font-semibold">
-                                                        SlotId = {freeIds[idx] ?? "Hết slot"}
-                                                    </span>
-                                                </li>
-                                            ));
-                                        })()}
-                                    </ul>
-                                    <div className="mt-2 text-gray-500">
-                                        (Chỉ dùng các slot có <b>pillarStatus = "Not use"</b>.)
-                                    </div>
                                 </div>
                             )}
 
@@ -660,16 +575,18 @@ export default function StationSwap() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {(autoPicked.length ? autoPicked : outOptions).slice(
-                                            0,
-                                            requiredBatteryCount > 0 ? requiredBatteryCount : swapInCount || 1
-                                        ).map((opt, idx) => (
-                                            <tr key={`${opt.batteryId}-${opt.slotId}-${idx}`} className="border-t">
-                                                <td className="p-2">{idx + 1}</td>
-                                                <td className="p-2">{opt.batteryId}</td>
-                                                <td className="p-2">{opt.slotId}</td>
-                                            </tr>
-                                        ))}
+                                        {(autoPicked.length ? autoPicked : outOptions)
+                                            .slice(
+                                                0,
+                                                requiredBatteryCount > 0 ? requiredBatteryCount : swapInCount || 1
+                                            )
+                                            .map((opt, idx) => (
+                                                <tr key={`${opt.batteryId}-${opt.slotId}-${idx}`} className="border-t">
+                                                    <td className="p-2">{idx + 1}</td>
+                                                    <td className="p-2">{opt.batteryId}</td>
+                                                    <td className="p-2">{opt.slotId}</td>
+                                                </tr>
+                                            ))}
                                     </tbody>
                                 </table>
                             </div>

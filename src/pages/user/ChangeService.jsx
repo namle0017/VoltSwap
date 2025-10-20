@@ -1,124 +1,145 @@
-import React, { useState, useEffect } from "react";
+// src/pages/user/ChangeService.jsx
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/api/api";
 
 export default function ChangeService() {
     const navigate = useNavigate();
-    const [subs, setSubs] = useState([]);
+    const [plans, setPlans] = useState([]);
     const [selected, setSelected] = useState(null);
-    const [current, setCurrent] = useState(null);
+    const [currentPlan, setCurrentPlan] = useState(null);
+    const [currentSubId, setCurrentSubId] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // 🔹 Load danh sách gói
+    // 🧭 Load dữ liệu
     useEffect(() => {
-        const loadSubs = async () => {
+        const fetchData = async () => {
             try {
-                const res = await api.get("/Subscription/GetAll");
-                const data = Array.isArray(res.data) ? res.data : [];
-                setSubs(data);
-                setCurrent(data.find((s) => s.status === "active"));
+                const token = localStorage.getItem("token");
+                const userDriverId = localStorage.getItem("userId");
+
+                // 1️⃣ Lấy danh sách tất cả plan
+                const planRes = await api.get("/Plan/plan-list");
+                const planList = Array.isArray(planRes.data.data)
+                    ? planRes.data.data
+                    : [];
+                setPlans(planList);
+
+                // 2️⃣ Lấy subscription hiện tại
+                const subRes = await api.get(
+                    `/Subscription/subscription-user-list?DriverId=${userDriverId}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+
+                if (subRes.data?.data?.length > 0) {
+                    const activeSub = subRes.data.data[0]; // Giả định lấy gói đầu tiên trong danh sách trả về
+                    const foundPlan = planList.find(
+                        (p) => p.planName === activeSub.planName
+                    );
+                    setCurrentPlan(foundPlan || null);
+                    setCurrentSubId(activeSub.subId || "");
+                } else {
+                    setCurrentPlan(null);
+                }
             } catch (err) {
-                console.error(err);
-                alert("❌ Failed to load subscriptions.");
+                console.error("❌ Error loading data:", err);
+                alert("Failed to load plans or subscription info!");
             } finally {
                 setLoading(false);
             }
         };
-        loadSubs();
+        fetchData();
     }, []);
 
-    // 🔁 Đổi gói
-    const changePlan = async () => {
-        if (!selected) return alert("Please select a plan.");
-        if (selected.planId === current?.planId)
-            return alert("You are already using this plan!");
+    // 🔁 Xử lý đổi gói
+    const handleChangePlan = async () => {
+        if (!selected) return alert("Please select a new plan!");
+        if (selected.planId === currentPlan?.planId)
+            return alert("You are already on this plan!");
 
         try {
-            await api.put(`/Subscription/ChangePlan/${selected.planId}`, {
-                newPlanId: selected.planId,
-            });
+            const driverId = localStorage.getItem("userId");
+            const token = localStorage.getItem("token");
 
-            await api.post("/Transaction/Create", {
-                driverId: "DRV001",
-                planId: selected.planId,
-                amount: selected.price,
-                fee: 0,
-                transactionType: "ChangePlan",
-            });
+            await api.post(
+                "/Subscription/change",
+                {
+                    userDriverId: driverId,
+                    subscriptionId: currentSubId,
+                    newPlanId: selected.planId,
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
 
             alert("✅ Plan changed successfully!");
             navigate("/user/transaction");
-        } catch (error) {
-            console.error(error);
-            alert("❌ Failed to change plan.");
+        } catch (err) {
+            console.error("❌ Error changing plan:", err);
+            alert("Failed to change plan. Please try again.");
         }
     };
 
     if (loading)
         return (
-            <div className="flex flex-col items-center mt-20 text-gray-600">
-                <div className="animate-spin h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full mb-3"></div>
-                <p>Loading subscription plans...</p>
+            <div className="flex justify-center items-center min-h-screen text-gray-600">
+                <div className="animate-spin h-10 w-10 border-4 border-blue-400 border-t-transparent rounded-full mr-3"></div>
+                Loading plans...
             </div>
         );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-100 to-cyan-100 py-10 px-4">
-            <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-lg p-6">
-                <h2 className="text-2xl font-bold text-center mb-6">
+        <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-cyan-100 py-10 px-4">
+            <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-lg p-8">
+                <h2 className="text-2xl font-bold text-center mb-8">
                     🔁 Change Subscription Plan
                 </h2>
 
-                {current && (
+                {currentPlan && (
                     <div className="text-center mb-8">
-                        <p className="text-gray-700">
+                        <p className="text-gray-700 text-lg">
                             <strong>Current Plan:</strong>{" "}
                             <span className="text-blue-700 font-semibold">
-                                {current.planName}
-                            </span>
+                                {currentPlan.planName}
+                            </span>{" "}
+                            — {currentPlan.price.toLocaleString()}₫
                         </p>
                     </div>
                 )}
 
+                {/* 📋 Danh sách gói */}
                 <div className="overflow-x-auto">
                     <table className="w-full text-center border-collapse">
                         <thead>
                             <tr className="bg-gray-100 text-gray-700">
-                                <th className="p-3">Package</th>
+                                <th className="p-3">Plan</th>
                                 <th>Batteries</th>
-                                <th>Mileage (km)</th>
+                                <th>Duration</th>
+                                <th>Mileage</th>
                                 <th>Price (₫)</th>
                                 <th>Status</th>
-                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
-                            {subs.map((p) => (
+                            {plans.map((p) => (
                                 <tr
                                     key={p.planId}
-                                    className={`border-b hover:bg-yellow-50 ${selected?.planId === p.planId ? "bg-yellow-100" : ""
+                                    className={`border-b hover:bg-yellow-50 transition ${selected?.planId === p.planId ? "bg-yellow-100" : ""
                                         }`}
                                 >
                                     <td className="p-3 font-semibold">{p.planName}</td>
-                                    <td>{p.batteries}</td>
-                                    <td>{p.milleageBaseUsed || "Unlimited"}</td>
-                                    <td>{p.price.toLocaleString()}</td>
-                                    <td
-                                        className={`font-semibold ${p.status === "active"
-                                                ? "text-green-600"
-                                                : "text-gray-500 italic"
-                                            }`}
-                                    >
-                                        {p.status === "active" ? "In Use" : "Available"}
-                                    </td>
+                                    <td>{p.numberBattery}</td>
+                                    <td>{p.durationDays} days</td>
                                     <td>
-                                        {p.status === "active" ? (
-                                            <button
-                                                disabled
-                                                className="px-3 py-1 rounded-full bg-gray-300 text-gray-600 cursor-not-allowed"
-                                            >
+                                        {p.milleageBaseUsed > 0
+                                            ? `${p.milleageBaseUsed} km`
+                                            : "Unlimited"}
+                                    </td>
+                                    <td>{p.price.toLocaleString()}</td>
+                                    <td>
+                                        {currentPlan?.planId === p.planId ? (
+                                            <span className="text-green-600 font-semibold">
                                                 In Use
-                                            </button>
+                                            </span>
                                         ) : (
                                             <button
                                                 onClick={() => setSelected(p)}
@@ -127,7 +148,7 @@ export default function ChangeService() {
                                                         : "bg-yellow-200 hover:bg-yellow-300"
                                                     }`}
                                             >
-                                                {selected?.planId === p.planId ? "Selected" : "Change"}
+                                                {selected?.planId === p.planId ? "Selected" : "Choose"}
                                             </button>
                                         )}
                                     </td>
@@ -137,9 +158,10 @@ export default function ChangeService() {
                     </table>
                 </div>
 
-                <div className="text-center mt-8 space-x-3">
+                {/* 🎛 Nút hành động */}
+                <div className="text-center mt-10 space-x-3">
                     <button
-                        onClick={changePlan}
+                        onClick={handleChangePlan}
                         disabled={!selected}
                         className={`px-6 py-2 rounded-lg font-semibold ${selected
                                 ? "bg-blue-600 text-white hover:bg-blue-700"

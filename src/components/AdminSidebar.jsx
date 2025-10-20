@@ -6,6 +6,11 @@ const menu = [
     { name: "Overview", path: "/admin", icon: "📊", end: true },
     { name: "Customers", path: "/admin/customers", icon: "👥" },
     { name: "Complaints", path: "/admin/complaints", icon: "📝" }, // 👈 NEW
+    { name: "Reports", path: "/admin/reports", icon: "📈" }, // NEW
+    { name: "Employees", path: "/admin/employees", icon: "💼" }, // NEW
+    { name: "Stations", path: "/admin/stations", icon: "⛽" }, // NEW
+    { name: "Subscriptions", path: "/admin/subscriptions", icon: "📦" },
+    { name: "Payments", path: "/admin/payments", icon: "💰" },
     // có thể thêm: { name: "Transactions", path: "/admin/transactions", icon: "💳" },
 ];
 
@@ -31,7 +36,9 @@ export default function AdminSidebar({ onSignOut }) {
                         to={item.path}
                         end={item.end}
                         className={({ isActive }) =>
-                            `mx-3 block px-4 py-3 rounded-lg text-left transition-all duration-200 ${isActive ? "bg-blue-500 text-white" : "text-gray-700 hover:bg-gray-100"
+                            `mx-3 block px-4 py-3 rounded-lg text-left transition-all duration-200 ${isActive
+                                ? "bg-blue-500 text-white"
+                                : "text-gray-700 hover:bg-gray-100"
                             }`
                         }
                     >

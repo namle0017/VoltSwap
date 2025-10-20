@@ -155,60 +155,60 @@ export default function Station() {
         if (!selectedSub || !bookingDate || !bookingTime)
             return alert("Please complete all fields");
 
+        const token = localStorage.getItem("token");
         const userDriverId = localStorage.getItem("userId");
-        if (!userDriverId) {
+        if (!token || !userDriverId) {
             alert("⚠️ Please login again!");
             navigate("/login");
             return;
         }
 
-        // Chuẩn hóa format ngày/giờ
-        const formattedDate = new Date(bookingDate).toISOString().split("T")[0]; // YYYY-MM-DD
-        const timeNorm =
+        // Chuẩn hoá format ngày/giờ (BE: YYYY-MM-DD, HH:mm[:ss])
+        const dateBooking = new Date(bookingDate).toISOString().split("T")[0]; // YYYY-MM-DD
+        const timeBooking =
             bookingTime && bookingTime.length === 5 ? `${bookingTime}:00` : bookingTime; // HH:mm:ss
 
-        // Gửi payload đa dạng khóa để tương thích nhiều biến thể BE
+        // ✅ Payload đúng theo BE mới
         const payload = {
-            // --- các khóa cho BE biến thể A ---
-            batterySwapStationId: selectedStation.stationId,
-            userDriverId,
-            // --- các khóa cho BE biến thể B (song song, BE sẽ bỏ qua khóa lạ) ---
             stationId: selectedStation.stationId,
             driverId: userDriverId,
-            // --- dùng chung ---
-            subscriptionId: selectedSub,
             note: "Swap battery",
-            dateBooking: formattedDate,
-            timeBooking: timeNorm,
+            subscriptionId: selectedSub,
+            dateBooking,
+            timeBooking,
         };
 
         try {
-            const res = await api.post("/Booking/createBooking", payload);
+            // ✅ Tạo booking
+            const res = await api.post("/Booking/create-booking", payload, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
             const appointment =
                 res?.data?.data?.appointment || res?.data?.appointment || {};
 
-            // Lưu lại để các màn khác có thể truy cập
-            localStorage.setItem("lastPlanId", appointment.subscriptionId || selectedSub);
+            // Lưu preset cho màn StationSwap
             localStorage.setItem("swap_stationId", selectedStation.stationId);
             localStorage.setItem("swap_subscriptionId", selectedSub);
+            localStorage.setItem("lastPlanId", appointment.planId || selectedSub);
 
-            // (tuỳ hệ thống) gọi log lịch sử giao dịch — nếu BE không yêu cầu có thể bỏ
+            // 🔎 (Tuỳ bạn dùng) lấy lịch sử giao dịch mới nhất để hiển thị/log
             try {
-                await api.post("/Transaction/transaction-user-list", {
-                    PlanId: appointment.subscriptionId || selectedSub,
-                    DriverId: userDriverId,
-                    TransactionType: "History",
-                });
-            } catch {
-                // BE 405/400 ở API này thì bỏ qua, không chặn luồng đặt lịch
+                const hist = await api.get(
+                    `/Transaction/user-transaction-history-list/${userDriverId}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                console.log("📜 User history:", hist.data);
+            } catch (e) {
+                console.warn("⚠️ History fetch failed (ignored):", e?.response?.data || e);
             }
 
             alert(
-                `✅ Booking created!\n📍 ${selectedStation.stationName}\n📅 ${bookingDate} ${bookingTime}`
+                `✅ Booking created!\n📍 ${selectedStation.stationName}\n📅 ${dateBooking} ${timeBooking}`
             );
             setShowModal(false);
 
-            // Điều hướng sang StationSwap & truyền preset
+            // Điều hướng sang StationSwap & truyền preset để tự validate
             navigate("/stations", {
                 state: {
                     stationId: selectedStation.stationId,

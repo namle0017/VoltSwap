@@ -1,3 +1,4 @@
+// src/pages/user/Transaction.jsx
 import React, { useEffect, useState } from "react";
 import api from "@/api/api";
 import { useNavigate } from "react-router-dom";
@@ -8,53 +9,36 @@ export default function Transaction() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        console.log("🚀 loadTransactions() fired at", new Date().toISOString());
         const loadTransactions = async () => {
             try {
                 const token = localStorage.getItem("token");
                 const userId = localStorage.getItem("userId");
-                const planId = localStorage.getItem("lastPlanId") || "PLAN-DEFAULT";
 
-                if (!token || !userId) {
-                    alert("Please log in again!");
-                    navigate("/login");
-                    return;
-                }
+                console.log("📡 Requesting transactions for user:", userId);
 
-                const payload = {
-                    PlanId: planId,
-                    DriverId: userId,
-                    TransactionType: "History",
-                };
-
-                console.log("📤 Sending payload:", payload);
-
-                const res = await api.post(
-                    "/Transaction/transaction-user-list",
-                    payload,
-                    {
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                        },
-                    }
+                const res = await api.get(
+                    `/Transaction/user-transaction-history-list/${userId}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
                 );
 
-                console.log("✅ Transactions loaded:", res.data);
-                setTransactions(res.data.data || []);
+                console.log("🔍 API Response:", res.data);
+
+                // Parse linh động
+                const transactionData =
+                    (res.data && Array.isArray(res.data.data) && res.data.data) ||
+                    (res.data && Array.isArray(res.data) && res.data) ||
+                    [];
+
+                setTransactions(transactionData);
             } catch (err) {
-                console.error(
-                    "❌ Failed to load transactions:",
-                    err.response?.data || err
-                );
-                alert("❌ Failed to load transactions!");
+                console.error("❌ Failed to load transactions:", err);
+                alert("Failed to load transaction history.");
             } finally {
                 setLoading(false);
             }
         };
-
         loadTransactions();
-    }, [navigate]);
+    }, []);
 
     if (loading)
         return (
@@ -72,6 +56,7 @@ export default function Transaction() {
                     <h2 className="text-2xl font-bold text-gray-800">Transactions</h2>
                 </div>
 
+                {/* 🧾 Transaction Table */}
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse text-center">
                         <thead>
@@ -100,17 +85,20 @@ export default function Transaction() {
 
                                     return (
                                         <tr
-                                            key={t.transactionId}
+                                            key={
+                                                t.transactionId ||
+                                                `${t.planId}-${t.createdAt || Math.random()}`
+                                            }
                                             className="border-b hover:bg-gray-50 transition duration-150"
                                         >
                                             <td className="py-3 px-2 font-semibold text-gray-700">
-                                                {t.transactionId}
+                                                {t.transactionId || "—"}
                                             </td>
                                             <td className="py-3 px-2 text-gray-700">
-                                                {t.transactionNote || "—"}
+                                                {t.transactionNote || t.transactionType || "—"}
                                             </td>
                                             <td className="py-3 px-2 font-semibold text-blue-700">
-                                                {t.amount?.toLocaleString() || 0}₫
+                                                {Number(t.amount || 0).toLocaleString()}₫
                                             </td>
                                             <td className="py-3 px-2">
                                                 <span
@@ -121,7 +109,7 @@ export default function Transaction() {
                                                                 : "bg-yellow-100 text-yellow-700"
                                                         }`}
                                                 >
-                                                    {t.paymentStatus}
+                                                    {t.paymentStatus || "Pending"}
                                                 </span>
                                             </td>
                                             <td className="py-3 px-2 text-gray-600">
