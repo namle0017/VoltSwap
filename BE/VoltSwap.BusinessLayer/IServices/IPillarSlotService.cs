@@ -8,16 +8,8 @@ using VoltSwap.Common.DTOs;
 
 namespace VoltSwap.BusinessLayer.IServices
 {
-<<<<<<< HEAD
     public interface IPillarSlotService
     {
         Task<ServiceResult> GetPillarSlotByStaffId(UserRequest requestDto);
-=======
-
-    public interface IPillarSlotService
-    {
- 
-
->>>>>>> origin/merge-test
     }
 }
