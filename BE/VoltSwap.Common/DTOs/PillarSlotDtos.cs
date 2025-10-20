@@ -21,6 +21,7 @@ namespace VoltSwap.Common.DTOs
 
     public class StaffPillarSlotDto
     {
+        public string PillarSlotId { get; set; }
         public int SlotId { get; set; }
         public int NumberOfSlotEmpty { get; set; }
         /// <summary>

@@ -142,7 +142,7 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<IServiceResult> ConfirmPaymentAsync(string transactionId)
         {
             var transaction = await _transRepo.GetByIdAsync(t => t.TransactionId == transactionId);
-            transaction.Status = "Pending";
+            transaction.Status = "Waiting";
             if (transaction == null)
             {
                 return new ServiceResult
@@ -151,7 +151,6 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "Something wrong! Please contact to admin for support",
                 };
             }
-            transaction.Status = "Waiting";
             await _transRepo.UpdateAsync(transaction);
             await _unitOfWork.SaveChangesAsync();
 

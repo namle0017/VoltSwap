@@ -20,6 +20,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<PillarSlot> _slotRepo;
         private readonly IGenericRepositories<StationStaff> _stationStaffRepo;
         private readonly IGenericRepositories<Battery> _batRepo;
+        private readonly IGenericRepositories<BatterySwapStation> _stationRepo;
         private readonly IBatteryService _batService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
@@ -29,6 +30,7 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<PillarSlot> slotRepo,
             IGenericRepositories<StationStaff> stationStaffRepo,
             IGenericRepositories<Battery> batRepo,
+            IGenericRepositories<BatterySwapStation> stationRepo,
             IBatteryService batService,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
@@ -37,6 +39,7 @@ namespace VoltSwap.BusinessLayer.Services
             _slotRepo = slotRepo;
             _batRepo = batRepo;
             _stationStaffRepo = stationStaffRepo;
+            _stationRepo = stationRepo;
             _batService = batService;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
@@ -48,25 +51,28 @@ namespace VoltSwap.BusinessLayer.Services
         {
             var pillarSlots = await _stationStaffRepo.GetAllQueryable()
                                 .Where(st => st.UserStaffId == requestDto.UserId)
-                                .Include(st => st.BatterySwapStation)
-                                    .ThenInclude(st => st.BatterySwapPillars)
-                                    .ThenInclude(st => st.PillarSlots)
-                                    .ThenInclude(st => st.Battery)
-                                .ToListAsync();
+                                .Include(st => st.BatterySwapStation).FirstOrDefaultAsync();
+            var getPillarSlots = await _unitOfWork.Stations.GetBatteriesInPillarByStationIdAsync(pillarSlots.BatterySwapStationId);
             var updateBatterySoc = await _batService.UpdateBatterySocAsync();
-            var dtoList = pillarSlots.Select(slot => new PillarSlotDto
-            {
-                SlotId = slot.SlotId,
-                BatteryId = slot.BatteryId,
-                SlotNumber = slot.SlotNumber,
-                StationId = stationId,
-                PillarStatus = slot.PillarStatus,
-                BatteryStatus = slot.BatteryId != null ? slot.Battery.BatteryStatus : "Availables",
-                BatterySoc = slot.BatteryId != null ? slot.Battery.Soc : 0,
-                BatterySoh = slot.BatteryId != null ? slot.Battery.Soh : 0,
-            }).ToList();
 
-            return dtoList;
+            var dtoList = pillarSlots.BatterySwapStation.BatterySwapPillars
+                        .Select(pillar => new StaffPillarSlotDto
+                        {
+                            PillarSlotId = pillar.BatterySwapPillarId, // Giả sử pillar.Id là string
+                            SlotId = pillar.PillarSlots.Count, // Tổng số slot trong pillar
+                            NumberOfSlotEmpty = pillar.PillarSlots.Count(ps => ps.Battery == null),
+                            NumberOfSlotRed = pillar.PillarSlots.Count(ps => ps.Battery != null && ps.Battery.Soc <= 20),
+                            NumberOfSlotYellow = pillar.PillarSlots.Count(ps => ps.Battery != null && ps.Battery.Soc > 20 && ps.Battery.Soc < 90),
+                            NumberOfSlotGreen = pillar.PillarSlots.Count(ps => ps.Battery != null && ps.Battery.Soc >= 90)
+                        })
+                        .ToList();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successfull",
+                Data = dtoList,
+            };
         }
     }
 }

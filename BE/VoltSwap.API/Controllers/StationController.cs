@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Azure.Core;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VoltSwap.BusinessLayer.Services;
+using VoltSwap.Common.DTOs;
 
 namespace VoltSwap.API.Controllers
 {
@@ -31,5 +33,7 @@ namespace VoltSwap.API.Controllers
             var result = await _stationService.GetActiveStation();
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
+
+
     }
 }

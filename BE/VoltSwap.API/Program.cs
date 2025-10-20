@@ -49,6 +49,7 @@ builder.Services.AddScoped<BatterySwapService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<OverviewService>();
+builder.Services.AddScoped<PillarSlotService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<IBookingService, BookingService>();
