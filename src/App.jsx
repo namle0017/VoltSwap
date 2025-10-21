@@ -1,9 +1,4 @@
-// src/App.jsx
-import {
-  createBrowserRouter,
-  RouterProvider,
-  Navigate,
-} from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 /** Layouts */
@@ -32,6 +27,7 @@ import Employees from "@/pages/admin/Employees";
 import Stations from "@/pages/admin/Stations";
 import Subscription from "@/pages/admin/Subscription";
 import PaymentInfo from "@/pages/admin/PaymentInfo";
+
 /** Staff pages */
 import Overview from "@/pages/staff/Overview";
 import Inventory from "@/pages/staff/Inventory";
@@ -43,6 +39,7 @@ import CustomerSupport from "@/pages/staff/CustomerSupport";
 import DockConsole from "@/pages/staff/DockConsole";
 import Ping from "@/pages/staff/Ping";
 import APITest from "@/pages/staff/APITest";
+import BatteryManager from "@/pages/staff/BatteryManager";
 
 /** User pages */
 import Service from "@/pages/user/Service";
@@ -54,7 +51,6 @@ import Payment from "@/pages/user/Payment";
 import Vehicle from "@/pages/user/Vehicle";
 import Support from "@/pages/user/Support";
 import Profile from "@/pages/user/Profile";
-import "leaflet/dist/leaflet.css";
 
 const router = createBrowserRouter([
   /** Public site */
@@ -67,8 +63,10 @@ const router = createBrowserRouter([
       { path: "services", element: <ServicesPage /> },
       { path: "benefits", element: <BenefitsPage /> },
       { path: "contact", element: <ContactPage /> },
+
     ],
   },
+
   { path: "stations", element: <StationSwap /> },
 
   /** User app (after login as Driver/Customer) */
@@ -108,6 +106,9 @@ const router = createBrowserRouter([
           { path: "support", element: <CustomerSupport /> },
           { path: "ping", element: <Ping /> },
           { path: "api-test", element: <APITest /> },
+
+          /* NEW: Battery Manager */
+          { path: "battery-mgmt", element: <BatteryManager /> },
         ],
       },
     ],
@@ -115,7 +116,7 @@ const router = createBrowserRouter([
 
   /** Admin portal (guarded) */
   {
-    // element: <ProtectedRoute requiredRole="Admin" />,
+    element: <ProtectedRoute requiredRole="Admin" />,
     children: [
       {
         path: "/admin",

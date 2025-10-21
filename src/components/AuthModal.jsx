@@ -79,7 +79,12 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
         if (user?.userRole === "Admin") {
           alert("✅ Admin login successful! Redirecting...");
           navigate("/admin");
-        } else {
+        }
+        if (user?.userRole === "Staff") {
+          alert("✅ Staff login successful! Redirecting...");
+          navigate("/staff");
+        }
+        if (user?.userRole === "Driver") {
           alert("✅ Login successful!");
           navigate("/user/service");
         }

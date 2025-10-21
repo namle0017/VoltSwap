@@ -5,7 +5,7 @@ import { staffAddNewBattery } from "@/api/batterySwapApi";
 export default function DockConsole() {
     // Ẩn nhưng gửi lên BE
     const [stationId] = useState("STA-10-06-5678");
-    const [staffId] = useState("ST-20000001");
+    const [staffId] = useState("ST-2000000");
 
     // Form input
     const [slotIdIn, setSlotIdIn] = useState("80");

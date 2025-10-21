@@ -4,74 +4,69 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "@/api/api";
 
 export default function Payment() {
-    const { id } = useParams(); // Transaction ID from URL
+    const { id } = useParams(); // transactionId
     const [transaction, setTransaction] = useState(null);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const navigate = useNavigate();
 
-    // 🔹 Load transaction details (GET with query params)
+    // Load transaction detail (chỉ để hiển thị thông tin)
     useEffect(() => {
-        const loadTransactionDetail = async () => {
+        const load = async () => {
             try {
-                const userId = localStorage.getItem("userId");
-                if (!userId) {
-                    alert("⚠ Please log in again!");
-                    navigate("/login");
-                    return;
-                }
-
                 const res = await api.get(`/Transaction/payment-detail`, {
                     params: { transactionId: id },
                 });
-
-                const data = res.data?.data?.data;
-
+                const data = res?.data?.data?.data || res?.data?.data || res?.data || null;
                 if (!data) {
                     alert("❌ Transaction not found!");
                     return;
                 }
-
                 setTransaction(data);
             } catch (err) {
-                console.error("❌ Failed to load detail:", err.response?.data || err);
+                console.error("❌ load detail:", err?.response?.data || err);
                 alert("⚠ Unable to load transaction details");
             } finally {
                 setLoading(false);
             }
         };
+        load();
+    }, [id]);
 
-        loadTransactionDetail();
-    }, [id, navigate]);
-
-    // 🔹 Confirm Payment using new API (POST with body)
+    // Confirm Payment → gửi transactionId cho BE, rồi quay về Transactions để đợi admin duyệt
     const handlePayment = async () => {
         if (!transaction) return;
 
-        if (transaction.paymentStatus === "success") {
-            alert("✅ This transaction has already been paid.");
+        const statusLower = String(transaction.paymentStatus || "").toLowerCase();
+        if (statusLower === "approved") {
+            alert("✅ Payment already approved.");
+            return navigate("/user/transaction");
+        }
+        if (statusLower === "denied") {
+            alert("❌ This transaction was denied by Admin.");
             return navigate("/user/transaction");
         }
 
-        if (!window.confirm("💰 Do you want to proceed with the payment?")) return;
+        if (!window.confirm("💰 Xác nhận thanh toán cho giao dịch này?")) return;
 
         setProcessing(true);
         try {
-            await api.get(`/Transaction/confirm-payment`, {
-                params: { transactionId: id },
+            await api.post("/Transaction/confirm-payment", {
+                transactionId: transaction.transactionId,
             });
 
-            alert("✅ Payment confirmed successfully!");
+            // Không poll/đếm ngược ở trang này nữa.
+            alert("✅ Đã xác nhận thanh toán. Vui lòng theo dõi trạng thái ở trang Transactions.");
             navigate("/user/transaction");
         } catch (err) {
-            console.error("❌ Payment failed:", err.response?.data || err);
-            alert("❌ Payment failed! Please try again.");
+            console.error("❌ confirm-payment failed:", err?.response?.data || err);
+            alert("❌ Payment confirm failed! Please try again.");
         } finally {
             setProcessing(false);
         }
     };
 
-    // 🌀 Loading State
+    // UI
     if (loading) {
         return (
             <div className="flex flex-col items-center mt-20 text-gray-600">
@@ -95,16 +90,16 @@ export default function Payment() {
         );
     }
 
-    // 🔹 Format payment date
+    const statusLower = String(transaction.paymentStatus || "").toLowerCase();
     const formattedDate = transaction.paymentDate
         ? new Date(transaction.paymentDate).toLocaleString()
         : "Not yet paid";
 
-    // 🔹 Bank Info from API
     const bankInfo = {
         bankName: transaction.bankName || "N/A",
         accountNumber: transaction.paymentAccount || "N/A",
         transactionContext: transaction.transactionContext || "N/A",
+        method: "Bank Transfer",
     };
 
     const copyToClipboard = (text) => {
@@ -139,13 +134,21 @@ export default function Payment() {
                             <button
                                 onClick={() => copyToClipboard(bankInfo.accountNumber)}
                                 className="text-gray-500 hover:text-blue-600"
+                                title="Copy"
                             >
                                 📋
                             </button>
                         </p>
-                        <p>
-                            <span className="font-semibold">Transaction Context:</span>{" "}
-                            {bankInfo.transactionContext}
+                        <p className="flex items-center gap-2">
+                            <span className="font-semibold">Transaction Context:</span>
+                            <span className="truncate">{bankInfo.transactionContext}</span>
+                            <button
+                                onClick={() => copyToClipboard(bankInfo.transactionContext)}
+                                className="text-gray-500 hover:text-blue-600"
+                                title="Copy"
+                            >
+                                📋
+                            </button>
                         </p>
                     </div>
                 </div>
@@ -155,6 +158,7 @@ export default function Payment() {
                     <h3 className="font-semibold text-lg mb-3 text-gray-800">
                         Payment Summary
                     </h3>
+
                     <div className="space-y-2 text-gray-700">
                         <p className="flex justify-between">
                             <span>Transaction ID</span>
@@ -163,15 +167,15 @@ export default function Payment() {
                         <p className="flex justify-between">
                             <span>Amount</span>
                             <span className="font-semibold text-blue-700">
-                                {transaction.amount?.toLocaleString()} VND
+                                {(transaction.amount || 0).toLocaleString()} VND
                             </span>
                         </p>
                         <p className="flex justify-between">
-                            <span>Payment Status</span>
+                            <span>Status</span>
                             <span
-                                className={`text-sm px-3 py-1 rounded-md border ${transaction.paymentStatus === "success"
+                                className={`text-sm px-3 py-1 rounded-md border ${statusLower === "approved"
                                         ? "bg-green-100 text-green-700 border-green-300"
-                                        : transaction.paymentStatus === "fail"
+                                        : statusLower === "denied"
                                             ? "bg-red-100 text-red-700 border-red-300"
                                             : "bg-yellow-100 text-yellow-700 border-yellow-300"
                                     }`}
@@ -185,18 +189,25 @@ export default function Payment() {
                         </p>
                     </div>
 
-                    <button
-                        onClick={handlePayment}
-                        disabled={processing || transaction.paymentStatus !== "Pending"}
-                        className={`mt-5 w-full py-3 rounded-lg text-white font-semibold transition ${transaction.paymentStatus !== "Pending"
-                                ? "bg-gray-400 cursor-not-allowed"
-                                : processing
-                                    ? "bg-gray-500"
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                        <button
+                            onClick={() => navigate("/user/transaction")}
+                            className="w-full py-3 rounded-lg font-semibold border hover:bg-gray-50 transition"
+                        >
+                            ← Back to Transactions
+                        </button>
+
+                        <button
+                            onClick={handlePayment}
+                            disabled={processing || statusLower === "approved" || statusLower === "denied"}
+                            className={`w-full py-3 rounded-lg text-white font-semibold transition ${processing
+                                    ? "bg-gray-400 cursor-not-allowed"
                                     : "bg-blue-600 hover:bg-blue-700"
-                            }`}
-                    >
-                        {processing ? "Processing..." : "Confirm Payment"}
-                    </button>
+                                }`}
+                        >
+                            {processing ? "Processing..." : "Confirm Payment"}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

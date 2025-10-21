@@ -73,9 +73,7 @@ export default function Station() {
                     return;
                 }
 
-                // ✅ BE hiện tại yêu cầu:
-                // - GET /Station/station-list
-                // - GET /Subscription/subscription-user-list?DriverId=DR-...
+                // GET list trạm + gói thuê của user
                 const [stationRes, subRes] = await Promise.all([
                     api.get("Station/station-list"),
                     api.get(`/Subscription/subscription-user-list?DriverId=${userId}`),
@@ -93,7 +91,7 @@ export default function Station() {
         fetchData();
     }, [navigate]);
 
-    // arrival check
+    // (tuỳ thích) hỏi đã đến trạm chưa
     const startArrivalCheck = (stationName) => {
         if (arrivalTimer.current) clearTimeout(arrivalTimer.current);
         const askArrival = () => {
@@ -108,7 +106,7 @@ export default function Station() {
         arrivalTimer.current = setTimeout(askArrival, 15000);
     };
 
-    // navigate: draw route & highlight
+    // draw route & highlight
     const handleNavigateVisual = (st) => {
         setTargetId(st.stationId);
 
@@ -150,7 +148,7 @@ export default function Station() {
         setShowModal(true);
     };
 
-    // create booking
+    // ✅ create booking → quay về Transaction (không sang StationSwap ngay)
     const confirmBooking = async () => {
         if (!selectedSub || !bookingDate || !bookingTime)
             return alert("Please complete all fields");
@@ -164,11 +162,11 @@ export default function Station() {
         }
 
         // Chuẩn hoá format ngày/giờ (BE: YYYY-MM-DD, HH:mm[:ss])
-        const dateBooking = new Date(bookingDate).toISOString().split("T")[0]; // YYYY-MM-DD
+        const dateBooking = new Date(bookingDate).toISOString().split("T")[0];
         const timeBooking =
-            bookingTime && bookingTime.length === 5 ? `${bookingTime}:00` : bookingTime; // HH:mm:ss
+            bookingTime && bookingTime.length === 5 ? `${bookingTime}:00` : bookingTime;
 
-        // ✅ Payload đúng theo BE mới
+        // Payload đúng theo BE
         const payload = {
             stationId: selectedStation.stationId,
             driverId: userDriverId,
@@ -179,7 +177,6 @@ export default function Station() {
         };
 
         try {
-            // ✅ Tạo booking
             const res = await api.post("/Booking/create-booking", payload, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -187,36 +184,18 @@ export default function Station() {
             const appointment =
                 res?.data?.data?.appointment || res?.data?.appointment || {};
 
-            // Lưu preset cho màn StationSwap
+            // Lưu preset cho StationSwap (sẽ dùng sau khi thanh toán được Approved)
             localStorage.setItem("swap_stationId", selectedStation.stationId);
             localStorage.setItem("swap_subscriptionId", selectedSub);
             localStorage.setItem("lastPlanId", appointment.planId || selectedSub);
 
-            // 🔎 (Tuỳ bạn dùng) lấy lịch sử giao dịch mới nhất để hiển thị/log
-            try {
-                const hist = await api.get(
-                    `/Transaction/user-transaction-history-list/${userDriverId}`,
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
-                console.log("📜 User history:", hist.data);
-            } catch (e) {
-                console.warn("⚠️ History fetch failed (ignored):", e?.response?.data || e);
-            }
-
             alert(
-                `✅ Booking created!\n📍 ${selectedStation.stationName}\n📅 ${dateBooking} ${timeBooking}`
+                `✅ Booking created!\n📍 ${selectedStation.stationName}\n📅 ${dateBooking} ${timeBooking}\n\n➡ Tiếp theo: vào Transactions để thanh toán.`
             );
             setShowModal(false);
 
-            // Điều hướng sang StationSwap & truyền preset để tự validate
-            navigate("/stations", {
-                state: {
-                    stationId: selectedStation.stationId,
-                    subscriptionId: selectedSub,
-                },
-            });
-
-            startArrivalCheck(selectedStation.stationName);
+            // ❗ Flow mới: quay về trang Transaction để user "Pay Now"
+            navigate("/user/transaction");
         } catch (err) {
             const v = err?.response?.data;
             const msg =
