@@ -279,65 +279,84 @@ namespace VoltSwap.BusinessLayer.Services
         {
             var transaction = await _transRepo.GetByIdAsync(t => t.TransactionId == requestDto.RequestTransactionId);
             if (transaction == null)
-            {
-                return new ServiceResult
-                {
-                    Status = 404,
-                    Message = "Transaction not found."
-                };
-            }
-            transaction.Status = requestDto.NewStatus;
-            transaction.ConfirmDate = DateTime.UtcNow.ToLocalTime();
+                return new ServiceResult { Status = 404, Message = "Transaction not found." };
+
+            transaction.Status = requestDto.NewStatus?.Trim();
+            transaction.ConfirmDate = DateTime.UtcNow; // luôn lưu UTC
             await _transRepo.UpdateAsync(transaction);
             await _unitOfWork.SaveChangesAsync();
-            // Nếu transaction được duyệt (approved), cập nhật trạng thái 
-            if (requestDto.NewStatus.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+
+            if (string.Equals(requestDto.NewStatus, "Approved", StringComparison.OrdinalIgnoreCase))
             {
-                var type = transaction.TransactionType.Trim().ToLowerInvariant();
-                switch (type)
+                var type = (transaction.TransactionType ?? string.Empty).Trim().ToLowerInvariant();
+
+                if (type == "register" || type == "renew plan" || type == "change plan")
                 {
-                    case "register":
-                    case "renew plan":
-                    case "change plan":
-                        var subscription = await _unitOfWork.Subscriptions
-                             .GetAllQueryable()
-                             .FirstOrDefaultAsync(s => s.SubscriptionId == transaction.SubscriptionId);
-                        if (subscription != null)
-                        {
-                            subscription.Status = "Active";
-                            await _unitOfWork.Subscriptions.UpdateAsync(subscription);
-                            await _unitOfWork.SaveChangesAsync();
-                        }
-                        break;
+                    var subscription = await _unitOfWork.Subscriptions
+                        .GetAllQueryable()
+                        .FirstOrDefaultAsync(s => s.SubscriptionId == transaction.SubscriptionId);
 
-                    case "booking":
-                        var appoinmentPending = await _unitOfWork.Bookings
-                                                    .GetAllQueryable()
-                                                     .AsTracking()
-                                                     .FirstOrDefaultAsync(a =>
-                                                         a.SubscriptionId == transaction.SubscriptionId &&
-                                                         a.Status == "Pending");
-                        if (appoinmentPending == null)
-                        {
-                            return new ServiceResult { Status = 404, Message = "No pending appointment for this subscription." };
-                        }
-
-                        int locked = await _slotRepo.LockSlotsAsync(appoinmentPending.BatterySwapStationId, appoinmentPending.SubscriptionId, appoinmentPending.AppointmentId);
-                        var secondsRemaining = CalculateCancelCountdownSeconds(appoinmentPending, addExtraHour: true);
-
-                        appoinmentPending.Status = "Not Done";
-                        await _unitOfWork.Bookings.UpdateAsync(appoinmentPending);
+                    if (subscription != null)
+                    {
+                        subscription.Status = "Active";
+                        await _unitOfWork.Subscriptions.UpdateAsync(subscription);
                         await _unitOfWork.SaveChangesAsync();
+                    }
+
+                    return new ServiceResult
+                    {
+                        Status = 200,
+                        Message = "Transaction status updated successfully."
+                    };
+                }
+                else if (type == "booking")
+                {
+                    try
+                    {
+                        // Rule: mỗi subscription chỉ có 1 booking đang mở (Pending)
+                        var appt = await _unitOfWork.Bookings
+                            .GetAllQueryable()
+                            .AsTracking()
+                            .Where(a => a.SubscriptionId == transaction.SubscriptionId && a.Status == "Not Done")
+                            .SingleOrDefaultAsync();
+
+                        if (appt == null)
+                            return new ServiceResult { Status = 404, Message = "No pending appointment for this subscription." };
+
+                        var locked = await _slotRepo.LockSlotsAsync(
+                            appt.BatterySwapStationId,
+                            appt.SubscriptionId,
+                            appt.AppointmentId);
+
+                        var secondsRemaining = CalculateCancelCountdownSeconds(appt, addExtraHour: true);
+
+                        appt.Status = "Not Done";
+                        await _unitOfWork.Bookings.UpdateAsync(appt);
+                        await _unitOfWork.SaveChangesAsync(); // lưu trước khi return
 
                         return new ServiceResult
                         {
                             Status = 200,
-                            Message = $"Transaction status updated successfully {secondsRemaining}, {locked}",
-
+                            Message = "Transaction approved; appointment moved to Not Done.",
+                            Data = new
+                            {
+                                appointmentId = appt.AppointmentId,
+                                newStatus = appt.Status,
+                                secondsRemaining,
+                                locked
+                            }
                         };
-
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // Xảy ra khi có >1 bản ghi Pending cho cùng subscription (vi phạm rule)
+                        return new ServiceResult
+                        {
+                            Status = 409,
+                            Message = "Data conflict: multiple pending appointments found for this subscription. Please resolve duplicates."
+                        };
+                    }
                 }
-
             }
 
             return new ServiceResult
@@ -346,6 +365,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "Transaction status updated successfully."
             };
         }
+
         private static DateTime ToUtcFromVn(DateTime vnLocal)
         {
             var unspecified = DateTime.SpecifyKind(vnLocal, DateTimeKind.Unspecified);

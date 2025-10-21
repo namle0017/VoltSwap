@@ -7,6 +7,8 @@ namespace VoltSwap.DAL.Models;
 
 public partial class Battery
 {
+    public DateTime UpdateAt;
+
     public string BatteryId { get; set; }
 
     public string BatterySwapStationId { get; set; }
@@ -18,8 +20,6 @@ public partial class Battery
     public decimal Soh { get; set; }
 
     public string BatteryStatus { get; set; }
-
-    public DateTime UpdateAt { get; set; }
 
     public virtual ICollection<BatterySession> BatterySessions { get; set; } = new List<BatterySession>();
 

@@ -55,8 +55,8 @@ namespace VoltSwap.BusinessLayer.Services
             if (appointment == null)
                 return new ServiceResult { Status = 404, Message = "Booking not found" };
 
-            if (!string.Equals(appointment.Status, "Not Done", StringComparison.OrdinalIgnoreCase))
-                return new ServiceResult { Status = 409, Message = "Only Not Done bookings can be cancelled" };
+            //if (!string.Equals(appointment.Status, "Pending", StringComparison.OrdinalIgnoreCase))
+            //    return new ServiceResult { Status = 409, Message = "Only Not Done bookings can be cancelled" };
 
 
             appointment.Status = "Cancelled";
@@ -124,7 +124,7 @@ namespace VoltSwap.BusinessLayer.Services
                 BatterySwapStationId = request.StationId,
                 Note = request.Note,
                 SubscriptionId = request.SubscriptionId,
-                Status = "Not Done",
+                Status = "Not done",
                 DateBooking = request.DateBooking,
                 TimeBooking = request.TimeBooking,
                 CreateBookingAt = DateTime.UtcNow.ToLocalTime()

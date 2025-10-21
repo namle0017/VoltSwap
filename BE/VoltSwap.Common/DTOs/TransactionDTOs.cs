@@ -6,6 +6,10 @@ using System.Threading.Tasks;
 
 namespace VoltSwap.Common.DTOs
 {
+    public sealed class ConfirmPaymentRequest
+    {
+        public string TransactionId { get; set; } = default!;
+    }
     public class TransactionRequest
     {
         public String DriverId { get; set; }

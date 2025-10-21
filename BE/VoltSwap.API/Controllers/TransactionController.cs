@@ -26,7 +26,7 @@ namespace VoltSwap.API.Controllers
                 return BadRequest(ModelState);
             }
             var transaction = await _transService.UpdateTransactionStatusAsync_V2(requestDto);
-            return StatusCode(transaction.Status,transaction.Message);
+            return StatusCode(transaction.Status, new { message = transaction.Message , data = transaction });
         }
 
         [HttpPost("transaction-user-list")]
@@ -104,14 +104,14 @@ namespace VoltSwap.API.Controllers
         }
 
         // Nemo: API cho confirm chuyển tiền
-        [HttpGet("confirm-payment/{transactionId}")]
-        public async Task<IActionResult> ConfirmPayment([FromQuery] string transactionId)
+        [HttpPost("confirm-payment")]
+        public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentRequest request)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
-            var result = await _transService.ConfirmPaymentAsync(transactionId);
+            var result = await _transService.ConfirmPaymentAsync(request.TransactionId);
             return StatusCode(result.Status, new
             {
                 message = result.Message,

@@ -273,7 +273,7 @@ namespace VoltSwap.BusinessLayer.Services
                 TransactionId = newTransId,
                 SubscriptionId = getsub.SubscriptionId,
                 UserDriverId = DriverId,
-                TransactionType = "Change plan",
+                TransactionType = "Change",
                 Amount = price,
                 Currency = "VND",
                 TransactionDate = DateTime.UtcNow,
