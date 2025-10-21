@@ -74,5 +74,43 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = dtoList,
             };
         }
+
+
+        // Nemo: Này là để hiển thị theo pillarSlotId
+        public async Task<ServiceResult> GetBatteryInPillar(string pillarId)
+        {
+            var updateBatterySoc = await _batService.UpdateBatterySocAsync();
+            var pillarSlots = await GetBatteriesInPillarByPillarIdAsync(pillarId);
+            var getStationId = await _unitOfWork.Stations.GetStationByPillarId(pillarId);
+            var dtoList = pillarSlots.Select(slot => new PillarSlotDto
+            {
+                SlotId = slot.SlotId,
+                BatteryId = slot.BatteryId,
+                SlotNumber = slot.SlotNumber,
+                StationId = getStationId.BatterySwapStationId,
+                PillarStatus = slot.PillarStatus,
+                BatteryStatus = slot.BatteryId != null ? slot.Battery.BatteryStatus : "Availables",
+                BatterySoc = slot.BatteryId != null ? slot.Battery.Soc : 0,
+                BatterySoh = slot.BatteryId != null ? slot.Battery.Soh : 0,
+            }).ToList();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Get battery in pillar successfull",
+                Data = dtoList
+            };
+
+        }
+
+
+        private async Task<List<PillarSlot>> GetBatteriesInPillarByPillarIdAsync(String pillarId)
+        {
+            var pillarSlots = await _slotRepo.GetAllQueryable()
+                .Where(slot => slot.BatterySwapPillarId == pillarId)
+                .Include(slot => slot.Battery)
+                .ToListAsync();
+            return pillarSlots;
+        }
     }
 }

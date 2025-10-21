@@ -20,7 +20,7 @@ namespace VoltSwap.API.Controllers
 
         //Cái này là của lấy thông tin của người dùng, user và admin thấy được
         [HttpGet("user-information")]
-        public async Task<IActionResult> GetUserUpdateInformation([FromQuery]UserRequest requestDto)
+        public async Task<IActionResult> GetUserUpdateInformation([FromQuery] UserRequest requestDto)
         {
             if (!ModelState.IsValid)
             {
@@ -86,7 +86,7 @@ namespace VoltSwap.API.Controllers
                             new
                             {
                                 message = updateStaffInformation.Message,
-                                //data = updateStaffInformation.Data
+                                data = updateStaffInformation.Data
                             });
         }
     }

@@ -23,7 +23,7 @@ namespace VoltSwap.DAL.Repositories
 
         public async Task<(int, int)> GetNumberOfStationActive()
         {
-            int numberOfStationActive = await _context.BatterySwapStations.CountAsync(x => x.Status =="Active");
+            int numberOfStationActive = await _context.BatterySwapStations.CountAsync(x => x.Status == "Active");
             int numberOfStation = await _context.BatterySwapStations.CountAsync();
             return (numberOfStationActive, numberOfStation);
         }
@@ -34,12 +34,15 @@ namespace VoltSwap.DAL.Repositories
         {
             var pillarSlots = await _context.PillarSlots
                 .Include(slot => slot.BatterySwapPillar)
-                .ThenInclude(pillar => pillar.BatterySwapStation)
+                    .ThenInclude(pillar => pillar.BatterySwapStation)
                 .Include(slot => slot.Battery)
                 .Where(slot => slot.BatterySwapPillar.BatterySwapStationId == stationId)
                 .ToListAsync();
             return pillarSlots;
         }
+
+
+
         public async Task<List<PillarSlot>> GetBatteriesByStationAsync()
         {
             var pillarSlots = await _context.PillarSlots
@@ -82,6 +85,15 @@ namespace VoltSwap.DAL.Repositories
         public async Task<PillarSlot> GetPillarSlotAsync(int slotId)
         {
             return await _context.PillarSlots.FirstOrDefaultAsync(slot => slot.SlotId == slotId);
+        }
+
+        public async Task<BatterySwapStation> GetStationByPillarId(String pillarId)
+        {
+            return await _context.BatterySwapPillars
+                .Where(pillar => pillar.BatterySwapPillarId == pillarId)
+                .Include(sta => sta.BatterySwapStation)
+                .Select(p => p.BatterySwapStation)
+                .FirstOrDefaultAsync();
         }
     }
 }
