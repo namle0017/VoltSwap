@@ -57,8 +57,8 @@ export default function Payment() {
 
     setProcessing(true);
     try {
-      await api.get(`/Transaction/confirm-payment`, {
-        params: { transactionId: id },
+      const res = await api.post(`/Transaction/confirm-payment`, {
+        transactionId: transaction.transactionId,
       });
 
       alert("✅ Payment confirmed successfully!");
