@@ -28,8 +28,8 @@ namespace VoltSwap.API.Controllers
                 result.Data
             });
         }
-        [HttpPost("{appointmentId}/expire-check")]
-        public async Task<IActionResult> ExpireCheck(string appointmentId, [FromBody] CancelBookingRequest request)
+        [HttpPost("expire-check")]
+        public async Task<IActionResult> ExpireCheck( [FromBody] CancelBookingRequest request)
         {
             var result = await _bookingService.CancelBookingAsync(request);
             return StatusCode(result.Status, result.Message);
