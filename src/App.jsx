@@ -1,4 +1,3 @@
-// src/App.jsx
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
@@ -35,6 +34,7 @@ import CustomerSupport from "@/pages/staff/CustomerSupport";
 import DockConsole from "@/pages/staff/DockConsole";
 import Ping from "@/pages/staff/Ping";
 import APITest from "@/pages/staff/APITest";
+import BatteryManager from "@/pages/staff/BatteryManager";
 
 /** User pages */
 import Service from "@/pages/user/Service";
@@ -99,6 +99,9 @@ const router = createBrowserRouter([
           { path: "support", element: <CustomerSupport /> },
           { path: "ping", element: <Ping /> },
           { path: "api-test", element: <APITest /> },
+
+          /* NEW: Battery Manager */
+          { path: "battery-mgmt", element: <BatteryManager /> },
         ],
       },
     ],

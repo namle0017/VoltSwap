@@ -79,6 +79,10 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
         if (user?.userRole === "Admin") {
           alert("✅ Admin login successful! Redirecting...");
           navigate("/admin");
+        }
+        if (user?.userRole === "Staff") {
+          alert("✅ Staff login successful! Redirecting...");
+          navigate("/staff");
         } else {
           alert("✅ Login successful!");
           navigate("/user/service");
@@ -86,6 +90,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
 
         onClose();
       }
+
 
       onClose();
     } catch (err) {
