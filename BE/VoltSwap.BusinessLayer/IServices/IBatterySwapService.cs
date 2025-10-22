@@ -16,8 +16,8 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<List<BatteryDto>> GetBatteryInUsingAvailable(string subId);
 
         Task<decimal?> CalMilleageBase(List<BatterySession> batSession);
-        Task<ServiceResult> SwapOutBattery(BatterySwapListRequest requestDto);
+        Task<ServiceResult> SwapOutBattery(BatterySwapOutListRequest requestDto);
         Task<ServiceResult> CheckBatteryAvailable(BatterySwapListRequest requestBatteryList);
 
-        }
+    }
 }

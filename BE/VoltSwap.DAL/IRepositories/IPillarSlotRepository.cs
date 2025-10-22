@@ -7,7 +7,7 @@ using VoltSwap.DAL.Models;
 
 namespace VoltSwap.DAL.IRepositories
 {
-    public  interface IPillarSlotRepository
+    public interface IPillarSlotRepository
     {
         Task<int> LockSlotsAsync(string stationId, string subscriptionId, string bookingId);
         Task<int> UnlockSlotsByAppointmentIdAsync(string appointmentId);

@@ -35,6 +35,12 @@ public partial class Transaction
 
     public DateTime? ConfirmDate { get; set; }
 
+    public string CreatedBy { get; set; }
+
+    public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
+
+    public virtual User CreatedByNavigation { get; set; }
+
     public virtual Subscription Subscription { get; set; }
 
     public virtual User UserDriver { get; set; }

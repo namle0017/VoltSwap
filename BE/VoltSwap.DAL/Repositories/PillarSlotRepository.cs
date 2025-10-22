@@ -11,11 +11,11 @@ using VoltSwap.DAL.Models;
 
 namespace VoltSwap.DAL.Repositories
 {
-    public  class PillarSlotRepository : GenericRepositories<PillarSlot>, IPillarSlotRepository
+    public class PillarSlotRepository : GenericRepositories<PillarSlot>, IPillarSlotRepository
     {
         private readonly VoltSwapDbContext _context;
         private const string SLOT_USE = "Use";
-        private const string SLOT_LOCK = "Lock"; 
+        private const string SLOT_LOCK = "Lock";
 
         public PillarSlotRepository(VoltSwapDbContext context) : base(context) => _context = context;
 
@@ -40,11 +40,11 @@ namespace VoltSwap.DAL.Repositories
                 slot.PillarStatus = "Lock";
                 slot.AppointmentId = bookingId;
                 _context.PillarSlots.Update(slot);
-                
+
             }
 
 
-            return await _context.SaveChangesAsync(); 
+            return await _context.SaveChangesAsync();
 
 
         }

@@ -29,12 +29,25 @@ namespace VoltSwap.Common.DTOs
 
         public string PillarId { get; set; }
     }
+
+    //Nemo: cái class này thì sẽ để bên FE trả về các thông tin:
+    // Swap in: Để biết pin truyền vào đã đúng chưa, thông qua batteryDtos,
+    // SubId là để update cho battery Swap history, và session, subId, và battery
+    //Đối với accessRequest thì sẽ là 
     public class BatterySwapListRequest
     {
         public List<BatteryDto> BatteryDtos { get; set; }
         public string SubscriptionId { get; set; }
-        public AccessRequest accessRequest { get; set; }
-        public string pillarId { get; set; }
+        public AccessRequest AccessRequest { get; set; }
+        public string PillarId { get; set; }
+    }
+    public class BatterySwapOutListRequest
+    {
+        public List<BatteryDto> BatteryDtos { get; set; }
+        public string SubscriptionId { get; set; }
+        public AccessRequest AccessRequest { get; set; }
+        public string PillarId { get; set; }
+        public string Status { get; set; }
     }
 
     public class BatteryRequest
@@ -104,4 +117,9 @@ namespace VoltSwap.Common.DTOs
         public int AvgBatterySwap { get; set; }
     }
 
+
+    public class SwapForFirstTimeRequest
+    {
+        public string SubId { get; set; }
+    }
 }

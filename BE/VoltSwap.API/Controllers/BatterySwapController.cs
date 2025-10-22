@@ -27,7 +27,7 @@ namespace VoltSwap.API.Controllers
                 return BadRequest(ModelState);
             }
             var result = await _batSwapService.CheckSubId(request);
-            return StatusCode(result.Status, new { message = result.Message , data = result.Data} );
+            return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
 
         //tài
@@ -44,7 +44,7 @@ namespace VoltSwap.API.Controllers
 
         //Tài
         [HttpPost("swap-out-battery")]
-        public async Task<IActionResult> SwapOutBattery([FromBody] BatterySwapListRequest request)
+        public async Task<IActionResult> SwapOutBattery([FromBody] BatterySwapOutListRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -78,14 +78,14 @@ namespace VoltSwap.API.Controllers
         //Kiệt
         //Hàm này để staff hỗ trợ khách hàng đổi pin
         [HttpGet("staff-help-customer")]
-        public async Task<IActionResult> StaffHelpAsync([FromQuery]StaffBatteryRequest requestDto)
+        public async Task<IActionResult> StaffHelpAsync([FromQuery] StaffBatteryRequest requestDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
             var result = await _batSwapService.StaffTransferBattery(requestDto);
-            return StatusCode(result.Status, new { message = result.Message});
+            return StatusCode(result.Status, new { message = result.Message });
         }
 
         //Kiệt
