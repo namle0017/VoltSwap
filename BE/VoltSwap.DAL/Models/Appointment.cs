@@ -25,11 +25,15 @@ public partial class Appointment
 
     public DateTime CreateBookingAt { get; set; }
 
+    public string TransactionId { get; set; }
+
     public virtual BatterySwapStation BatterySwapStation { get; set; }
 
     public virtual ICollection<PillarSlot> PillarSlots { get; set; } = new List<PillarSlot>();
 
     public virtual Subscription Subscription { get; set; }
+
+    public virtual Transaction Transaction { get; set; }
 
     public virtual User UserDriver { get; set; }
 }

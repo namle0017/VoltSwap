@@ -216,7 +216,7 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm này để admin có thể xem các transaction mà user mới tạo, để check coi là approve hay deny nếu approve thì trong transaction sẽ được cập nhật status thành Active và trong subscription sẽ được cập nhật status thành active nếu mà transactionType là Buy plan hoặc là Renew plan
         public async Task<ServiceResult> GetAllPendingTransactionsAsync()
         {
-            var transactions = await _transRepo.GetAllAsync(t => t.Status == "Pending");
+            var transactions = await _transRepo.GetAllAsync(t => t.Status == "Waiting");
             if (transactions == null || !transactions.Any())
             {
                 return new ServiceResult
@@ -237,7 +237,7 @@ namespace VoltSwap.BusinessLayer.Services
             return new ServiceResult
             {
                 Status = 200,
-                Message = "Pending transactions retrieved successfully.",
+                Message = "Waiting transactions retrieved successfully.",
                 Data = pendingTransactions
             };
         }
@@ -574,4 +574,7 @@ namespace VoltSwap.BusinessLayer.Services
 
     //    return result;
     //}
+
+
+    //public async Task<ServiceResult>
 }

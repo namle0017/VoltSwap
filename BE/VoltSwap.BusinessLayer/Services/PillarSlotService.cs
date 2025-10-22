@@ -104,7 +104,7 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
 
-        private async Task<List<PillarSlot>> GetBatteriesInPillarByPillarIdAsync(String pillarId)
+        public async Task<List<PillarSlot>> GetBatteriesInPillarByPillarIdAsync(String pillarId)
         {
             var pillarSlots = await _slotRepo.GetAllQueryable()
                 .Where(slot => slot.BatterySwapPillarId == pillarId)
