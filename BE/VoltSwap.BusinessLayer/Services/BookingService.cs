@@ -59,7 +59,7 @@ namespace VoltSwap.BusinessLayer.Services
             //    return new ServiceResult { Status = 409, Message = "Only Not Done bookings can be cancelled" };
 
 
-            appointment.Status = "Cancelled";
+            appointment.Status = "Canceled";
             await _slotRepo.UnlockSlotsByAppointmentIdAsync(appointment.AppointmentId);
             _bookingRepo.Update(appointment);
             await _unitOfWork.SaveChangesAsync();
@@ -239,10 +239,10 @@ namespace VoltSwap.BusinessLayer.Services
                 .FirstOrDefaultAsync(sub => sub.SubscriptionId == subId);
             var getBookingFee = await _feeRepo
                 .GetAllQueryable()
-                .FirstOrDefaultAsync(fee => fee.TypeOfFee == "booking" && fee.PlanId == getSub.PlanId);
+                .FirstOrDefaultAsync(fee => fee.TypeOfFee == "Booking" && fee.PlanId == getSub.PlanId);
             var getSwapFee = await _feeRepo
                 .GetAllQueryable()
-                .FirstOrDefaultAsync(fee => fee.TypeOfFee == "battery_swap" && fee.PlanId == getSub.PlanId);
+                .FirstOrDefaultAsync(fee => fee.TypeOfFee == "Battery Swap" && fee.PlanId == getSub.PlanId);
             var bookingAmount = getBookingFee?.Amount ?? 0m;
             var swapAmount = getSwapFee?.Amount ?? 0m;
 

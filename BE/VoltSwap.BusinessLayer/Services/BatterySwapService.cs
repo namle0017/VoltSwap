@@ -25,6 +25,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<PillarSlot> _slotRepo;
         private readonly IGenericRepositories<BatterySession> _batSessionRepo;
         private readonly IGenericRepositories<BatterySwapPillar> _pillarRepo;
+        private readonly IGenericRepositories<Fee> _feeRepo;
         private readonly IBatteryService _batService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ISubscriptionService _subService;
@@ -40,6 +41,7 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<Battery> batRepo,
             IGenericRepositories<BatterySession> batSessionRepo,
             IGenericRepositories<BatterySwapPillar> pillarRepo,
+            IGenericRepositories<Fee> feeRepo,
             IPillarSlotService slotService,
             IBatteryService batService,
             ISubscriptionService subService,
@@ -55,6 +57,7 @@ namespace VoltSwap.BusinessLayer.Services
             _batRepo = batRepo;
             _subService = subService;
             _batService = batService;
+            _feeRepo = feeRepo;
             _slotService = slotService;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
@@ -162,7 +165,7 @@ namespace VoltSwap.BusinessLayer.Services
                     };
                     //Sau khi tạo ra 1 bảng là returned thì sẽ update lại cục pin 
                     getSlot.BatteryId = item.BatteryId;
-                    getSlot.PillarStatus = "Unavailbale";
+                    getSlot.PillarStatus = "Unavailable";
                     updateBat.BatteryStatus = "Charging";
                     updateBat.BatterySwapStationId = requestBatteryList.AccessRequest.StationId;
                     //Update lại cái pin được trả vô
@@ -174,10 +177,12 @@ namespace VoltSwap.BusinessLayer.Services
                     await _batSwapRepo.UpdateAsync(updateBatSwapInHis);
                 }
             }
+
+            // chỗ này đang sai, nó không tính theo batId hay là theo tháng
             var getSessionList = await GenerateBatterySession(requestBatteryList.AccessRequest.SubscriptionId);
             var getMilleageBase = await CalMilleageBase(getSessionList);
 
-            getSub.CurrentMileage += getMilleageBase;
+            getSub.CurrentMileage = getMilleageBase.Sum(x => x.MilleageBase);
             getSub.RemainingSwap += await _unitOfWork.Subscriptions.GetNumberOfbatteryInSub(requestBatteryList.SubscriptionId);
             await _batSessionRepo.BulkCreateAsync(getSessionList);
             await _subRepo.UpdateAsync(getSub);
@@ -270,67 +275,6 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             return allSessions;
-        }
-
-        // Hàm tạo session riêng cho từng pin
-        private async Task<List<BatterySession>> GenerateBatterySessionForBattery(string batId)
-        {
-            List<BatterySession> getBatterSessionList = new();
-            for (int i = 0; i <= 10; i++)
-            {
-                var eventTypes = new[] { "use_start", "use_end", "charge_start", "charge_end" };
-                var eventType = eventTypes[_random.Next(eventTypes.Length)];
-                decimal socDelta = 0;
-                decimal energyDelta = 0;
-
-                if (eventType == "use_start" || eventType == "charge_start")
-                {
-                    socDelta = 0m;
-                    energyDelta = 0m;
-                }
-                else if (eventType == "use_end")
-                {
-                    socDelta = (decimal)(-(_random.NextDouble() * 0.5 + 0.1));
-                    energyDelta = socDelta * 100m;
-                }
-                else  // charge_end
-                {
-                    socDelta = (decimal)(_random.NextDouble() * 0.5 + 0.1);
-                    energyDelta = socDelta * 100m;
-                }
-
-                var startDate = new DateTime(2024, 1, 1);
-                var range = (DateTime.Now - startDate).TotalSeconds;
-                var randomSeconds = _random.NextDouble() * range;
-                var timestamp = startDate.AddSeconds(randomSeconds);
-
-                var getList = new BatterySession
-                {
-                    BatteryId = batId,
-                    EventType = eventType,
-                    SocDelta = socDelta,
-                    EnergyDeltaWh = energyDelta,
-                    Timestamp = timestamp,
-                };
-                getBatterSessionList.Add(getList);
-            }
-
-            return getBatterSessionList;
-        }
-
-
-        //Đây là hàm tính milleage base
-        public async Task<decimal?> CalMilleageBase(List<BatterySession> batSession)
-        {
-            decimal? milleageBase = 0;
-            foreach (var item in batSession)
-            {
-                if (item.EventType == "use_end")
-                {
-                    milleageBase = milleageBase + ((-item.EnergyDeltaWh) / 60);
-                }
-            }
-            return milleageBase;
         }
 
         //hàm này để generate ra BatterySwapId với format là BTHS-XX-XX-XXXXXX với 2 cái đầu là ngày 2 cái sau là tháng còn 6 cái cuối là random không trùng lặp
@@ -459,7 +403,7 @@ namespace VoltSwap.BusinessLayer.Services
                 {
                     BatteryId = requestDto.BatteryOutId,
                     BatterySwapStationId = null,
-                    BatteryStatus = "In Use",
+                    BatteryStatus = "Using",
                     Capacity = 100,
                     Soc = 100.0m,
                     Soh = 100.0m,
@@ -467,7 +411,7 @@ namespace VoltSwap.BusinessLayer.Services
                 if (batteryOut != null)
                 {
                     batteryOut.BatterySwapStationId = null;
-                    batteryOut.BatteryStatus = "In Use";
+                    batteryOut.BatteryStatus = "Using";
                     await _batRepo.UpdateAsync(batteryOut);
                     var swapOut = new BatterySwap
                     {
@@ -478,7 +422,7 @@ namespace VoltSwap.BusinessLayer.Services
                         BatteryInId = null,
                         SwapDate = DateOnly.FromDateTime(DateTime.Today),
                         Note = $"Staff {requestDto.StaffId} transferred out",
-                        Status = "in using",
+                        Status = "Using",
                         CreateAt = DateTime.UtcNow.ToLocalTime(),
                     };
                     await _batSwapRepo.CreateAsync(swapOut);
@@ -555,7 +499,7 @@ namespace VoltSwap.BusinessLayer.Services
             await _batRepo.CreateAsync(newBattery);
             var newPillarSlot = await _unitOfWork.Stations.GetPillarSlotAsync(requestDto.SlotId);
             newPillarSlot.BatteryId = requestDto.BatteryInId;
-            newPillarSlot.PillarStatus = "Use";
+            newPillarSlot.PillarStatus = "Unavailable";
             newPillarSlot.UpdateAt = DateTime.UtcNow.ToLocalTime();
             await _slotRepo.UpdateAsync(newPillarSlot);
 
@@ -679,6 +623,267 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             return string.Empty;
+        }
+
+
+        //Nemo: Từ phần này trở xuống là về phần tính milleage và phí
+
+
+        //1. Lấy tất cả mã pin mà subId đó trả trong tháng, năm đó
+        //2. Sau khi lấy mã pin xong thì sẽ cal cho tháng đó
+        // Ở đây sẽ truyền vào là tháng và năm đó để có thể lấy được batSession trong đó
+
+        // Nemo: lấy tất cả lịch sử mà có pin in id
+
+        //Nemo: Bước đầu
+        private async Task<List<GetBatterySwapList>> GetSwapHistoryByBatId(BatterySwapRequest requestDto)
+        {
+            var startDate = new DateOnly(requestDto.YearSwap, requestDto.MonthSwap, 1);
+            var endDate = startDate.AddMonths(1).AddDays(-1); // ngày cuối tháng
+
+            var getList = await _unitOfWork.BatterySwap.GetAllQueryable()
+                .Where(swap =>
+                    swap.BatteryInId != null &&
+                    swap.SubscriptionId == requestDto.SubId &&
+                    swap.SwapDate >= startDate &&
+                    swap.SwapDate <= endDate)
+                .Select(swap => new GetBatterySwapList
+                {
+                    BatteryId = swap.BatteryInId,
+                    SwapDate = swap.SwapDate
+                })
+                .ToListAsync();
+
+            return getList;
+        }
+
+        // Nemo: Tính ra quãng đường cơ sở từ bat đã lưu
+        // Nemo: Đây là tính Milleage cho tháng mà người dùng mượn
+        //Milleage 2
+
+        //Bước 2
+        private async Task<decimal?> CalMilleageInMonth(List<GetBatterySwapList> requestDto)
+        {
+            decimal? result = 0;
+
+            foreach (var item in requestDto)
+            {
+                var getbatSessionList = await _batSessionRepo.GetAllQueryable()
+                                        .Where(bat => bat.BatteryId == item.BatteryId &&
+                                               bat.Timestamp.Month == item.SwapDate.Month &&
+                                               bat.Timestamp.Year == item.SwapDate.Year)
+                                        .ToListAsync();
+
+                var getMilleageBase = await CalMilleageBase(getbatSessionList);
+
+                // Tính tổng mileage cho tháng hiện tại
+                var monthlyMileage = getMilleageBase
+                    .Where(m => m.Month.Month == item.SwapDate.Month && m.Month.Year == item.SwapDate.Year)
+                    .Sum(m => m.MilleageBase);
+
+                result += monthlyMileage;
+            }
+
+            return result;
+        }
+
+
+        //Đây là hàm tính milleage base
+        // Nemo: Đây là hàm tính milleage khi đưa pin vào
+        //Milleage 1
+        //Bước 3
+        public async Task<List<MilleageBaseMonthly>> CalMilleageBase(List<BatterySession> batSession)
+        {
+            var sortedSessions = batSession.OrderBy(s => s.Timestamp).ToList();
+
+            // Lọc chỉ "Use end"
+            var useEndSessions = sortedSessions.Where(s => s.EventType.Equals("Use end")).ToList();
+
+            // Tính effective month/year theo quy tắc: <=28 thuộc tháng hiện tại, >28 thuộc tháng sau
+            var milleageBaseMonthly = useEndSessions
+                .Select(s => new
+                {
+                    Timestamp = s.Timestamp,
+                    EnergyDeltaWh = s.EnergyDeltaWh,  // Thêm dòng này để có thể sử dụng trong Sum
+                    EffectiveYear = s.Timestamp.Month == 12 && s.Timestamp.Day > 28
+                        ? s.Timestamp.Year + 1
+                        : s.Timestamp.Year,
+                    EffectiveMonth = s.Timestamp.Month == 12 && s.Timestamp.Day > 28
+                        ? 1
+                        : (s.Timestamp.Day > 28 ? s.Timestamp.Month + 1 : s.Timestamp.Month)
+                })
+                .GroupBy(x => new { x.EffectiveYear, x.EffectiveMonth })
+                .Select(monthGroup => new MilleageBaseMonthly
+                {
+                    Year = new DateTime(monthGroup.Key.EffectiveYear, 1, 1),  // DateTime đại diện cho năm effective
+                    Month = new DateTime(monthGroup.Key.EffectiveYear, monthGroup.Key.EffectiveMonth, 1),  // DateTime đại diện cho tháng effective
+                    MilleageBase = monthGroup.Sum(x => (-x.EnergyDeltaWh ?? 0m) / 60m)  // Sử dụng x.EnergyDeltaWh (không phải x.Timestamp.EnergyDeltaWh)
+                })
+                .ToList();
+            return milleageBaseMonthly;
+        }
+
+
+        //Nemo: Đây là hàm sẽ tính phí dựa trên Milleage 1 và Milleage 2
+        // 1-->2-->3
+        // 2 bao gồm 1
+        //1. Lấy ra được plan thông qua subId
+        //2. Từ subId đó lấy ra được fee của plan đó
+        //3. Sau đó thì sử dụng calMilleageBase để cho ra được quãng đường trong session theo tháng và năm
+        //4. Sau khi lấy xong thì sẽ lấy thêm getBatHistory nếu có pin được trả trước đó trong tháng thì sẽ cộng dồn
+        //5. Nếu không có thì cứ tính bình thường thôi
+        private async Task<decimal> CalMilleageFee(BatterySwapRequest requestDto, List<BatterySession> newBatSession)
+        {
+            // 1. Lấy plan từ subscription
+            var getPlanBySubId = await _batSwapRepo.GetAllQueryable()
+                                    .Where(swap => swap.SubscriptionId == requestDto.SubId)
+                                    .Include(swap => swap.Subscription)
+                                    .Select(swap => swap.Subscription.PlanId)
+                                    .FirstOrDefaultAsync();
+
+            if (string.IsNullOrEmpty(getPlanBySubId))
+                return 0;
+
+            // 2. Lấy mileage base của plan
+            var planMileageBase = await _unitOfWork.Plans.GetAllQueryable()
+                                    .Where(p => p.PlanId == getPlanBySubId)
+                                    .Select(p => p.MileageBaseUsed)
+                                    .FirstOrDefaultAsync();
+
+            // 3. Lấy fee tiers
+            var feeList = await GetPlanFee(getPlanBySubId);
+
+            // 4. Lấy lịch sử swap để tính mileage các pin đã trả
+            var getBatHistory = await GetSwapHistoryByBatId(requestDto);
+
+            // 5. Tính mileage của các pin đã trả trong tháng
+            var existingMileage = await CalMilleageInMonth(getBatHistory) ?? 0;
+
+            // 6. Tính mileage của pin mới (chưa lưu DB)
+            var newBatMileageList = await CalMilleageBase(newBatSession);
+            var newMileage = newBatMileageList
+                .Where(m => m.Month.Month == requestDto.MonthSwap &&
+                       m.Month.Year == requestDto.YearSwap)
+                .Sum(m => m.MilleageBase) ?? 0;
+
+            // 7. Tính tổng mileage và mileage vượt
+            var totalMileage = existingMileage + newMileage;
+            var excessMileage = (totalMileage - planMileageBase) ?? 0; // Thêm ?? 0
+
+            // 8. Nếu không vượt, return 0
+            if (excessMileage <= 0)
+                return 0;
+
+            // 9. Tính phí vượt theo tier
+            var excessFee = CalculateExcessFee(excessMileage, feeList);
+
+            return excessFee;
+        }
+
+        // Hàm tính phí vượt theo tier
+        private decimal CalculateExcessFee(decimal excessMileage, List<GetPlanFeeResponse> feeList)
+        {
+            decimal totalFee = 0;
+            var remainingMileage = excessMileage;
+
+            // Sắp xếp fee theo MinValue tăng dần
+            var sortedFees = feeList.Where(f => f.TypeOfFee == "Excess Mileage")
+                                   .OrderBy(f => f.MinValue)
+                                   .ToList();
+
+            foreach (var fee in sortedFees)
+            {
+                if (remainingMileage <= 0)
+                    break;
+
+                // Tính khoảng mileage trong tier hiện tại
+                var tierMileageCapacity = fee.MaxValue - fee.MinValue;
+                var mileageInThisTier = Math.Min(remainingMileage, tierMileageCapacity);
+
+                if (mileageInThisTier > 0)
+                {
+                    totalFee += mileageInThisTier * fee.Amount;
+                    remainingMileage -= mileageInThisTier;
+                }
+            }
+
+            // Nếu vẫn còn mileage vượt sau tất cả tiers, tính theo tier cuối
+            if (remainingMileage > 0 && sortedFees.Any())
+            {
+                var lastTier = sortedFees.Last();
+                totalFee += remainingMileage * lastTier.Amount;
+            }
+
+            return totalFee;
+        }
+
+
+        //Nemo: Tìm phí vượt
+        private async Task<List<GetPlanFeeResponse>> GetPlanFee(string planId)
+        {
+            return await _feeRepo.GetAllQueryable()
+                            .Where(fee => fee.PlanId == planId && fee.TypeOfFee.Equals("Excess Mileage"))
+                            .OrderByDescending(fee => fee.MinValue)
+                            .Select(fee => new GetPlanFeeResponse
+                            {
+                                PlanId = planId,
+                                TypeOfFee = fee.TypeOfFee,
+                                MinValue = fee.MinValue,
+                                MaxValue = fee.MaxValue,
+                                Amount = fee.Amount,
+                                PlanFeeId = fee.FeeId,
+                            })
+                            .ToListAsync();
+        }
+
+
+
+
+
+        // Hàm tạo session riêng cho từng pin
+        private async Task<List<BatterySession>> GenerateBatterySessionForBattery(string batId)
+        {
+            List<BatterySession> getBatterSessionList = new();
+            for (int i = 0; i <= 10; i++)
+            {
+                var eventTypes = new[] { "Use start", "Use end", "Charge start", "Charge end" };
+                var eventType = eventTypes[_random.Next(eventTypes.Length)];
+                decimal socDelta = 0;
+                decimal energyDelta = 0;
+
+                if (eventType == "Use start" || eventType == "Charge start")
+                {
+                    socDelta = 0m;
+                    energyDelta = 0m;
+                }
+                else if (eventType == "Use end")
+                {
+                    socDelta = (decimal)(-(_random.NextDouble() * 0.5 + 0.1));
+                    energyDelta = socDelta * 100m;
+                }
+                else  // charge_end
+                {
+                    socDelta = (decimal)(_random.NextDouble() * 0.5 + 0.1);
+                    energyDelta = socDelta * 100m;
+                }
+
+                var startDate = new DateTime(2024, 1, 1);
+                var range = (DateTime.Now - startDate).TotalSeconds;
+                var randomSeconds = _random.NextDouble() * range;
+                var timestamp = startDate.AddSeconds(randomSeconds);
+
+                var getList = new BatterySession
+                {
+                    BatteryId = batId,
+                    EventType = eventType,
+                    SocDelta = socDelta,
+                    EnergyDeltaWh = energyDelta,
+                    Timestamp = timestamp,
+                };
+                getBatterSessionList.Add(getList);
+            }
+
+            return getBatterSessionList;
         }
     }
 }

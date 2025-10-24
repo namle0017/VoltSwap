@@ -33,7 +33,7 @@ namespace VoltSwap.API.Controllers
             return Ok(results);
         }
 
-        
+
 
         [HttpPost("assign-staff")]
         public async Task<IActionResult> AssignStaff([FromBody] StaffAssignedRequest requestDto)
@@ -47,7 +47,7 @@ namespace VoltSwap.API.Controllers
         }
 
         [HttpGet("get_staff-list")]
-        public async Task<IActionResult> GetStaffListÁync()
+        public async Task<IActionResult> GetStaffListAsync()
         {
             var result = await _reportService.GetStaffList();
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });

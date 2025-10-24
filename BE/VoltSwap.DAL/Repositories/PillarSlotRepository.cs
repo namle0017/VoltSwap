@@ -69,12 +69,12 @@ namespace VoltSwap.DAL.Repositories
             return await _context.SaveChangesAsync();
         }
 
-        public async Task<List<PillarSlot>> GetAvailableSlotsAtStationAsync(string stationId, int take)
+        public async Task<List<PillarSlot>> GetUnavailableSlotsAtStationAsync(string stationId, int take)
         {
             return await _context.PillarSlots
                 .Include(ps => ps.BatterySwapPillar)
                 .Where(ps => ps.BatterySwapPillar.BatterySwapStationId == stationId
-                             && ps.PillarStatus == "Use")
+                             && ps.PillarStatus == "Unavailable")
                 .OrderByDescending(ps => ps.BatterySwapPillarId)
                 .ThenByDescending(ps => ps.SlotNumber)
                 .Take(take)
