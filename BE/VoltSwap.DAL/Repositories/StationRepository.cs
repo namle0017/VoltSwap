@@ -55,6 +55,8 @@ namespace VoltSwap.DAL.Repositories
             return pillarSlots;
         }
 
+
+        //Cái repo này sẽ lấy ra các battery nào có trong pillar mà available để đưa cho FE để biết slot nào được bật ra
         public async Task<List<PillarSlot>> GetBatteriesAvailableByPillarIdAsync(string pillarId, int topNumber)
         {
             return await _context.PillarSlots

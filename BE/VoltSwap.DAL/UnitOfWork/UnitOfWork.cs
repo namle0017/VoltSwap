@@ -24,6 +24,7 @@ namespace VoltSwap.DAL.UnitOfWork
         private IVehicleRepository? vehicleRepository;
         private IStationStaffRepository? staitonStaffRepository;
         private IPillarSlotRepository? pillarSlotRepository;
+        private IPillarRepository? pillarRepository;
 
         public UnitOfWork(VoltSwapDbContext context)
         {
@@ -173,6 +174,17 @@ namespace VoltSwap.DAL.UnitOfWork
                     pillarSlotRepository = (IPillarSlotRepository)new PillarSlotRepository(_context);
                 }
                 return pillarSlotRepository;
+            }
+        }
+        public IPillarRepository Pillars
+        {
+            get
+            {
+                if (pillarRepository == null)
+                {
+                    pillarRepository = (IPillarRepository)new PillarRepository(_context);
+                }
+                return pillarRepository;
             }
         }
 

@@ -237,7 +237,7 @@ namespace VoltSwap.BusinessLayer.Services
             return new ServiceResult
             {
                 Status = 200,
-                Message = "Pending transactions retrieved successfully.",
+                Message = "Waiting transactions retrieved successfully.",
                 Data = pendingTransactions
             };
         }
@@ -574,4 +574,7 @@ namespace VoltSwap.BusinessLayer.Services
 
     //    return result;
     //}
+
+
+    //public async Task<ServiceResult>
 }
