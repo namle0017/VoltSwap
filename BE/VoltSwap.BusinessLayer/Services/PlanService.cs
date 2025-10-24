@@ -54,6 +54,8 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
+
+
         public async Task<int> GetDurationDays(string planId)
         {
             var getPlan = await _planRepo.GetByIdAsync(planId);
@@ -142,6 +144,89 @@ namespace VoltSwap.BusinessLayer.Services
             };
 
 
+        }
+
+        //Bin: hiển thị các list plan nhưng sẽ suggest thêm các gói recommend cho xe
+        public async Task<ServiceResult> GetPlanWithSuggestAsync(List<string> planName)
+        {
+            planName ??= new List<string>();
+            var getPlanList = await _planRepo.GetAllAsync();
+            var Plan = new List<PlanSuggestRespone>();
+
+            foreach (var plan in getPlanList)
+            {
+                bool isSuggest = planName.Contains(plan.PlanName.Trim(), StringComparer.OrdinalIgnoreCase);
+                var displayName = plan.PlanName;
+                if (isSuggest)
+                {
+                    displayName = $"{plan.PlanName} (Suggest)";
+                }
+
+                Plan.Add(new PlanSuggestRespone
+                {
+                    PlanId = plan.PlanId,
+                    PlanName = displayName,
+                    NumberBattery = plan.NumberOfBattery,
+                    DurationDays = plan.DurationDays,
+                    MilleageBaseUsed = plan.MileageBaseUsed,
+                    SwapLimit = plan.SwapLimit,
+                    Price = plan.Price,
+                    isSuggest = isSuggest
+                });
+            }
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successful",
+                Data = Plan
+            };
+        }
+
+        //Bin: Lấy danh sách tất cả plan và tính thống kê của từng plan và tính tổng người dùng đang sử dụng từng plan. Làm bảnh Sumarry gồm tổng doanh thu tháng và tổng người dùng hiện tại, số lượng đổi pin 
+        public async Task<ServiceResult> GetPlanListSummaryAsync(int month, int year)
+        {
+            var planList = await _planRepo.GetAllAsync();
+            var planSummaries = new List<PlanListResponse>();
+            
+            int TotalActiveUsers = 0;
+            decimal TotalRevenue = 0;
+            foreach (var plan in planList)
+            {
+                var userCount = await _unitOfWork.Plans.CountUsersByPlanIdAsync(plan.PlanId, month , year );
+                
+                var totalRevenueByPlan = await _unitOfWork.Plans.GetRevenueByPlanIdAsync(plan.PlanId, month, year);
+
+                //tính lấy Summary
+                TotalActiveUsers += userCount;
+                TotalRevenue += totalRevenueByPlan;
+
+                planSummaries.Add(new PlanListResponse
+                {
+                    
+                    PlanName = plan.PlanName,
+                    TotalUsers = userCount,
+                    TotalRevenue = totalRevenueByPlan
+                });
+            }
+            var TotalSwap = await _unitOfWork.Subscriptions.GetTotalSwapsUsedInMonthAsync(month, year);
+
+            var summary = new ReportSummaryResponse
+            {
+                TotalMonthlyRevenue = TotalRevenue,
+                SwapTimes = TotalSwap,
+                ActiveCustomer = TotalActiveUsers
+            };
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successful",
+                Data = new
+                          {
+                              PlanList = planSummaries,
+                              Summary = summary
+                          }
+            };
         }
     }
 }

@@ -89,5 +89,66 @@ namespace VoltSwap.API.Controllers
                                 data = updateStaffInformation.Data
                             });
         }
+
+        //Bin: xóa người dùng (staff, driver)
+        [HttpPost("delete-user")]
+        public async Task<IActionResult> DeleteUserById([FromBody] UserRequest requestDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new { message = "Invalid input", errors = ModelState });
+            }
+            var deleteUser = await _userService.DeleteUserAsync(requestDto);
+            return StatusCode(deleteUser.Status,
+                            new
+                            {
+                                message = deleteUser.Message,
+                                data = deleteUser.Data
+                            });
+        }
+
+
+        // Bin: Lấy danh sách nhân viên của trạm 
+        [HttpGet("staff-list")]
+        public async Task<IActionResult> GetStaffListByStationId()
+        {
+            var getStaffList = await _userService.GetAllStaffsAsync();
+            return StatusCode(getStaffList.Status,
+                            new
+                            {
+                                message = getStaffList.Message,
+                                data = getStaffList.Data
+                            });
+        }
+
+        // Bin: Lấy danh sách tài xế
+        [HttpGet("driver-list")]
+        public async Task<IActionResult> GetDriverList()
+        {
+            var getDriverList = await _userService.GetAllDriversAsync();
+            return StatusCode(getDriverList.Status,
+                            new
+                            {
+                                message = getDriverList.Message,
+                                data = getDriverList.Data
+                            });
+        }
+
+        //Bin: xem detail của tài xế 
+        [HttpGet("driver-detail")]
+        public async Task<IActionResult> GetDriverDetailById([FromQuery] UserRequest requestDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new { message = "Invalid input", errors = ModelState });
+            }
+            var getDriverDetail = await _userService.GetDriverDetailInformationAsync(requestDto);
+            return StatusCode(getDriverDetail.Status,
+                            new
+                            {
+                                message = getDriverDetail.Message,
+                                data = getDriverDetail.Data
+                            });
+        }
     }
 }

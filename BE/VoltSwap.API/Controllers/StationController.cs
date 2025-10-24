@@ -1,6 +1,7 @@
 ﻿using Azure.Core;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.Common.DTOs;
 
@@ -34,6 +35,19 @@ namespace VoltSwap.API.Controllers
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
 
+        // Bin: Lấy danh sách pin trong kho của trạm theo StaffId
+        [HttpGet("station-inventory")]
+        public async Task<IActionResult> GetBatteriesInventoryByStationId([FromQuery] StaffRequest request)
+        {
+
+            var getBatteriesInventory = await _stationService.GetBatteryInventoryByStationId(request);
+            return StatusCode(getBatteriesInventory.Status,
+                            new
+                            {
+                                message = getBatteriesInventory.Message,
+                                data = getBatteriesInventory.Data
+                            });
+        }
 
     }
 }

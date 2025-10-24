@@ -6,7 +6,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using VoltSwap.BusinessLayer.Base;
 using VoltSwap.BusinessLayer.IServices;
+using VoltSwap.Common.DTOs;
 using VoltSwap.DAL.Base;
 using VoltSwap.DAL.Models;
 using VoltSwap.DAL.UnitOfWork;
@@ -37,7 +39,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             foreach (var item in getBatteryCharging)
             {
-                TimeSpan duration = getDateTimeNow - item.UpdateAt;
+                TimeSpan duration = (TimeSpan)(getDateTimeNow - item.UpdateAt);
                 double increased = duration.TotalMinutes / 10.0;
                 decimal totalSoc = item.Soc + (decimal)increased;
                 if (totalSoc > 100)
@@ -52,5 +54,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             return await _unitOfWork.SaveChangesAsync();
         }
+
+       
     }
 }

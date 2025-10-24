@@ -53,7 +53,9 @@ public partial class User
 
     public virtual User Supervisor { get; set; }
 
-    public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
+    public virtual ICollection<Transaction> TransactionCreatedByNavigations { get; set; } = new List<Transaction>();
+
+    public virtual ICollection<Transaction> TransactionUserDrivers { get; set; } = new List<Transaction>();
 
     public virtual ICollection<TransferLog> TransferLogs { get; set; } = new List<TransferLog>();
 }

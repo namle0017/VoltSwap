@@ -55,5 +55,16 @@ namespace VoltSwap.DAL.Repositories
                 .Where(u => u.UserRole == "Staff" && u.Status == "Active")
                 .ToListAsync();
         }
+
+        //Bin: Lấy danh sách tất cả user
+        public async Task<List<User>> GetAllUsersAsync()
+        {
+            return await _context.Users
+                                .Include(v => v.DriverVehicles)
+                                .Include(sub => sub.Subscriptions)
+                                .Where(u => u.UserRole == "Driver" && u.Status == "Active")
+                                .ToListAsync();
+        }
+
     }
 }

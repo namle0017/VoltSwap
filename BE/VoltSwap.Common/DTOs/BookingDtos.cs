@@ -45,4 +45,21 @@ namespace VoltSwap.Common.DTOs
     {
         public string SubId { get; set; }
     }
+
+    public class ViewBookingRequest
+    {
+        public  string StationId { get; set; }
+        public int Month { get; set; }
+        public int Year { get; set; }
+    }
+
+    public class ViewBookingResponse
+    {
+        public DateOnly Date { get; set; }
+        public string DriverName { get; set; }
+        public int NumberBattery { get; set; }
+        public  string DriverTele { get; set; }
+        public TimeOnly TimeBooking { get; set; }
+        public string Status { get; set; }
+    }
 }

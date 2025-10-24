@@ -29,10 +29,23 @@ namespace VoltSwap.API.Controllers
             });
         }
         [HttpPost("expire-check")]
-        public async Task<IActionResult> ExpireCheck( [FromBody] CancelBookingRequest request)
+        public async Task<IActionResult> ExpireCheck([FromBody] CancelBookingRequest request)
         {
             var result = await _bookingService.CancelBookingAsync(request);
             return StatusCode(result.Status, result.Message);
+        }
+
+        //Bin: Staff xem danh sách booking của trạm
+        [HttpGet("station-booking-list")]
+        public async Task<IActionResult> GetBookingListByStationId([FromQuery] ViewBookingRequest request)
+        {
+            var getBookingList = await _bookingService.GetBookingsByStationAndMonthAsync(request.StationId, request.Month, request.Year);
+            return StatusCode(getBookingList.Status,
+                            new
+                            {
+                                message = getBookingList.Message,
+                                data = getBookingList.Data
+                            });
         }
     }
 }

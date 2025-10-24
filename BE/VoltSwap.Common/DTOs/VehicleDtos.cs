@@ -32,4 +32,13 @@ namespace VoltSwap.Common.DTOs
         public DateTime CreatedAt { get; set; }
         public List<string> recommendPlan { get; set; }
     }
+
+    public class VehicleListRespone
+    {
+       public string VehicleModel { get; set; }
+        public int NumberOfBattery { get; set; }
+        public int Registation { get; set; }
+
+
+    }
 }

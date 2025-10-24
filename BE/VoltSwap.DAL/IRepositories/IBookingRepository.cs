@@ -13,6 +13,6 @@ namespace VoltSwap.DAL.IRepositories
     {
         Task<Appointment?> GetNotDoneriptionIdAsync(string subscriptionId);
 
-        Task<Appointment> CreateAsync(Appointment appointment);
+       
     }
 }

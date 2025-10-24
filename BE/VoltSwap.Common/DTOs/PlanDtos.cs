@@ -16,6 +16,21 @@ namespace VoltSwap.Common.DTOs
         public int? SwapLimit { get; set; }
         public decimal? Price { get; set; }
     }
+    public class PlanSuggestRequest
+    {
+        public string PlanName { get; set; }
+    }
+    public class PlanSuggestRespone
+    {
+        public string PlanId {  get; set; }
+        public string PlanName { get; set; }
+        public int? NumberBattery { get; set; }
+        public int? DurationDays { get; set; }
+        public decimal? MilleageBaseUsed { get; set; }
+        public int? SwapLimit { get; set; }
+        public decimal? Price { get; set; }
+        public bool isSuggest { get; set; }
+    }
 
     public class PlanDetailResponse
     {
@@ -72,6 +87,19 @@ namespace VoltSwap.Common.DTOs
         public DateOnly StartDate { get; set; }
         public DateOnly EndDate { get; set; }
         public string Status { get; set; }
+    }
+
+    public class PlanListResponse
+    {
+        public string PlanName { get; set; }
+        public decimal TotalRevenue { get; set; }
+        public int TotalUsers { get; set; }
+    }
+    public class ReportSummaryResponse
+    {
+        public decimal TotalMonthlyRevenue { get; set; }   
+        public int SwapTimes { get; set; }                
+        public int ActiveCustomer { get; set; }            
     }
 
     public class FindPlanBySubId

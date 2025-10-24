@@ -22,7 +22,8 @@ namespace VoltSwap.DAL.Repositories
 
         public async Task<StationStaff> GetStationWithStaffIdAsync(string staffId)
         {
-            return await _context.StationStaffs.FirstOrDefaultAsync(ss => ss.UserStaffId == staffId);
+
+            return await _context.StationStaffs.FirstOrDefaultAsync(ss => ss.UserStaffId == staffId );
         }
     }
 }

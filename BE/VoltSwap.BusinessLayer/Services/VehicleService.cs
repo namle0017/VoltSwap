@@ -87,7 +87,7 @@ namespace VoltSwap.BusinessLayer.Services
         
         public async Task<ServiceResult> GetUserVehiclesAsync(CheckDriverRequest request)
         {
-            var getDriver = await _unitOfWork.Vehicles.GetDriverVehiclesByUserIdAsync(request.UserDriverId);
+            var getDriver = await _unitOfWork.Vehicles.GetDriverVehiclesListByUserIdAsync(request.UserDriverId);
             var plans = await _unitOfWork.Plans.GetAllAsync();
 
             if(getDriver == null || !getDriver.Any())

@@ -14,5 +14,8 @@ namespace VoltSwap.DAL.IRepositories
         Task<bool> IsPlanHoldingBatteryAsync(string subId);
         Task<bool> CheckPlanAvailabel(string subId);
         Task<int> GetNumberOfbatteryInSub(string subId);
+        Task<int> GetTotalSwapsUsedByDriverIdAsync(string DriverId);
+        Task<int> GetBatteryCountBySubscriptionIdAsync(string subscriptionId);
+        Task<int> GetTotalSwapsUsedInMonthAsync(int month, int year);
     }
 }

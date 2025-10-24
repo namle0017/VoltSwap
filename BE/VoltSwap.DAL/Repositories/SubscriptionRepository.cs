@@ -50,5 +50,44 @@ namespace VoltSwap.DAL.Repositories
             return count ?? 0;
         }
 
+        //Bin: TÍnh tổng số lượng swap đã sử dụng của driver 
+        public async Task<int> GetTotalSwapsUsedByDriverIdAsync(string DriverId)
+        {
+            int totalSwaps = 0;
+            var getListsub = await _context.Subscriptions
+                .Where(sub => sub.UserDriverId == DriverId)
+                .Select(sub => sub.SubscriptionId)
+                .ToListAsync();
+            foreach (var subId in getListsub)
+            {
+                totalSwaps = (int)await _context.Subscriptions.SumAsync(x => x.RemainingSwap);
+
+            }
+
+            return totalSwaps;
+        }
+
+        //Bin : lấy số lượng pin theo subscription id
+        public async Task<int> GetBatteryCountBySubscriptionIdAsync(string subscriptionId)
+        {
+            var batteryCount = await _context.Subscriptions
+                .Where(sub => sub.SubscriptionId == subscriptionId)
+                .Select(sub => sub.Plan.NumberOfBattery)
+                .FirstOrDefaultAsync();
+            return (int)batteryCount;
+        }
+
+        //Bin: Tính tổng số lượng swap đã sử dụng trong tháng 
+        public async Task<int> GetTotalSwapsUsedInMonthAsync(int month, int year)
+        {
+            var totalSwapsUsed = await _context.Subscriptions
+                .Where(swap => swap.StartDate.Month == month && swap.StartDate.Year == year)
+                .SumAsync(sub => sub.RemainingSwap);
+            return (int)totalSwapsUsed;
+        } 
+
+
     }
+
+
 }

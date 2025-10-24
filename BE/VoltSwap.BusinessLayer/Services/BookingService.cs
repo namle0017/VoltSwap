@@ -157,6 +157,41 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
+        //Bin: Staff xem danh sách booking của trạm mình theo tháng
+        public async Task<ServiceResult> GetBookingsByStationAndMonthAsync(string stationId, int month, int year)
+        {
+            var bookingList = await _bookingRepo.GetAllQueryable()
+                .Where(b => b.BatterySwapStationId == stationId &&
+                            b.CreateBookingAt.Month == month &&
+                            b.CreateBookingAt.Year == year)
+                .ToListAsync();
+            var bookingResponses = new List<ViewBookingResponse>();
+            foreach (var booking in bookingList)
+            {
+                var driver = await _driverRepo.GetByIdAsync(d => d.UserId == booking.UserDriverId);
+                
+                var requiredBatteries = await _unitOfWork.Subscriptions.GetBatteryCountBySubscriptionIdAsync(booking.SubscriptionId);
+
+                bookingResponses.Add(new ViewBookingResponse
+                {
+                    Date = booking.DateBooking,
+                    DriverName =  driver.UserName,
+                    NumberBattery = requiredBatteries,
+                    DriverTele = driver.UserTele,
+                    TimeBooking = booking.TimeBooking,
+                    Status = booking.Status,
+                });
+
+            }
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Bookings retrieved successfully",
+                Data = bookingResponses
+            };
+        }
+
         //Tao ra transactionID
         public async Task<string> GenerateTransactionId()
         {

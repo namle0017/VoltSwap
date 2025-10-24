@@ -328,7 +328,7 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 // Sinh 10 chữ số ngẫu nhiên
                 var random = new Random();
-                subscriptionId = $"SUB-{string.Concat(Enumerable.Range(0, 10).Select(_ => random.Next(0, 10).ToString()))}";
+                subscriptionId = $"SUB-{string.Concat(Enumerable.Range(0, 9).Select(_ => random.Next(0, 8).ToString()))}";
 
                 // Kiểm tra xem có trùng không
                 isDuplicated = await _subRepo.AnyAsync(u => u.SubscriptionId == subscriptionId);
