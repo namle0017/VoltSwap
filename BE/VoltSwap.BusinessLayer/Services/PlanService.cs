@@ -10,6 +10,7 @@ using VoltSwap.Common.DTOs;
 using VoltSwap.DAL.Base;
 using VoltSwap.DAL.Models;
 using VoltSwap.DAL.UnitOfWork;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace VoltSwap.BusinessLayer.Services
 {
@@ -114,7 +115,7 @@ namespace VoltSwap.BusinessLayer.Services
                 CalculationMethod = fee.CalculationMethod,
                 Description = fee.Description,
             }).ToList();
-            if(plan == null && !fees.Any() && fees==null)
+            if (plan == null && !fees.Any() && fees == null)
             {
                 return new ServiceResult
                 {
@@ -188,13 +189,13 @@ namespace VoltSwap.BusinessLayer.Services
         {
             var planList = await _planRepo.GetAllAsync();
             var planSummaries = new List<PlanListResponse>();
-            
+
             int TotalActiveUsers = 0;
             decimal TotalRevenue = 0;
             foreach (var plan in planList)
             {
-                var userCount = await _unitOfWork.Plans.CountUsersByPlanIdAsync(plan.PlanId, month , year );
-                
+                var userCount = await _unitOfWork.Plans.CountUsersByPlanIdAsync(plan.PlanId, month, year);
+
                 var totalRevenueByPlan = await _unitOfWork.Plans.GetRevenueByPlanIdAsync(plan.PlanId, month, year);
 
                 //tính lấy Summary
@@ -203,7 +204,7 @@ namespace VoltSwap.BusinessLayer.Services
 
                 planSummaries.Add(new PlanListResponse
                 {
-                    
+
                     PlanName = plan.PlanName,
                     TotalUsers = userCount,
                     TotalRevenue = totalRevenueByPlan
@@ -222,11 +223,128 @@ namespace VoltSwap.BusinessLayer.Services
                 Status = 200,
                 Message = "Successful",
                 Data = new
-                          {
-                              PlanList = planSummaries,
-                              Summary = summary
-                          }
+                {
+                    PlanList = planSummaries,
+                    Summary = summary
+                }
             };
         }
+
+        //Bin: Lấy List PLan detail
+        public async Task<ServiceResult> GetPlanDetailListAsync()
+        {
+            var planList = await _planRepo.GetAllAsync();
+            var planDetailList = new List<PlanGroupFeeDetail>();
+            decimal totalRevenue = 0m;
+
+            foreach (var plan in planList)
+            {
+                var revenueByPlan = await _unitOfWork.Plans.GetRevenueCurrentMonthByPlanIdAsync(plan.PlanId);
+                totalRevenue += revenueByPlan;
+
+                var userCountByPlan = await _unitOfWork.Plans.CountUsersCurrentMonthByPlanIdAsync(plan.PlanId);
+
+                planDetailList.Add(new PlanGroupFeeDetail
+                {
+                    Plans = new PlanRespone
+                    {
+                        PlanId = plan.PlanId,
+                        PlanName = plan.PlanName,
+                        NumberBattery = plan.NumberOfBattery,
+                        DurationDays = plan.DurationDays,
+                        MilleageBaseUsed = plan.MileageBaseUsed,
+                        SwapLimit = plan.SwapLimit,
+                        Price = plan.Price,
+                        CratedAt = DateOnly.FromDateTime((DateTime)plan.CreateAt),
+                     
+                    },
+                    TotalUsers = userCountByPlan
+                });
+            }
+
+            var feeGroups = new List<PlanGroupDetail>();
+            var grouped = planList.GroupBy(p => GetGroupKey(p.PlanName));
+
+            foreach (var group in grouped)
+            {
+                var groupName = group.Key;
+                var anyPlan = group.FirstOrDefault();
+
+                var fees = await _unitOfWork.Plans.GetAllFeeAsync(anyPlan.PlanId);
+               
+                var excess = fees
+                    .Where(f => string.Equals(f.TypeOfFee, "Excess Mileage", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(f => f.MinValue)
+                    .Select(f => new ExcessMileageTier
+                    {
+                        MinValue = f.MinValue,
+                        MaxValue = f.MaxValue,
+                        Amount = f.Amount,
+                        Unit = f.Unit 
+                    }).ToList();
+
+                var deposit = fees.FirstOrDefault(f => string.Equals(f.TypeOfFee, "Battery Deposit", StringComparison.OrdinalIgnoreCase));
+                var booking = fees.FirstOrDefault(f => string.Equals(f.TypeOfFee, "Booking", StringComparison.OrdinalIgnoreCase));
+                var swapFee = (groupName == "TP")
+                    ? fees.FirstOrDefault(f => string.Equals(f.TypeOfFee, "Battery Swap", StringComparison.OrdinalIgnoreCase))
+                    : null;
+
+                var groupDetail = new PlanGroupDetail
+                {
+                    GroupKey = groupName,
+                    FeeSummary = new FeeSummary
+                    {
+                        ExcessMileage = excess,
+                        BatteryDeposit = deposit == null ? null : new SimpleFee
+                        {
+                            TypeOfFee = deposit.TypeOfFee,
+                            Amount = deposit.Amount,
+                            Unit = deposit.Unit
+                            
+                        },
+                        Booking = booking == null ? null : new SimpleFee
+                        {
+                            TypeOfFee = booking.TypeOfFee,
+                            Amount = booking.Amount,
+                            Unit = booking.Unit
+                            
+                        },
+                        BatterySwap = swapFee == null ? null : new SimpleFee
+                        {
+                            TypeOfFee = swapFee.TypeOfFee,
+                            Amount = swapFee.Amount,
+                            Unit = swapFee.Unit
+                           
+                        }
+                    }
+                };
+
+                feeGroups.Add(groupDetail);
+            }
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successful",
+                Data = new
+                {
+                    TotalRevenue = totalRevenue,
+                    PlanDetail = planDetailList,
+                    FeeGroups = feeGroups
+                }
+            };
+        }
+
+
+        //Hàm để lấy nhóm plan
+        private string GetGroupKey(string? planName)
+        {
+           
+            var name = planName.Trim();
+            if (name.StartsWith("TP", StringComparison.OrdinalIgnoreCase)) return "TP";
+            if (name.StartsWith("G", StringComparison.OrdinalIgnoreCase)) return "G";
+         return "Other";
+        }
     }
-}
+ }
+

@@ -22,13 +22,21 @@ namespace VoltSwap.DAL.Repositories
         //Bin: lấy plan Name của user đăng ký
         public async Task<List<string>> GetCurrentSubscriptionByUserIdAsync(string userId)
         {
+            var subscription = await _context.Subscriptions
+                .Where(sub => sub.UserDriverId == userId && sub.Status == "Active")
+                .Include(sub => sub.Plan)
+                .Select(sub => sub.Plan.PlanName).ToListAsync();
+            return subscription;
+        }
+        public async Task<List<Subscription>> GetCurrentWithSwapSubscriptionByUserIdAsync(string userId)
+        {
             var getSub = await _context.Subscriptions
                 .Where(sub => sub.UserDriverId == userId && (sub.Status == "Active"))
                 .Include(sub => sub.Plan)
-                .Select(sub => sub.Plan.PlanName)
                 .ToListAsync();
             return getSub;
         }
+
         public async Task<Plan?> GetPlanAsync(String planId)
         {
             return await _context.Plans.FirstOrDefaultAsync(plan => plan.PlanId == planId);
@@ -48,6 +56,15 @@ namespace VoltSwap.DAL.Repositories
               && sub.StartDate.Year == year).CountAsync();
 
         }
+        public async Task<int> CountUsersCurrentMonthByPlanIdAsync(string planId)
+        {
+            var today = DateTime.UtcNow.ToLocalTime();
+            return await _context.Subscriptions.Where(sub => sub.PlanId == planId 
+              && sub.Status == "Active"
+              && sub.StartDate.Month == today.Month
+              && sub.StartDate.Year == today.Year).CountAsync();
+
+        }
 
         //Bin: Lấy doanh thu từng plan trong tháng
         public async Task<decimal> GetRevenueByPlanIdAsync(string planId, int month, int year)
@@ -58,6 +75,18 @@ namespace VoltSwap.DAL.Repositories
                     && trans.ConfirmDate.HasValue
                     && trans.ConfirmDate.Value.Month == month
                     && trans.ConfirmDate.Value.Year == year)
+                .SumAsync(trans=> trans.TotalAmount);
+            return totalRevenue;
+        }
+        public async Task<decimal> GetRevenueCurrentMonthByPlanIdAsync(string planId)
+        {
+            var today = DateTime.UtcNow.ToLocalTime();
+            var totalRevenue = await _context.Transactions
+                .Where(trans => trans.Subscription.PlanId == planId
+                    && trans.Status == "Success"
+                    && trans.ConfirmDate.HasValue
+                    && trans.ConfirmDate.Value.Month == today.Month
+                    && trans.ConfirmDate.Value.Year == today.Year)
                 .SumAsync(trans=> trans.TotalAmount);
             return totalRevenue;
         }

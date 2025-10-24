@@ -16,5 +16,6 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<int> GetSwapLimitByPlanId(string newPlanId);
         Task<ServiceResult> GetPlanListSummaryAsync(int month, int year);
         Task<ServiceResult> GetPlanWithSuggestAsync(List<String> planName);
+        Task<ServiceResult> GetPlanDetailListAsync();
     }
 }

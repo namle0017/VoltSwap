@@ -65,5 +65,17 @@ namespace VoltSwap.API.Controllers
                 getList.Data
             });
         }
+
+        //Bin: Admin xem chi tiết plan
+        [HttpGet("view-plan-detail")]
+        public async Task<IActionResult> ViewPlanDetail()
+        {
+            var getDetail = await _planService.GetPlanDetailListAsync();
+            return StatusCode(getDetail.Status, new
+            {
+                getDetail.Message,
+                getDetail.Data
+            });
+        }
     }
 }
