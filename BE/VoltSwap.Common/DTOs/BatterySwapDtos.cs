@@ -122,4 +122,19 @@ namespace VoltSwap.Common.DTOs
     {
         public string SubId { get; set; }
     }
+
+    //Nemo: DTO cho lấy tất cả swap thông qua batId
+    public class GetBatterySwapList
+    {
+        public string BatteryId { get; set; }
+        public DateOnly SwapDate { get; set; }
+    }
+
+    // Nemo: DTO cho request của GetSwapHistoryByBatId
+    public class BatterySwapRequest
+    {
+        public string SubId { get; set; }
+        public int MonthSwap { get; set; }
+        public int YearSwap { get; set; }
+    }
 }

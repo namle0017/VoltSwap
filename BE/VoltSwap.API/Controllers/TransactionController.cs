@@ -21,15 +21,15 @@ namespace VoltSwap.API.Controllers
         [HttpPost("admin-approve-transaction")]
         public async Task<IActionResult> ApproveTransactionAdmin([FromBody] ApproveTransactionRequest requestDto)
         {
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
             var transaction = await _transService.UpdateTransactionStatusAsync_V2(requestDto);
-            return StatusCode(transaction.Status, new { message = transaction.Message , data = transaction });
+            return StatusCode(transaction.Status, new { message = transaction.Message, data = transaction });
         }
 
-        [HttpPost("transaction-user-list")]
+        [HttpPost("transaction-register")]
         public async Task<IActionResult> TransactionApiClient([FromBody] TransactionRequest requestDto)
         {
             if (!ModelState.IsValid)
@@ -64,7 +64,7 @@ namespace VoltSwap.API.Controllers
             return Ok(result);
         }
 
-       
+
         [HttpGet("admin-transaction-list")]
         public async Task<IActionResult> AdminTransaction()
         {
@@ -72,7 +72,7 @@ namespace VoltSwap.API.Controllers
             {
                 return BadRequest(ModelState);
             }
-            var result = await _transService.GetAllPendingTransactionsAsync();
+            var result = await _transService.CreateTransactionsByAdminAsync();
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
 
@@ -96,9 +96,9 @@ namespace VoltSwap.API.Controllers
                 return BadRequest(ModelState);
             }
             var result = await _transService.GetTransactionDetailAsync(transactionId);
-            return StatusCode(result.Status, new 
-            { 
-                message = result.Message, 
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
                 Data = result,
             });
         }

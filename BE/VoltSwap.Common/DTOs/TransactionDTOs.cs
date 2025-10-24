@@ -13,10 +13,13 @@ namespace VoltSwap.Common.DTOs
     public class TransactionRequest
     {
         public String DriverId { get; set; }
+        public string SubId { get; set; }
         public String PlanId { get; set; }
         public decimal Amount { get; set; }
         public decimal Fee { get; set; }
         public string TransactionType { get; set; }
+        public string TransactionNote { get; set; }
+        //Nemo: thêm transactionNote để cho lưu các fee hay note nào đó
     }
 
     public class TransactionReponse
@@ -90,5 +93,19 @@ namespace VoltSwap.Common.DTOs
         public string PlanName { get; set; }
         public int TotalDriver { get; set; }
         public double PercentDriverByPlan { get; set; }
+    }
+
+    public class RegisterNewPlanDTO
+    {
+        public string PlanId { get; set; }
+        public string DriverId { get; set; }
+
+    }
+
+    public class TransactionContextRequest
+    {
+        public string TransactionType { get; set; }
+        public string SubscriptionId { get; set; }
+        public string DriverId { get; set; }
     }
 }

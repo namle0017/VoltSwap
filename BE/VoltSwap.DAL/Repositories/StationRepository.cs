@@ -49,7 +49,7 @@ namespace VoltSwap.DAL.Repositories
                 .Include(slot => slot.BatterySwapPillar)
                 .ThenInclude(pillar => pillar.BatterySwapStation)
                 .Include(slot => slot.Battery)
-                .Where(slot => slot.PillarStatus == "Use")
+                .Where(slot => slot.PillarStatus == "Unavailable")
                 .ToListAsync();
 
             return pillarSlots;
