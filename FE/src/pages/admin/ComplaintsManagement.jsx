@@ -215,10 +215,6 @@ const ComplaintsManagement = () => {
                             initial={{ opacity: 0, y: -20 }}
                             animate={{ opacity: 1, y: 0 }}
                         >
-                            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                                Admin Dashboard
-                            </h1>
-                            <p className="text-gray-600">Customer Complaints</p>
                         </motion.div>
 
                         <motion.div
