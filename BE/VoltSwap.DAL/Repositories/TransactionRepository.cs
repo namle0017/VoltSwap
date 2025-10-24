@@ -23,7 +23,7 @@ namespace VoltSwap.DAL.Repositories
         public async Task<List<(string PlanId, string PlanName, double TotalRevenue, int TotalSubscribers)>> GetRevenueByPlanAsync(int year, int month)
         {
             
-            var revenueByPlan = await _context.Transactions.Where(trans => trans.TransactionDate.Year == year && trans.TransactionDate.Month == month && trans.Status == "Success" && trans.TransactionType=="Buy Plan")
+            var revenueByPlan = await _context.Transactions.Where(trans => trans.TransactionDate.Year == year && trans.TransactionDate.Month == month && trans.Status == "Success" && trans.TransactionType== "Register")
                 //Ở đây group biết nó là bảng tạm của Transaction bởi vì trước nó là _context.Transactions
                 //Vậy GroupBy ở đây được hiểu như thế này: g nó biết nó là 1 tham số của transaction nhưng kết quả trả về không còn là transaction nữa mà là IGrouping<string, Transaction>
                 .GroupBy(group => group.Subscription.Plan.PlanName)
@@ -61,7 +61,7 @@ namespace VoltSwap.DAL.Repositories
 
         public async Task<double> GetRevenueByAsync(int year, int month)
         {
-            var result = await _context.Transactions.Where(x => x.TransactionDate.Year == year && x.TransactionDate.Month == month && x.Status == "Success" && x.TransactionType == "Buy Plan")
+            var result = await _context.Transactions.Where(x => x.TransactionDate.Year == year && x.TransactionDate.Month == month && x.Status == "Success" && x.TransactionType == "Register")
                 .SumAsync(x => (double)x.Amount);
             return result;
         }

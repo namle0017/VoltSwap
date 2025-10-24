@@ -8,7 +8,7 @@ namespace VoltSwap.Common.DTOs
 {
     public class PlanDtos
     {
-        public string PlanId {  get; set; }
+        public string PlanId { get; set; }
         public string PlanName { get; set; }
         public int? NumberBattery { get; set; }
         public int? DurationDays { get; set; }
@@ -106,5 +106,25 @@ namespace VoltSwap.Common.DTOs
     {
         public string PlanId { get; set; }
         public string PlanName { get; set; }
+    }
+
+
+    //Nemo: DTO để lấy fee vượt
+    public class GetPlanFeeResponse
+    {
+        public string PlanId { get; set; }
+        public int PlanFeeId { get; set; }
+        public decimal MinValue { get; set; }
+        public decimal MaxValue { get; set; }
+        public decimal Amount { get; set; }
+        public string TypeOfFee { get; set; }
+    }
+
+
+    public class MilleageBaseMonthly
+    {
+        public DateTime Year { get; set; }
+        public DateTime Month { get; set; }
+        public decimal? MilleageBase { get; set; }
     }
 }

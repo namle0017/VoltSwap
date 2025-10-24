@@ -262,7 +262,7 @@ namespace VoltSwap.BusinessLayer.Services
             if (newPlanBattery > currentPlanBattery)
             {
                 var FeeDeposit = await _feeRepo.GetAllQueryable()
-                      .FirstOrDefaultAsync(fee => fee.TypeOfFee == "battery_deposit" && fee.PlanId == newPlanId);
+                      .FirstOrDefaultAsync(fee => fee.TypeOfFee == "Battery Deposit" && fee.PlanId == newPlanId);
                 deposit = (newPlanBattery - currentPlanBattery) * FeeDeposit.Amount;
 
             }
@@ -278,7 +278,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Currency = "VND",
                 TransactionDate = DateTime.UtcNow,
                 PaymentMethod = "Bank transfer",
-                Status = "Pending",
+                Status = "Waiting",
                 Fee = deposit,
                 TotalAmount = price + deposit,
                 Note = $"Note for change {getsub.SubscriptionId}",

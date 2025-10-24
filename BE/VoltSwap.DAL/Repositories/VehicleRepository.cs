@@ -23,14 +23,14 @@ namespace VoltSwap.DAL.Repositories
         public async Task<List<DriverVehicle>> GetDriverVehiclesListByUserIdAsync(string userId)
         {
             var getVehicle = await _context.DriverVehicles.Where(vehicle => vehicle.UserDriverId == userId).ToListAsync();
-            
+
             return getVehicle;
 
         }
         public async Task<List<DriverVehicle>> GetDriverVehiclesInfoByUserIdAsync(string userId)
         {
             var getVehicle = await _context.DriverVehicles.Where(vehicle => vehicle.UserDriverId == userId).ToListAsync();
-            
+
             return getVehicle;
 
         }
@@ -40,8 +40,5 @@ namespace VoltSwap.DAL.Repositories
         {
             return await _context.DriverVehicles.CountAsync(vehicle => vehicle.UserDriverId == driverId);
         }
-
-
-
     }
 }

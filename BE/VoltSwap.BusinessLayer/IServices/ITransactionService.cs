@@ -16,5 +16,7 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<int> CreateTransactionBooking(BookingTransactionRequest requestDto);
         Task<ServiceResult> GetTransactionDetailAsync(string transactionId);
         Task<IServiceResult> ConfirmPaymentAsync(string transactionId);
+        //Task<ServiceResult> RegisterNewPlan(RegisterNewPlanDTO requestDto);
+        Task<String> GenerateTransactionConext(TransactionContextRequest requestDto);
     }
 }
