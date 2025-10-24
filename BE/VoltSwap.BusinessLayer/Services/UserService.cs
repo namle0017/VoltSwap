@@ -18,17 +18,23 @@ namespace VoltSwap.BusinessLayer.Services
     {
         private readonly IGenericRepositories<User> _userRepo;
         private readonly IGenericRepositories<StationStaff> _stationStaffRepo;
+        private readonly IGenericRepositories<DriverVehicle> _vehicleRepo;
+        private readonly IGenericRepositories<Battery> _BatteryRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
         public UserService(
             IServiceProvider serviceProvider,
             IGenericRepositories<User> userRepo,
             IGenericRepositories<StationStaff> stationStaffRepo,
+            IGenericRepositories<DriverVehicle> vehicleRepo,
+            IGenericRepositories<Battery> BatteryRepo,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
         {
             _userRepo = userRepo;
             _stationStaffRepo = stationStaffRepo;
+            _vehicleRepo = vehicleRepo;
+            _BatteryRepo = BatteryRepo;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
         }
@@ -187,6 +193,220 @@ namespace VoltSwap.BusinessLayer.Services
         {
             int numberOfDriver = await _unitOfWork.Users.GetNumberOfDriverAsync();
             return numberOfDriver;
+        }
+        //Bin: lấy danh sách driver
+        public async Task<IServiceResult> GetAllDriversAsync()
+        {
+            var driverList = await _unitOfWork.Users.GetAllUsersAsync();
+            var result = new List<DriverListResponse>();
+            var plan = await _unitOfWork.Plans.GetAllAsync();
+            foreach (var driver in driverList)
+            {
+
+                var currentPlans = await _unitOfWork.Plans.GetCurrentSubscriptionByUserIdAsync(driver.UserId);
+                var numberOfVehicle = await _unitOfWork.Vehicles.CountVehiclesByDriverIdAsync(driver.UserId);
+                var totalSwap = await _unitOfWork.Subscriptions.GetTotalSwapsUsedByDriverIdAsync(driver.UserId);
+                result.Add( new DriverListResponse
+                {
+                    DriverId = driver.UserId,
+                    DriverName = driver.UserName,
+                    DriverEmail = driver.UserEmail,
+                    DriverStatus = driver.Status,
+                    NumberOfVehicle = numberOfVehicle,
+                    CurrentPackage = currentPlans,
+                    TotalSwaps = totalSwap,
+                });
+
+            }
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Get all drivers successfully",
+                Data = result
+            };
+        }
+
+        //Bin: Lấy thông tin chi tiết của driver
+        public async Task<IServiceResult> GetDriverDetailInformationAsync(UserRequest requestDto)
+        {
+            var getDriver = await _unitOfWork.Users.GetByIdAsync(us => us.UserId == requestDto.UserId && us.Status == "Active");
+            if (getDriver == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Driver not found or Inactive Driver",
+                };
+            }
+            var registrationDate = getDriver.CreatedAt.Date;
+            var currentPackages = await _unitOfWork.Plans.GetCurrentSubscriptionByUserIdAsync(getDriver.UserId);
+            var totalSwaps = await _unitOfWork.Subscriptions.GetTotalSwapsUsedByDriverIdAsync(getDriver.UserId);
+            var driverVehicles = await GetDriverVehiclesInfoByUserIdAsync(getDriver.UserId);
+            var driverDetailDto = new DriverDetailRespone
+            {
+                DriverId = getDriver.UserId,
+                DriverEmail = getDriver.UserEmail,
+                DriverTele = getDriver.UserTele,
+                Registation = DateOnly.FromDateTime(registrationDate),
+                CurrentPackage = currentPackages,
+                TotalSwaps = totalSwaps,
+                driverVehicles = driverVehicles
+            };
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Get driver detail information successfully",
+                Data = driverDetailDto
+            };
+        }
+
+
+
+        // Bin : Lấy danh sách tất cả staff
+        public async Task<IServiceResult> GetAllStaffsAsync()
+        {
+            var staffList = await _unitOfWork.Users.GetStaffWithStationAsync();
+            var staffListDto = new List<staffListRespone>();
+            foreach (var staff in staffList)
+            {
+                var stationStaff = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(staff.UserId);
+                if (stationStaff == null)
+                {
+                    staffListDto.Add(new staffListRespone
+                    {
+                        StaffId = staff.UserId,
+                        StaffName = staff.UserName,
+                        StaffEmail = staff.UserEmail,
+                        StaffTele = staff.UserTele,
+                        StaffAddress = staff.UserAddress,
+                        StaffStatus = staff.Status,
+                        StationName = "No Station Assigned",
+                        ShiftStart = new TimeOnly(0,0),
+                        ShiftEnd = new TimeOnly(0,0),
+                        
+                    });
+                    continue;
+                }
+
+                var station = await _unitOfWork.Stations.GetByIdAsync(stationStaff.BatterySwapStationId);
+                if (station == null)
+                {
+                    return new ServiceResult
+                    {
+                        Status = 404,
+                        Message = "BatterySwapStation not found",
+                    };
+                }
+
+                staffListDto.Add( new staffListRespone
+            {
+                StaffId = staff.UserId,
+                StaffName = staff.UserName,
+                StaffEmail = staff.UserEmail,
+                StaffTele = staff.UserTele,
+                StaffAddress = staff.UserAddress,
+                StaffStatus = staff.Status,
+                StationName = station.BatterySwapStationName,
+                ShiftStart = stationStaff.ShiftStart,
+                ShiftEnd = stationStaff.ShiftEnd,
+             });
+            }
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Get all staffs successfully",
+                Data = staffListDto
+            };
+        }
+        // Bin: xóa người dùng(staff,driver)
+        public async Task<IServiceResult> DeleteUserAsync(UserRequest requestDto)
+        {
+            var getUser = await _unitOfWork.Users.GetByIdAsync(us => us.UserId == requestDto.UserId && us.Status == "Active");
+            if (getUser == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Something wrong",
+                };
+            }
+            getUser.Status = "Inactive";
+            _userRepo.Update(getUser);
+            await _unitOfWork.SaveChangesAsync();
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Delete user successfully",
+            };
+        }
+        //Bin : tạo mới staff
+        public async Task<IServiceResult> CreateNewStaffAsync(StaffUpdate requestDto)
+        {
+            var newStaffId = await GenerateStaffId();
+            var checkExistEmail =  await _unitOfWork.Users.AnyAsync(u => u.UserEmail == requestDto.StaffEmail);
+            if (!checkExistEmail)
+            {
+                return new ServiceResult
+                {
+                    Status = 409,
+                    Message = "Email don't exists",
+                };
+            }
+            var newStaff = new User
+            {
+                UserId = newStaffId,
+                UserName = requestDto.StaffName,
+                UserEmail = requestDto.StaffEmail,
+                UserTele = requestDto.StaffTele,
+                UserAddress = requestDto.StaffAddress,
+                UserRole = "Staff",
+                Status = requestDto.StaffStatus,
+                CreatedAt = DateTime.UtcNow.ToLocalTime(),
+            };
+            await _unitOfWork.Users.CreateAsync(newStaff);
+            var newStationStaff = new StationStaff
+            {
+                UserStaffId = newStaffId,
+                BatterySwapStationId = requestDto.StationStaff.StationId,
+                ShiftStart = requestDto.StationStaff.ShiftStart,
+                ShiftEnd = requestDto.StationStaff.ShiftEnd,
+            };
+            await _unitOfWork.StationStaffs.CreateAsync(newStationStaff);
+            await _unitOfWork.SaveChangesAsync();
+            return new ServiceResult
+            {
+                Status = 201,
+                Message = "Create new staff successfully",
+            };
+        }
+
+        public async Task<string> GenerateStaffId()
+        {
+            string staffId;
+            bool isUnique;
+            do
+            {
+                var random = new Random();
+                staffId = $"ST-{string.Concat(Enumerable.Range(0, 9).Select(_ => random.Next(0, 8).ToString()))}";
+                isUnique = !await _unitOfWork.Users.AnyAsync(u => u.UserId == staffId);
+            }
+            while (isUnique);
+            return staffId;
+        }
+
+        //Bin: Lấy thông tin các xe của driver theo userId để làm detail
+        public async Task<List<VehicleListRespone>> GetDriverVehiclesInfoByUserIdAsync(string userId)
+        {
+            var list = await _unitOfWork.Vehicles.GetDriverVehiclesListByUserIdAsync(userId);
+
+            var result = list.Select(v => new VehicleListRespone
+            {
+                VehicleModel = v.VehicleModel,
+                NumberOfBattery = v.NumberOfBattery,
+                Registation = v.CreatedAt.Year
+            }).ToList();
+
+            return result;
         }
     }
 }

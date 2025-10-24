@@ -30,26 +30,8 @@ namespace VoltSwap.DAL.Repositories
                 .Where(a => a.SubscriptionId == subscriptionId && a.Status == "Not Done")
                 .FirstOrDefaultAsync();
         }
-        public async Task<Appointment> CreateAsync(Appointment appointment)
-        {
 
-            if (string.IsNullOrWhiteSpace(appointment.AppointmentId))
-                appointment.AppointmentId = NewAppointmentId();
 
-            if (string.IsNullOrWhiteSpace(appointment.Status))
-                appointment.Status = "Not done";
-
-            appointment.CreateBookingAt = DateTime.UtcNow;
-
-            await _context.Appointments.AddAsync(appointment);
-            await _context.SaveChangesAsync();
-            return appointment;
-        }
-        private static string NewAppointmentId()
-        {
-            // AP- + 7 số, ví dụ: AP-7577315  (10 ký tự)
-            return "AP-" + Random.Shared.Next(0, 10_000_000).ToString("0000000");
-        }
         public async Task<List<PillarSlot>> GetBatteriesAvailableByStationAsync(string pillarId, int topNumber)
         {
             return await _context.PillarSlots

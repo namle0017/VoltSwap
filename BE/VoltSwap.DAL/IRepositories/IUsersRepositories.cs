@@ -17,5 +17,8 @@ namespace VoltSwap.DAL.IRepositories
         Task<User> CheckUserActive(string email);
         Task<int> GetNumberOfDriverAsync();
         Task<List<User>> GetStaffWithStationAsync();
+        Task<List<User>> GetAllUsersAsync();
+
+
     }
 }

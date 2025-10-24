@@ -20,7 +20,14 @@ namespace VoltSwap.DAL.Repositories
             _context = context;
         }
 
-        public async Task<List<DriverVehicle>> GetDriverVehiclesByUserIdAsync(string userId)
+        public async Task<List<DriverVehicle>> GetDriverVehiclesListByUserIdAsync(string userId)
+        {
+            var getVehicle = await _context.DriverVehicles.Where(vehicle => vehicle.UserDriverId == userId).ToListAsync();
+            
+            return getVehicle;
+
+        }
+        public async Task<List<DriverVehicle>> GetDriverVehiclesInfoByUserIdAsync(string userId)
         {
             var getVehicle = await _context.DriverVehicles.Where(vehicle => vehicle.UserDriverId == userId).ToListAsync();
             
@@ -28,6 +35,13 @@ namespace VoltSwap.DAL.Repositories
 
         }
 
-    
+        //Bin: Đếm số xe của driver
+        public async Task<int> CountVehiclesByDriverIdAsync(string driverId)
+        {
+            return await _context.DriverVehicles.CountAsync(vehicle => vehicle.UserDriverId == driverId);
+        }
+
+
+
     }
 }

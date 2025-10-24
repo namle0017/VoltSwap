@@ -12,5 +12,8 @@ namespace VoltSwap.DAL.IRepositories
     {
         Task<Plan?> GetPlanAsync(string planId);
         Task<List<Fee>> GetAllFeeAsync(string planId);
+        Task<List<string>> GetCurrentSubscriptionByUserIdAsync(string userId);
+        Task<int> CountUsersByPlanIdAsync(string planId, int month, int year);
+        Task<decimal> GetRevenueByPlanIdAsync(string planId, int month, int year);
     }
 }

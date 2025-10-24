@@ -10,7 +10,9 @@ namespace VoltSwap.DAL.IRepositories
 {
     public interface IVehicleRepository : IGenericRepositories<DriverVehicle>
     {
-        Task<List<DriverVehicle>> GetDriverVehiclesByUserIdAsync(string userId);
-        
+        Task<List<DriverVehicle>> GetDriverVehiclesListByUserIdAsync(string userId);
+
+        Task<int> CountVehiclesByDriverIdAsync(string driverId);
+        Task<List<DriverVehicle>> GetDriverVehiclesInfoByUserIdAsync(string userId);
     }
 }
