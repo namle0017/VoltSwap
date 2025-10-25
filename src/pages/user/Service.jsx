@@ -9,7 +9,7 @@ export default function Service() {
   const [selected, setSelected] = useState("");
   const [loading, setLoading] = useState(true);
   const [showRenewModal, setShowRenewModal] = useState(false);
-
+  const [apiMessage, setApiMessage] = useState("");
   // 🧭 Load danh sách subscription đang dùng
   useEffect(() => {
     const fetchSubs = async () => {
@@ -26,8 +26,16 @@ export default function Service() {
         setSubs(data);
         setSelected(data[0]?.subId || "");
       } catch (err) {
-        console.error("❌ Error fetching subscriptions:", err);
-        alert("Failed to load subscriptions!");
+        // 🌟 Lấy message từ BE trả về (dynamic)
+        const apiMessage = err?.response?.data?.message;
+
+        if (apiMessage) {
+          setSubs([]);
+          setApiMessage(apiMessage);
+        } else {
+          console.error("❌ Unexpected error:", err);
+          alert("⚠️ Could not load subscriptions.");
+        }
       } finally {
         setLoading(false);
       }
@@ -75,9 +83,7 @@ export default function Service() {
   if (!current)
     return (
       <div className="text-center bg-white p-8 rounded-2xl shadow-md border max-w-xl mx-auto mt-16">
-        <h3 className="text-xl font-semibold mb-2">
-          You don't have a subscription yet
-        </h3>
+        <h3 className="text-xl font-semibold mb-2">{apiMessage}</h3>
         <p className="text-gray-600 mb-5">
           Register now to enjoy battery swaps and exclusive benefits.
         </p>

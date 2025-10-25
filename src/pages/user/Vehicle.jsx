@@ -1,19 +1,20 @@
 // src/pages/Vehicle.jsx
 import React, { useEffect, useState } from "react";
 import api from "@/api/api";
-
+import { useNavigate } from "react-router-dom";
 export default function Vehicle() {
   const [vehicles, setVehicles] = useState([]);
   const [driverId, setDriverId] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [pendingRecs, setPendingRecs] = useState([]); // VIN đang đợi recommend
+  const [apiMessage, setApiMessage] = useState("");
   const [newVehicle, setNewVehicle] = useState({
     vin: "",
     model: "",
     batteryCount: "",
   });
-
+  const navigate = useNavigate();
   // ---- helper: map dữ liệu BE -> shape FE
   const mapVehicle = (x, i = 0) => ({
     id: x?.id ?? x?.vehicleId ?? x?.vin ?? `v-${i}`,
@@ -57,10 +58,15 @@ export default function Vehicle() {
       setVehicles(raw.map(mapVehicle));
     } catch (err) {
       console.error("❌ Error loading vehicles:", err);
-      alert(
-        "❌ Failed to load vehicles. Check BE endpoint or UserDriverId param."
-      );
-      setVehicles([]);
+      const apiMessage = err?.response?.data?.message;
+
+      if (apiMessage) {
+        setVehicles([]);
+        setApiMessage(apiMessage);
+        alert(apiMessage);
+      } else {
+        alert("⚠️ Could not load vehicles.");
+      }
     } finally {
       setLoading(false);
     }
@@ -354,6 +360,18 @@ export default function Vehicle() {
                         : "--"}
                     </span>
                   )}
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/user/service/suggest?planList=${encodeURIComponent(
+                          v.recommendPlan.join(",")
+                        )}`
+                      )
+                    }
+                    className="text-blue-600 hover:underline text-sm font-medium"
+                  >
+                    🔍 Recommend Plan
+                  </button>
 
                   <button
                     onClick={() => handleDeleteVehicle(v.vin)}

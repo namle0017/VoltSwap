@@ -73,6 +73,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
           localStorage.setItem("userId", user?.userId || "");
           localStorage.setItem("userRole", user?.userRole || "");
           localStorage.setItem("userName", user?.userName || "");
+          localStorage.setItem("userEmail", user?.userEmail || "");
         }
 
         // ✅ Điều hướng theo role

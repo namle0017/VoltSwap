@@ -56,7 +56,7 @@ export default function Station() {
   const [stations, setStations] = useState([]);
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const [apiMessage, setApiMessage] = useState("");
   // booking/modal
   const [selectedStation, setSelectedStation] = useState(null);
   const [selectedSub, setSelectedSub] = useState("");
@@ -94,6 +94,15 @@ export default function Station() {
         setSubs(subRes.data?.data || []);
       } catch (err) {
         console.error("❌ Failed to load data:", err.response?.data || err);
+        const apiMessage = err?.response?.data?.message;
+
+        if (apiMessage) {
+          setSubs([]);
+          setApiMessage(apiMessage);
+          alert(apiMessage);
+        } else {
+          alert("⚠️ Could not load stations or subscriptions.");
+        }
       } finally {
         setLoading(false);
       }

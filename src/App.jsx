@@ -54,6 +54,7 @@ import Payment from "@/pages/user/Payment";
 import Vehicle from "@/pages/user/Vehicle";
 import Support from "@/pages/user/Support";
 import Profile from "@/pages/user/Profile";
+import SuggestService from "@/pages/user/SuggestService";
 import "leaflet/dist/leaflet.css";
 
 const router = createBrowserRouter([
@@ -86,6 +87,7 @@ const router = createBrowserRouter([
       { path: "paynow/:id", element: <Payment /> },
       { path: "support", element: <Support /> },
       { path: "profile", element: <Profile /> },
+      { path: "service/suggest", element: <SuggestService /> },
     ],
   },
 
