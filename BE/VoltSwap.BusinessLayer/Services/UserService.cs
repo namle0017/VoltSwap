@@ -145,7 +145,8 @@ namespace VoltSwap.BusinessLayer.Services
         //Cái này để cần update để cập nhật thông tin của staff
         public async Task<IServiceResult> UpdateStaffInformationAsync(StaffUpdate requestDto)
         {
-            var getUser = await _unitOfWork.Users.CheckUserActive(requestDto.StaffId);
+            var getUser = await _unitOfWork.Users.GetAllQueryable()
+                            .Where(us=>us.UserId == requestDto.StaffId && us.Status =="Active").FirstOrDefaultAsync();
             if (getUser == null)
             {
                 return new ServiceResult
@@ -239,7 +240,20 @@ namespace VoltSwap.BusinessLayer.Services
                 };
             }
             var registrationDate = getDriver.CreatedAt.Date;
-            var currentPackages = await _unitOfWork.Plans.GetCurrentSubscriptionByUserIdAsync(getDriver.UserId);
+            var currentPackages = await _unitOfWork.Plans.GetCurrentWithSwapSubscriptionByUserIdAsync(getDriver.UserId);
+
+            var current =  new List<PlanDetail>();
+            foreach (var currentPackage in currentPackages) {
+                var sub  = await _unitOfWork.Subscriptions.GetByIdAsync(currentPackage.SubscriptionId);
+                if (sub != null)
+                {
+                    current.Add(new PlanDetail
+                    {
+                        PlanName = sub.Plan.PlanName,
+                        Swap = (int)sub.RemainingSwap,
+                    });
+                }
+            }
             var totalSwaps = await _unitOfWork.Subscriptions.GetTotalSwapsUsedByDriverIdAsync(getDriver.UserId);
             var driverVehicles = await GetDriverVehiclesInfoByUserIdAsync(getDriver.UserId);
             var driverDetailDto = new DriverDetailRespone
@@ -248,7 +262,7 @@ namespace VoltSwap.BusinessLayer.Services
                 DriverEmail = getDriver.UserEmail,
                 DriverTele = getDriver.UserTele,
                 Registation = DateOnly.FromDateTime(registrationDate),
-                CurrentPackage = currentPackages,
+                CurrentPackage =current,
                 TotalSwaps = totalSwaps,
                 driverVehicles = driverVehicles
             };
@@ -278,7 +292,6 @@ namespace VoltSwap.BusinessLayer.Services
                         StaffName = staff.UserName,
                         StaffEmail = staff.UserEmail,
                         StaffTele = staff.UserTele,
-                        StaffAddress = staff.UserAddress,
                         StaffStatus = staff.Status,
                         StationName = "No Station Assigned",
                         ShiftStart = new TimeOnly(0,0),

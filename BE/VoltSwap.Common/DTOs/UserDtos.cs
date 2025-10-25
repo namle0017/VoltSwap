@@ -20,7 +20,7 @@ namespace VoltSwap.Common.DTOs
         public string DriverTele { get; set; }
         public DateOnly Registation { get; set; }
 
-        public List<string> CurrentPackage { get; set; }
+        public List<PlanDetail> CurrentPackage { get; set; }
         public int TotalSwaps { get; set; }
         public List<VehicleListRespone> driverVehicles { get; set; }
 
@@ -84,4 +84,10 @@ namespace VoltSwap.Common.DTOs
         public List<string> CurrentPackage { get; set; }
         public int TotalSwaps { get; set; }
     }
+
+    public class PlanDetail 
+    {
+        public string PlanName { get; set; }
+        public int Swap { get; set; } = 0;
+        }
 }

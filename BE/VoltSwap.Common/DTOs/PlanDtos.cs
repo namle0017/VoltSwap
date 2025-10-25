@@ -16,6 +16,17 @@ namespace VoltSwap.Common.DTOs
         public int? SwapLimit { get; set; }
         public decimal? Price { get; set; }
     }
+    public class PlanRespone
+    {
+        public string PlanId {  get; set; }
+        public string PlanName { get; set; }
+        public int? NumberBattery { get; set; }
+        public int? DurationDays { get; set; }
+        public decimal? MilleageBaseUsed { get; set; }
+        public int? SwapLimit { get; set; }
+        public decimal? Price { get; set; }
+        public DateOnly CratedAt { get; set; }
+}
     public class PlanSuggestRequest
     {
         public string PlanName { get; set; }
@@ -35,8 +46,17 @@ namespace VoltSwap.Common.DTOs
     public class PlanDetailResponse
     {
         public PlanDtos Plans { get; set; }
+
         public List<PlanFeeResponse> PlanFees { get; set; }
     }
+
+    public class PlanWithDetailResponse
+    {
+        public PlanRespone Plans { get; set; }
+        public int TotalUsers { get; set; }
+
+    }
+
 
     public class PlanFeeResponse
     {
@@ -48,6 +68,8 @@ namespace VoltSwap.Common.DTOs
         public String CalculationMethod { get; set; }
         public string Description { get; set; }
     }
+
+
     public class ChangePlanCheckRequest
     {
         public string SubscriptionId { get; set; }
@@ -127,4 +149,42 @@ namespace VoltSwap.Common.DTOs
         public DateTime Month { get; set; }
         public decimal? MilleageBase { get; set; }
     }
+
+
+
+    public class PlanGroupFeeDetail
+    {
+        public PlanRespone Plans { get; set; }
+        public int TotalUsers { get; set; }
+
+    }
+    public class PlanGroupDetail
+    {
+        public string GroupKey { get; set; } = "";
+        public FeeSummary FeeSummary { get; set; } = new();
+    }
+
+    public class FeeSummary
+    {
+        public List<ExcessMileageTier> ExcessMileage { get; set; } = new();
+        public SimpleFee? BatteryDeposit { get; set; }
+        public SimpleFee? Booking { get; set; }
+        public SimpleFee? BatterySwap { get; set; } // chỉ có khi GroupKey == "TP"
+    }
+
+    public class ExcessMileageTier
+    {
+        public decimal? MinValue { get; set; }
+        public decimal? MaxValue { get; set; }
+        public decimal Amount { get; set; }
+        public string Unit { get; set; }
+    }
+
+    public class SimpleFee
+    {
+        public decimal Amount { get; set; }
+        public string Unit { get; set; } 
+        public string TypeOfFee { get; set; }
+    }
+
 }
