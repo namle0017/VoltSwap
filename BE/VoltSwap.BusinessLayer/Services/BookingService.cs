@@ -169,13 +169,13 @@ namespace VoltSwap.BusinessLayer.Services
             foreach (var booking in bookingList)
             {
                 var driver = await _driverRepo.GetByIdAsync(d => d.UserId == booking.UserDriverId);
-                
+
                 var requiredBatteries = await _unitOfWork.Subscriptions.GetBatteryCountBySubscriptionIdAsync(booking.SubscriptionId);
 
                 bookingResponses.Add(new ViewBookingResponse
                 {
                     Date = booking.DateBooking,
-                    DriverName =  driver.UserName,
+                    DriverName = driver.UserName,
                     NumberBattery = requiredBatteries,
                     DriverTele = driver.UserTele,
                     TimeBooking = booking.TimeBooking,
@@ -332,5 +332,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             return await _unitOfWork.SaveChangesAsync();
         }
+
+
     }
 }

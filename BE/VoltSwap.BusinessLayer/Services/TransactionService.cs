@@ -473,7 +473,7 @@ namespace VoltSwap.BusinessLayer.Services
         {
             var getDateNow = DateTime.UtcNow.ToLocalTime();
             var totalMonth = await _transRepo.GetAllQueryable()
-                .Where(trans => trans.Status == "Success" && trans.TransactionDate.Month == getDateNow.Month)
+                .Where(trans => trans.Status == "Hiding" && trans.TransactionDate.Month == getDateNow.Month)
                 .GroupBy(trans => trans.SubscriptionId)
                 .Select(g => new
                 {
@@ -483,7 +483,7 @@ namespace VoltSwap.BusinessLayer.Services
                 .ToListAsync();
 
             var totalPreviousMonth = await _transRepo.GetAllQueryable()
-                .Where(trans => trans.Status == "Success" && trans.TransactionDate.Month == getDateNow.AddMonths(-1).Month)
+                .Where(trans => trans.Status == "Hiding" && trans.TransactionDate.Month == getDateNow.AddMonths(-1).Month)
                 .GroupBy(trans => trans.SubscriptionId)
                 .Select(g => new
                 {

@@ -228,5 +228,41 @@ namespace VoltSwap.BusinessLayer.Services
                           }
             };
         }
+
+        public async Task<ReportSummaryResponse> GetPlanSummaryAsync(int month, int year)
+        {
+            var planList = await _planRepo.GetAllAsync();
+            var planSummaries = new List<PlanListResponse>();
+            
+            int TotalActiveUsers = 0;
+            decimal TotalRevenue = 0;
+            foreach (var plan in planList)
+            {
+                var userCount = await _unitOfWork.Plans.CountUsersByPlanIdAsync(plan.PlanId, month , year );
+                
+                var totalRevenueByPlan = await _unitOfWork.Plans.GetRevenueByPlanIdAsync(plan.PlanId, month, year);
+
+                //tính lấy Summary
+                TotalActiveUsers += userCount;
+                TotalRevenue += totalRevenueByPlan;
+
+                planSummaries.Add(new PlanListResponse
+                {
+                    
+                    PlanName = plan.PlanName,
+                    TotalUsers = userCount,
+                    TotalRevenue = totalRevenueByPlan
+                });
+            }
+            var TotalSwap = await _unitOfWork.Subscriptions.GetTotalSwapsUsedInMonthAsync(month, year);
+
+            var summary = new ReportSummaryResponse
+            {
+                TotalMonthlyRevenue = TotalRevenue,
+                SwapTimes = TotalSwap,
+                ActiveCustomer = TotalActiveUsers
+            };
+            return summary;
+        }
     }
 }

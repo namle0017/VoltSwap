@@ -20,4 +20,16 @@ namespace VoltSwap.Common.DTOs
         public int ReportId { get; set; }
         public string StaffId { get; set; }
     }
+
+    //Nemo: Để đưa lên những report cho staff
+    public class StaffReportResponse
+    {
+        public string StaffId { get; set; }
+        public String DriverId { get; set; }
+        public String DriverName { get; set; }
+        public string ReportType { get; set; }
+        public string ReportNote { get; set; }
+        public DateTime CreateAt { get; set; }
+        public string ReportStatus { get; set; }
+    }
 }

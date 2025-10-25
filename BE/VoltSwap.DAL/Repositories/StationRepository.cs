@@ -21,13 +21,6 @@ namespace VoltSwap.DAL.Repositories
             _context = context;
         }
 
-        public async Task<(int, int)> GetNumberOfStationActive()
-        {
-            int numberOfStationActive = await _context.BatterySwapStations.CountAsync(x => x.Status == "Active");
-            int numberOfStation = await _context.BatterySwapStations.CountAsync();
-            return (numberOfStationActive, numberOfStation);
-        }
-
 
 
         public async Task<List<PillarSlot>> GetBatteriesInPillarByStationIdAsync(String stationId)
@@ -96,6 +89,11 @@ namespace VoltSwap.DAL.Repositories
                 .Include(sta => sta.BatterySwapStation)
                 .Select(p => p.BatterySwapStation)
                 .FirstOrDefaultAsync();
+        }
+
+        public async Task<BatterySwapStation> GetStationByIdAsync(String stationId)
+        {
+            return await _context.BatterySwapStations.FirstOrDefaultAsync(x => x.BatterySwapStationId == stationId);
         }
     }
 }

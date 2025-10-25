@@ -52,4 +52,19 @@ namespace VoltSwap.Common.DTOs
         public string StationName { get; set; }
         public string StationAddress { get; set; }
     }
+
+    public class BatteryStatusResponse
+    {
+        public int NumberOfBatteryFully { get; set; }
+        public int NumberOfBatteryCharging { get; set; }
+        public int NumberOfBatteryMaintenance { get; set; }
+        public int NumberOfBatteryInWarehouse { get; set; }
+    }
+
+    //Nemo: Dto cho tính số lượng trạm active và tổng số trạm
+    public class StationOverviewResponse
+    {
+        public int ActiveStation { get; set; }
+        public int TotalStation { get; set; }
+    }
 }

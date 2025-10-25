@@ -17,4 +17,22 @@ namespace VoltSwap.Common.DTOs
         public double DistanceTravel {  get; set; }
         public double ChargeTravel { get; set; }
     }
+
+    public class StaffOverviewResponse
+    {
+        public BatteryStatusResponse NumberOfBat { get; set; }
+        public int SwapInDat { get; set; }
+        public List<StaffReportResponse> RepostList { get; set; }
+    }
+
+
+    public class AdminOverviewResponse
+    {
+        public int NumberOfDriver { get; set; }
+        public MonthlyRevenueResponse MonthlyRevenue { get; set; }
+        public BatterySwapInDayResponse NumberOfSwapDailyForAdmin { get; set; }
+        public StationOverviewResponse StationOverview { get; set; }
+        public ReportSummaryResponse PlanSummary { get; set; }
+        public List<BatterySwapMonthlyResponse> BatterySwapMonthly { get; set; }
+    }
 }

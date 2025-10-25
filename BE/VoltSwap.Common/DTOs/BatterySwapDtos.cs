@@ -137,4 +137,11 @@ namespace VoltSwap.Common.DTOs
         public int MonthSwap { get; set; }
         public int YearSwap { get; set; }
     }
+
+    //Nemo: Dto cho tính số lần swap trong ngày của admin
+    public class BatterySwapInDayResponse
+    {
+        public int TotalSwap { get; set; }
+        public double PercentSwap { get; set; }
+    }
 }

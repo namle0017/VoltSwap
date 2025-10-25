@@ -132,5 +132,85 @@ namespace VoltSwap.BusinessLayer.Services
             string adminId = userAdmin.UserId;
             return adminId;
         }
+
+        public async Task<List<StaffReportResponse>> GetReportForStaff(string staffId)
+        {
+            var result = new List<StaffReportResponse>();
+            var getReport = await _unitOfWork.Reports.GetReportForStaff(staffId);
+            foreach (var item in getReport)
+            {
+                var getUserName = string.Empty;
+                if (!string.IsNullOrWhiteSpace(item.UserDriverId) &&
+        item.UserDriverId.Trim() != "Null")
+                {
+                    getUserName = await GetDriverByUserId(item.UserDriverId);
+                }
+
+                result.Add(new StaffReportResponse
+                {
+                    StaffId = item.UserStaffId,
+                    DriverId = item.UserDriverId,
+                    DriverName = getUserName,
+                    ReportType = item.ReportType,
+                    ReportNote = item.Note,
+                    CreateAt = item.CreateAt,
+                    ReportStatus = item.Status,
+                });
+            }
+
+            return result;
+        }
+
+        public async Task<IServiceResult> GetCustomerReportForStaff(UserRequest request)
+        {
+            var result = new List<StaffReportResponse>();
+            var getReport = await _unitOfWork.Reports.GetReportForStaff(request.UserId);
+            foreach (var item in getReport)
+            {
+                string getUserName = string.Empty;
+
+                // SỬA TẠI ĐÂY: Kiểm tra null trước khi Trim
+                if (item.UserDriverId != null &&
+                    item.UserDriverId.Trim() != "Null")
+                {
+                    getUserName = await GetDriverByUserId(item.UserDriverId.Trim());
+                }
+
+                result.Add(new StaffReportResponse
+                {
+                    StaffId = item.UserStaffId,
+                    DriverId = item.UserDriverId,
+                    DriverName = getUserName,
+                    ReportType = item.ReportType,
+                    ReportNote = item.Note,
+                    CreateAt = item.CreateAt,
+                    ReportStatus = item.Status,
+                });
+            }
+
+            if (result == null && !result.Any())
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "Don't have any customer report",
+                    Data = result,
+                };
+            }
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Get list successfull",
+                Data = result,
+            };
+
+        }
+
+        private async Task<string> GetDriverByUserId(string driverId)
+        {
+            var getUser = await _userRepo.GetByIdAsync(x => x.UserId == driverId);
+            return getUser.UserName;
+        }
     }
 }

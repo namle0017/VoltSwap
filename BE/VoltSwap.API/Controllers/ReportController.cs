@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.Common.DTOs;
 
@@ -50,6 +51,18 @@ namespace VoltSwap.API.Controllers
         public async Task<IActionResult> GetStaffListAsync()
         {
             var result = await _reportService.GetStaffList();
+            return StatusCode(result.Status, new { message = result.Message, data = result.Data });
+        }
+
+
+        [HttpGet("customer-reports")]
+        public async Task<IActionResult> CustomerReportList([FromQuery] UserRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _reportService.GetCustomerReportForStaff(request);
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
     }

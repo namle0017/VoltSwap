@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,17 +18,20 @@ namespace VoltSwap.BusinessLayer.Services
     {
         private readonly IGenericRepositories<BatterySwapStation> _stationRepo;
         private readonly IGenericRepositories<Battery> _batteryRepo;
+        private readonly IGenericRepositories<StationStaff> _staRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
         public StationService(
             IServiceProvider serviceProvider,
             IGenericRepositories<BatterySwapStation> stationRepo,
             IGenericRepositories<Battery> batteryRepo,
+            IGenericRepositories<StationStaff> staRepo,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
         {
             _stationRepo = stationRepo;
             _batteryRepo = batteryRepo;
+            _staRepo = staRepo;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
         }
@@ -194,6 +198,76 @@ namespace VoltSwap.BusinessLayer.Services
                 Status = 200,
                 Message = "Search battery successfully",
                 Data = batteryDto
+            };
+        }
+
+        public async Task<BatteryStatusResponse> GetNumberOfBatteryStatusAsync(string staffId)
+        {
+            var getBatResponse = await GetBatteryByStaffId(staffId);
+            if (getBatResponse == null)
+            {
+                return new BatteryStatusResponse();
+            }
+            var getNumberOfBatStatus = new BatteryStatusResponse();
+            foreach (var item in getBatResponse)
+            {
+                if (item.Status.Equals("Available"))
+                {
+                    getNumberOfBatStatus.NumberOfBatteryFully += 1;
+                }
+                else if (item.Status.Equals("Maintenance"))
+                {
+                    getNumberOfBatStatus.NumberOfBatteryMaintenance += 1;
+                }
+                else if (item.Status.Equals("Charging"))
+                {
+                    getNumberOfBatStatus.NumberOfBatteryCharging += 1;
+                }
+                else if (item.Status.Equals("Warehouse"))
+                {
+                    getNumberOfBatStatus.NumberOfBatteryInWarehouse += 1;
+                }
+            }
+
+            return getNumberOfBatStatus;
+        }
+
+        public async Task<List<BatResponse>> GetBatteryByStaffId(string staffId)
+        {
+            var getStation = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(staffId);
+            if (getStation == null)
+            {
+                return new List<BatResponse>();
+            }
+            var getBattery = await _unitOfWork.Stations.GetBatteriesByStationIdAsync(getStation.BatterySwapStationId);
+            return getBattery.Select(x => new BatResponse
+            {
+                BatteryId = x.BatteryId,
+                Status = x.BatteryStatus,
+                Soc = x.Soc,
+                Soh = x.Soh,
+                Capacity = x.Capacity,
+                StationId = x.BatterySwapStationId,
+            }).ToList();
+        }
+
+        public async Task<StationOverviewResponse> GetStationOverviewAsync()
+        {
+            var getStaiton = await _unitOfWork.Stations.GetAllAsync();
+            var activeStation = await _stationRepo.GetAllQueryable()
+                                .Where(st => st.Status == "Active")
+                                .CountAsync();
+            var totalStation = getStaiton.Count();
+
+            if (totalStation == 0)
+            {
+                return new StationOverviewResponse();
+            }
+
+            return new StationOverviewResponse
+            {
+                ActiveStation = activeStation,
+                TotalStation = totalStation,
             };
         }
     }

@@ -22,7 +22,14 @@ namespace VoltSwap.DAL.Repositories
 
         public async Task<string> GetDriverContact(String driverId)
         {
-            return await _context.Users.Where(rp => rp.UserId==driverId).Select(rp=>rp.UserEmail).FirstOrDefaultAsync();
+            return await _context.Users.Where(rp => rp.UserId == driverId).Select(rp => rp.UserEmail).FirstOrDefaultAsync();
+        }
+
+        public async Task<List<Report>> GetReportForStaff(string staffId)
+        {
+            return await _context.Reports.Where(x => x.UserStaffId == staffId)
+                            .OrderByDescending(x => x.CreateAt)
+                            .ToListAsync();
         }
     }
 }

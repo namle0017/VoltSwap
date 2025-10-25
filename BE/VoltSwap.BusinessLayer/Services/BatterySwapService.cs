@@ -13,6 +13,7 @@ using VoltSwap.DAL.Base;
 using VoltSwap.DAL.Models;
 using VoltSwap.DAL.UnitOfWork;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using Microsoft.EntityFrameworkCore;
 
 namespace VoltSwap.BusinessLayer.Services
 {
@@ -567,12 +568,14 @@ namespace VoltSwap.BusinessLayer.Services
         //}
 
 
-        //Nemo: cái này để tính ra được số lượt đổi pin theo tháng
+        //Nemo: cái này để tính ra được số lượt đổi pin theo tháng (admin)
         public async Task<List<BatterySwapMonthlyResponse>> GetBatterySwapMonthly()
         {
             var currentYear = DateTime.UtcNow.ToLocalTime().Year;
             var getBatterySwap = await _batSwapRepo.GetAllQueryable()
-                                    .Where(bs => bs.SwapDate.Year == currentYear && bs.Status == "Returned")
+                                    .Where(bs => bs.SwapDate.Year == currentYear 
+                                    && bs.Status == "Returned"
+                                    && bs.BatteryOutId != null)
                                     .GroupBy(bs => bs.SwapDate.Month)
                                     .Select(bs => new
                                     {
@@ -884,6 +887,41 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             return getBatterSessionList;
+        }
+
+        //Nemo: Total Swap in day for staff
+        public async Task<int> CalNumberOfSwapDailyForStaff(string staffId)
+        {
+            var getStation = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(staffId);
+            var getDateNow = DateTime.UtcNow.Date.ToLocalTime().Day;
+            var getBatterySwap = await _batSwapRepo.GetAllQueryable()
+                        .Where(bs => bs.SwapDate.Day == getDateNow
+                            && bs.Status == "Returned"
+                            && bs.BatteryOutId !=null
+                            && bs.BatterySwapStationId == getStation.BatterySwapStationId)
+                        .CountAsync();
+            return getBatterySwap;
+        }
+        //Nemo: Total Swap in day for admin
+        public async Task<BatterySwapInDayResponse> CalNumberOfSwapDailyForAdmin()
+        {
+            var getDateNow = DateTime.UtcNow.Date.ToLocalTime().Day;
+            var getDatePrev = DateTime.UtcNow.Date.ToLocalTime().AddDays(-1).Day;
+            var getBatterySwap = await _batSwapRepo.GetAllQueryable()
+                        .Where(bs => bs.SwapDate.Day == getDateNow
+                            && bs.Status == "Returned"
+                            && bs.BatteryOutId !=null)
+                        .CountAsync();
+            var getPrevDayBatterySwap = await _batSwapRepo.GetAllQueryable()
+                        .Where(bs => bs.SwapDate.Day == getDatePrev
+                            && bs.Status == "Returned"
+                            && bs.BatteryOutId !=null)
+                        .CountAsync();
+            return new BatterySwapInDayResponse
+            {
+                TotalSwap = getBatterySwap,
+                PercentSwap = getBatterySwap/getPrevDayBatterySwap,
+            };
         }
     }
 }
