@@ -55,12 +55,15 @@ export default function Station() {
     const [bookingTime, setBookingTime] = useState("");
     const [showModal, setShowModal] = useState(false);
 
+    // navigate-modal
+    const [navStation, setNavStation] = useState(null);
+    const [navSub, setNavSub] = useState("");
+
     // navigate visualization
     const [userPos, setUserPos] = useState(null);
     const [targetId, setTargetId] = useState(null);
     const [route, setRoute] = useState(null);
     const mapRef = useRef(null);
-    const arrivalTimer = useRef(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -73,7 +76,6 @@ export default function Station() {
                     return;
                 }
 
-                // GET list trạm + gói thuê của user
                 const [stationRes, subRes] = await Promise.all([
                     api.get("Station/station-list"),
                     api.get(`/Subscription/subscription-user-list?DriverId=${userId}`),
@@ -90,21 +92,6 @@ export default function Station() {
 
         fetchData();
     }, [navigate]);
-
-    // (tuỳ thích) hỏi đã đến trạm chưa
-    const startArrivalCheck = (stationName) => {
-        if (arrivalTimer.current) clearTimeout(arrivalTimer.current);
-        const askArrival = () => {
-            const yes = window.confirm(`🚗 Bạn đã đến trạm "${stationName}" chưa?`);
-            if (!yes) arrivalTimer.current = setTimeout(askArrival, 15000);
-            else {
-                clearTimeout(arrivalTimer.current);
-                arrivalTimer.current = null;
-                alert("✅ Đã xác nhận bạn đã tới trạm.");
-            }
-        };
-        arrivalTimer.current = setTimeout(askArrival, 15000);
-    };
 
     // draw route & highlight
     const handleNavigateVisual = (st) => {
@@ -148,7 +135,43 @@ export default function Station() {
         setShowModal(true);
     };
 
-    // ✅ create booking → quay về Transaction (không sang StationSwap ngay)
+    // ===== NAVIGATE MODAL flow =====
+    const openNavigateModal = (station) => {
+        setNavStation(station);
+        setNavSub(selectedSub || "");
+    };
+
+    const confirmNavigate = () => {
+        if (!navSub) {
+            alert("Vui lòng chọn subscription trước khi tiếp tục.");
+            return;
+        }
+        const chosen = subs.find((s) => s.subId === navSub);
+        if (!chosen) {
+            alert("Subscription không hợp lệ.");
+            return;
+        }
+
+        // Lưu preset cho StationSwap.jsx
+        localStorage.setItem("swap_stationId", navStation.stationId);
+        localStorage.setItem("swap_stationName", navStation.stationName || "");
+        localStorage.setItem("swap_subscriptionId", chosen.subId);
+        localStorage.setItem("swap_subscriptionName", chosen.planName);
+
+        navigate("/stations", {
+            state: {
+                stationId: navStation.stationId,
+                stationName: navStation.stationName,
+                subscriptionId: chosen.subId,
+                subscriptionName: chosen.planName,
+            },
+        });
+
+        setNavStation(null);
+        setNavSub("");
+    };
+
+    // ====== Booking flow (giữ nguyên) ======
     const confirmBooking = async () => {
         if (!selectedSub || !bookingDate || !bookingTime)
             return alert("Please complete all fields");
@@ -161,12 +184,10 @@ export default function Station() {
             return;
         }
 
-        // Chuẩn hoá format ngày/giờ (BE: YYYY-MM-DD, HH:mm[:ss])
         const dateBooking = new Date(bookingDate).toISOString().split("T")[0];
         const timeBooking =
             bookingTime && bookingTime.length === 5 ? `${bookingTime}:00` : bookingTime;
 
-        // Payload đúng theo BE
         const payload = {
             stationId: selectedStation.stationId,
             driverId: userDriverId,
@@ -184,7 +205,6 @@ export default function Station() {
             const appointment =
                 res?.data?.data?.appointment || res?.data?.appointment || {};
 
-            // Lưu preset cho StationSwap (sẽ dùng sau khi thanh toán được Approved)
             localStorage.setItem("swap_stationId", selectedStation.stationId);
             localStorage.setItem("swap_subscriptionId", selectedSub);
             localStorage.setItem("lastPlanId", appointment.planId || selectedSub);
@@ -194,7 +214,6 @@ export default function Station() {
             );
             setShowModal(false);
 
-            // ❗ Flow mới: quay về trang Transaction để user "Pay Now"
             navigate("/user/transaction");
         } catch (err) {
             const v = err?.response?.data;
@@ -215,6 +234,21 @@ export default function Station() {
         );
 
     const defaultCenter = [10.7769, 106.7009];
+
+    // helper: render option label with name + ID + status
+    const subOptionLabel = (s) => `${s.planName} — ID: ${s.subId} — ${s.planStatus}`;
+
+    // helper: detail line for selected sub
+    const SelectedSubInfo = ({ subId }) => {
+        const s = subs.find((x) => x.subId === subId);
+        if (!s) return null;
+        return (
+            <div className="text-xs text-gray-600 bg-gray-50 border rounded-md px-2 py-1">
+                Selected: <span className="font-medium">{s.planName}</span> —{" "}
+                <span className="font-mono">ID: {s.subId}</span>
+            </div>
+        );
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 p-6">
@@ -257,9 +291,7 @@ export default function Station() {
                                                 (haversineKm(userPos, {
                                                     lat: st.locationLat,
                                                     lng: st.locationLon,
-                                                }) /
-                                                    40) *
-                                                60
+                                                }) / 40) * 60
                                             )}{" "}
                                             mins
                                         </p>
@@ -274,14 +306,8 @@ export default function Station() {
                                         </button>
                                         <button
                                             onClick={() => {
-                                                handleNavigateVisual(st);
-                                                window.open(
-                                                    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                                        st.stationName
-                                                    )}`,
-                                                    "_blank"
-                                                );
-                                                startArrivalCheck(st.stationName);
+                                                handleNavigateVisual(st); // preview route
+                                                openNavigateModal(st);    // mở modal chọn sub để vào giả lập
                                             }}
                                             className="px-2 py-1 border text-xs rounded-lg hover:bg-gray-100"
                                         >
@@ -347,13 +373,7 @@ export default function Station() {
                                 <button
                                     onClick={() => {
                                         handleNavigateVisual(st);
-                                        window.open(
-                                            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                                st.stationName
-                                            )}`,
-                                            "_blank"
-                                        );
-                                        startArrivalCheck(st.stationName);
+                                        openNavigateModal(st);
                                     }}
                                     className="px-3 py-1 border rounded-lg hover:bg-gray-100"
                                 >
@@ -383,21 +403,23 @@ export default function Station() {
                         <select
                             value={selectedSub}
                             onChange={(e) => setSelectedSub(e.target.value)}
-                            className="w-full border p-2 rounded-lg mb-3"
+                            className="w-full border p-2 rounded-lg mb-2"
                         >
                             <option value="">Choose plan</option>
                             {subs.length > 0 ? (
                                 subs.map((s) => (
                                     <option key={s.subId} value={s.subId}>
-                                        {s.planName} — {s.planStatus}
+                                        {subOptionLabel(s)}
                                     </option>
                                 ))
                             ) : (
                                 <option disabled>No active subscriptions</option>
                             )}
                         </select>
+                        {/* show chosen sub name + ID */}
+                        <SelectedSubInfo subId={selectedSub} />
 
-                        <label className="block text-sm font-medium mb-1">Date</label>
+                        <label className="block text-sm font-medium mb-1 mt-3">Date</label>
                         <input
                             type="date"
                             value={bookingDate}
@@ -422,6 +444,55 @@ export default function Station() {
                             </button>
                             <button
                                 onClick={() => setShowModal(false)}
+                                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ==== Modal Navigate ==== */}
+            {navStation && (
+                <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
+                    <div className="bg-white rounded-2xl p-6 shadow-lg w-[380px]">
+                        <h3 className="text-lg font-semibold mb-3 text-center">
+                            Navigate to {navStation?.stationName}
+                        </h3>
+
+                        <label className="block text-sm font-medium mb-1">Select Subscription</label>
+                        <select
+                            value={navSub}
+                            onChange={(e) => setNavSub(e.target.value)}
+                            className="w-full border p-2 rounded-lg mb-2"
+                        >
+                            <option value="">Choose plan</option>
+                            {subs.length > 0 ? (
+                                subs.map((s) => (
+                                    <option key={s.subId} value={s.subId}>
+                                        {subOptionLabel(s)}
+                                    </option>
+                                ))
+                            ) : (
+                                <option disabled>No active subscriptions</option>
+                            )}
+                        </select>
+                        {/* show chosen sub name + ID */}
+                        <SelectedSubInfo subId={navSub} />
+
+                        <div className="flex justify-between mt-4">
+                            <button
+                                onClick={confirmNavigate}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            >
+                                Go to Simulation
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setNavStation(null);
+                                    setNavSub("");
+                                }}
                                 className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
                             >
                                 Cancel
