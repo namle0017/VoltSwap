@@ -124,5 +124,17 @@ namespace VoltSwap.API.Controllers
             var result = await _stationService.GetActiveStation();
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
+
+
+        [HttpPost("transfer-battery")]
+        public async Task<IActionResult> TransferBattery(BatteryTranferRequest requestDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _batSwapService.TranferBatBetweenStation(requestDto);
+            return StatusCode(result.Status, new { message = result.Message });
+        }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Azure.Core;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Globalization;
@@ -205,7 +206,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             string bookingId = await GenerateBookingId();
 
-            //var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
+            var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
 
 
 
@@ -429,6 +430,53 @@ namespace VoltSwap.BusinessLayer.Services
             return await _unitOfWork.SaveChangesAsync();
         }
 
+        //Nemo: Taoj booking cho cancel
+        public async Task<ServiceResult> BookingCancelPlanAsync(CreateBookingRequest requestDto)
+        {
+            var subscription = await GetSubscriptionById(requestDto.SubscriptionId);
+            if (subscription == null)
+            {
+                return new ServiceResult { Status = 404, Message = "Subscription not found" };
+            }
+            string bookingId = await GenerateBookingId();
 
+            var appointmentDB = new Appointment
+            {
+
+                AppointmentId = bookingId,
+                UserDriverId = requestDto.DriverId,
+                BatterySwapStationId = requestDto.StationId,
+                Note = requestDto.Note,
+                SubscriptionId = requestDto.SubscriptionId,
+                Status = "Pending",
+                DateBooking = requestDto.DateBooking,
+                TimeBooking = requestDto.TimeBooking,
+                CreateBookingAt = DateTime.UtcNow.ToLocalTime()
+            };
+            await _bookingRepo.CreateAsync(appointmentDB);
+            await _unitOfWork.SaveChangesAsync();
+
+
+            var appointment = new BookingResponse
+            {
+                TransactionId = null,
+                AppointmentId = appointmentDB.AppointmentId,
+                DriverId = appointmentDB.UserDriverId,
+                BatterySwapStationId = appointmentDB.BatterySwapStationId,
+                Note = appointmentDB.Note,
+                SubscriptionId = appointmentDB.SubscriptionId,
+                Status = appointmentDB.Status,
+                DateBooking = appointmentDB.DateBooking,
+                TimeBooking = appointmentDB.TimeBooking,
+                CreateBookingAt = appointmentDB.CreateBookingAt
+            };
+
+            return new ServiceResult
+            {
+                Status = 201,
+                Message = "Booking created successfully",
+                Data = appointment
+            };
+        }
     }
 }

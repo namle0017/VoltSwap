@@ -23,11 +23,17 @@ namespace VoltSwap.Common.DTOs
         public string StationId { get; set; }
         public string StationName { get; set; }
     }
+    public class StationActiveListReponse
+    {
+        public string StationId { get; set; }
+        public string StationName { get; set; }
+        public List<BatResponse> BatteryList { get; set; }
+    }
 
     public class ListStationForTransferResponse
     {
-        public List<StationActiveReponse> ActiveStationsLeft { get; set; }
-        public List<StationActiveReponse> ActiveStationsRight { get; set; }
+        public List<StationActiveListReponse> ActiveStationsLeft { get; set; }
+        public List<StationActiveListReponse> ActiveStationsRight { get; set; }
     }
 
     public class StationResponse

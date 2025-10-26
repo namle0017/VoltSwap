@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Azure.Core;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -272,7 +273,7 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 transaction.Status = "Pending";
             }
-            _transRepo.UpdateRange(transactions); 
+            _transRepo.UpdateRange(transactions);
             await _unitOfWork.SaveChangesAsync();
 
             var pendingTransactions = transactions.Select(t => new TransactionListReponse
@@ -741,5 +742,88 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = result,
             };
         }
+
+        //Nemo: Cho staff tạo cancelPlan
+        public async Task<ServiceResult> CancelPlanAsync(CancelPlanRequest requestDto)
+        {
+            var generateTransId = await GenerateTransactionId();
+            var getPlanId = await GetPlanIdBySubId(requestDto.SubId);
+            var getFee = await _feeRepo.GetAllQueryable()
+                                    .FirstOrDefaultAsync(fee => fee.PlanId == getPlanId &&
+                                    fee.TypeOfFee == "Battery Deposit");
+            DateOnly date = requestDto.DateBooking;
+            TimeOnly time = requestDto.TimeBooking;
+            var createRefund = new Transaction
+            {
+                TransactionId = generateTransId,
+                SubscriptionId = requestDto.SubId,
+                UserDriverId = requestDto.DriverId,
+                TransactionType = "Refund",
+                Amount = -(getFee.Amount),
+                Currency = "VND",
+                TransactionDate = date.ToDateTime(time),
+                PaymentMethod = "Cash",
+                Status = "Pending",
+                Fee = 0,
+                TotalAmount = -(getFee.Amount),
+                TransactionContext = null,
+                ConfirmDate = null,
+                CreatedBy = requestDto.StaffId,
+            };
+            await _transRepo.CreateAsync(createRefund);
+            var result = await _unitOfWork.SaveChangesAsync();
+            if (result < 0)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "Something wrong, please contact to admin or waiting...",
+                };
+            }
+
+            var getTrans = await _unitOfWork.Trans.GetAllQueryable().Where(x => x.SubscriptionId == requestDto.SubId && x.Status == "Waiting").FirstOrDefaultAsync();
+            getTrans.Status = "Pending";
+
+            await _transRepo.UpdateAsync(getTrans);
+            var check = await _unitOfWork.SaveChangesAsync();
+            if (check < 0)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "Something wrong, please contact to admin or waiting...",
+                };
+            }
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Please confirm and refund for customer",
+                Data = new CancelPlanResponse
+                {
+                    SubId = requestDto.SubId,
+                    DriverId = requestDto.DriverId,
+                    TotalAmount = -(getFee.Amount),
+                    PaymentDate = DateTime.UtcNow.ToLocalTime(),
+                },
+            };
+        }
+
+
+        //Nemo: Update Transaction
+        public async Task<int> UpdateTransactionAsync(UpdateTransactionRequest requestDto)
+        {
+            var getTrans = await _unitOfWork.Trans.GetAllQueryable().Where(x => x.SubscriptionId == requestDto.SubId && x.Status =="Waiting").FirstOrDefaultAsync();
+
+            getTrans.Fee += requestDto.Fee;
+            await _unitOfWork.Trans.UpdateAsync(getTrans);
+            return await _unitOfWork.SaveChangesAsync();
+        }
+
+
+        //Nemo: Confirm cancel
+        //public async Task<ServiceResult> ConfirmCancelAsync()
+
+        
     }
 }

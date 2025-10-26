@@ -35,13 +35,13 @@ namespace VoltSwap.DAL.Repositories
         public async Task<List<Battery>> GetBatteriesBySubscriptionId(string subId)
         {
             return await _context.BatterySwaps
-                .Where(swap => swap.SubscriptionId == subId && swap.Status == "Using")
-                .Join(_context.Batteries,
-                      swap => swap.BatteryOutId,
-                      battery => battery.BatteryId,
-                      (swap, battery) => battery)
-                .Distinct()
-                .ToListAsync();
+        .Where(swap => swap.SubscriptionId == subId && swap.Status == "Using")
+        .Join(_context.Batteries,
+              swap => swap.BatteryOutId,
+              battery => battery.BatteryId,
+              (swap, battery) => battery)
+        .Distinct()
+        .ToListAsync();
         }
 
     }

@@ -29,5 +29,6 @@ namespace VoltSwap.BusinessLayer.IServices
 
         //Nemo: Chuyển đổi pin trong warehouse giữa các trạm
         Task<ServiceResult> TranferBatBetweenStation(BatteryTranferRequest requestDto);
+        Task<List<BatterySession>> GenerateBatterySession(string subId);
     }
 }

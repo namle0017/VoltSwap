@@ -26,6 +26,7 @@ namespace VoltSwap.DAL.UnitOfWork
         private IPillarSlotRepository? pillarSlotRepository;
         private IPillarRepository? pillarRepository;
         private IFeeRepository? feeRepository;
+        private IBatterySessionRepository? batsessionRepository;
 
 
         public UnitOfWork(VoltSwapDbContext context)
@@ -198,6 +199,17 @@ namespace VoltSwap.DAL.UnitOfWork
                     feeRepository = (IFeeRepository)new FeeRepository(_context);
                 }
                 return feeRepository;
+            }
+        }
+        public IBatterySessionRepository BatSession
+        {
+            get
+            {
+                if (batsessionRepository == null)
+                {
+                    batsessionRepository = (IBatterySessionRepository)new BatterySessionRepository(_context);
+                }
+                return batsessionRepository;
             }
         }
 

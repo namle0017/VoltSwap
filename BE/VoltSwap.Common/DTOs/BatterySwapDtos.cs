@@ -160,8 +160,6 @@ namespace VoltSwap.Common.DTOs
         public List<BatteryDto> BatTake { get; set; }
     }
 
-<<<<<<< HEAD
-
     //Nemo: DTO request cho đổi pin giữa các trạm
     public class BatteryTranferRequest
     {
@@ -170,7 +168,7 @@ namespace VoltSwap.Common.DTOs
         public List<string> BatId { get; set; }
         public String Reason { get; set; }
         public string CreateBy { get; set; }
-=======
+    }
     public class LockedPillarSlotDto
     {
         public int SlotId { get; set; }
@@ -178,6 +176,5 @@ namespace VoltSwap.Common.DTOs
         public string PillarId { get; set; }
         public string AppointmentId { get; set; }
         public int SlotNumber { get; set; }
->>>>>>> e34693b31ae39649732178e39666d16267dea358
     }
 }
