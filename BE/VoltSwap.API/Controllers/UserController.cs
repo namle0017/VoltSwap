@@ -121,6 +121,19 @@ namespace VoltSwap.API.Controllers
                             });
         }
 
+        //Bin: Tạo staff mới 
+        [HttpPut("create-staff")]
+        public async Task<IActionResult> CreateStaff( StaffCreateRequest request)
+        {
+            var createStaff = await _userService.CreateNewStaffAsync(request);
+            return StatusCode(createStaff.Status,
+                            new
+                            {
+                                message = createStaff.Message,
+                                data = createStaff.Data
+                            });
+        }
+
         // Bin: Lấy danh sách tài xế
         [HttpGet("driver-list")]
         public async Task<IActionResult> GetDriverList()

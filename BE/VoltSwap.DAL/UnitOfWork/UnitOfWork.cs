@@ -25,6 +25,8 @@ namespace VoltSwap.DAL.UnitOfWork
         private IStationStaffRepository? staitonStaffRepository;
         private IPillarSlotRepository? pillarSlotRepository;
         private IPillarRepository? pillarRepository;
+        private IFeeRepository? feeRepository;
+
 
         public UnitOfWork(VoltSwapDbContext context)
         {
@@ -185,6 +187,17 @@ namespace VoltSwap.DAL.UnitOfWork
                     pillarRepository = (IPillarRepository)new PillarRepository(_context);
                 }
                 return pillarRepository;
+            }
+        }
+        public IFeeRepository Fees
+        {
+            get
+            {
+                if (feeRepository == null)
+                {
+                    feeRepository = (IFeeRepository)new FeeRepository(_context);
+                }
+                return feeRepository;
             }
         }
 

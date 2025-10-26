@@ -13,5 +13,6 @@ namespace VoltSwap.DAL.IRepositories
         Task<List<Battery>> GetNumberOfBatteries();
         Task<Battery> FindingBatteryById(String batId);
         Task<List<Battery>> GetBatteriesInventoryByStationId(string StaffId);
+        Task<Battery> FindingBatteryInventoryById(String batId, string stationId);
     }
 }

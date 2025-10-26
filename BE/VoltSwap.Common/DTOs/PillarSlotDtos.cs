@@ -19,6 +19,22 @@ namespace VoltSwap.Common.DTOs
         public decimal BatterySoh { get; set; }
     }
 
+    public class  PlaceBattteryInPillarRequest
+    {
+        public string StaffId { get; set; }
+        public int  PillarSlotId { get; set; }
+        public string BatteryWareHouseId { get; set; }
+    }
+    public class  PlaceBattteryInPillarRespone
+    {
+        public string StaffId { get; set; }
+        public string StationId { get; set; }
+        public string PillarId { get; set; }
+        public int  PillarSlotId { get; set; }
+        public string BatteryWareHouseId { get; set; }
+
+    }
+
     public class StaffPillarSlotDto
     {
         public string PillarSlotId { get; set; }

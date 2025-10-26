@@ -20,7 +20,7 @@ namespace VoltSwap.API.Controllers
         [HttpPost("create-booking")]
         public async Task<IActionResult> CreateBooking([FromBody] CreateBookingRequest request)
         {
-            var result = await _bookingService.CreateBookingAsync(request);
+            var result = await _bookingService.CreateBookingAsync_HC(request);
             return StatusCode(result.Status, new
             {
                 result.Status,
@@ -39,7 +39,7 @@ namespace VoltSwap.API.Controllers
         [HttpGet("station-booking-list")]
         public async Task<IActionResult> GetBookingListByStationId([FromQuery] ViewBookingRequest request)
         {
-            var getBookingList = await _bookingService.GetBookingsByStationAndMonthAsync(request.StationId, request.Month, request.Year);
+            var getBookingList = await _bookingService.GetBookingsByStationAndMonthAsync(request);
             return StatusCode(getBookingList.Status,
                             new
                             {

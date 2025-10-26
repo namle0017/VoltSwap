@@ -158,43 +158,26 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
-        //Bin: Search Battery in Station by StaffId
-        public async Task<IServiceResult> SearchBatteryInStationByStaffId(StaffRequest staffRequest, string batteryId)
-        {
-            var checkExist = await _unitOfWork.Users.AnyAsync(ss => ss.UserId == staffRequest.StaffId && ss.Status == "Active");
-            if (!checkExist)
-            {
-                return new ServiceResult
-                {
-                    Status = 404,
-                    Message = "Staff not found or Inactive Staff",
-                };
-            }
-            var getstaion = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(staffRequest.StaffId);
-            var battery = await _unitOfWork.Batteries.FindingBatteryById(batteryId);
-            if (battery == null || battery.BatterySwapStationId != getstaion.BatterySwapStationId || battery.BatteryStatus != "Warehouse")
-            {
-                return new ServiceResult
-                {
-                    Status = 404,
-                    Message = "Battery not found in your station warehouse",
-                };
-            }
-            var batteryDto = new BatResponse
-            {
-                BatteryId = battery.BatteryId,
-                StationId = battery.BatterySwapStationId,
-                Soc = battery.Soc,
-                Soh = battery.Soh,
-                Capacity = battery.Capacity,
-                Status = battery.BatteryStatus
-            };
-            return new ServiceResult
-            {
-                Status = 200,
-                Message = "Search battery successfully",
-                Data = batteryDto
-            };
-        }
+
+
+        //Bin: lấy list Battery Swap trong ngày của trạm
+        //public async Task<IServiceResult> BatterySwapListAsync(StaffRequest request)
+        //{
+        //    var checkExist = await _unitOfWork.Users.AnyAsync(ss => ss.UserId == request.StaffId && ss.Status == "Active");
+        //    if (!checkExist)
+        //    {
+        //        return new ServiceResult
+        //        {
+        //            Status = 404,
+        //            Message = "Staff not found or Inactive Staff",
+        //        };
+        //    }
+        //    var getstaion = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.StaffId);
+        //    var getbatteryswap = _unitOfWork.BatterySwap.GetByIdAsync(getstaion.BatterySwapStationId);
+        //    var result = new 
+
+
+        //}
+        
     }
 }

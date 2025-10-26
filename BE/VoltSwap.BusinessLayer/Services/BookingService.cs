@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using VoltSwap.BusinessLayer.Base;
@@ -22,6 +23,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<Fee> _feeRepo;
         private readonly IPillarSlotRepository _slotRepo;
         private readonly ITransactionService _transService;
+        private readonly IGenericRepositories<StationStaff> _stationstaffRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
 
@@ -31,6 +33,7 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<User> driverRepo,
             IGenericRepositories<Subscription> subRepo,
             IGenericRepositories<Fee> feeRepo,
+            IGenericRepositories<StationStaff> stationstaffRepo,
             IPillarSlotRepository slotRepo,
             ITransactionService transService,
             IUnitOfWork unitOfWork,
@@ -40,6 +43,7 @@ namespace VoltSwap.BusinessLayer.Services
             _bookingRepo = bookingRepo;
             _driverRepo = driverRepo;
             _subRepo = subRepo;
+            _stationstaffRepo = stationstaffRepo;
             _feeRepo = feeRepo;
             _slotRepo = slotRepo;
             _transService = transService;
@@ -80,6 +84,9 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 return new ServiceResult { Status = 404, Message = "Subscription not found" };
             }
+
+            var getFee = await _unitOfWork.Fees.GetByIdAsync(f => f.PlanId == subscription.PlanId && f.TypeOfFee =="Booking");
+
             //tạo transaction cho booking
             var newTransId = await GenerateTransactionId();
             string transactionContext = $"{subscription.UserDriverId}-BOOKING-{newTransId.Substring(6)}";
@@ -89,12 +96,12 @@ namespace VoltSwap.BusinessLayer.Services
                 SubscriptionId = subscription.SubscriptionId,
                 UserDriverId = subscription.UserDriverId,
                 TransactionType = "Booking",
-                Amount = 30000,
+                Amount = 0,
                 Currency = "VND",
                 TransactionDate = DateTime.UtcNow.ToLocalTime(),
                 PaymentMethod = "Bank transfer",
                 Status = "Pending",
-                Fee = 0,
+                Fee = getFee.Amount,
                 TotalAmount = 30000,
                 Note = $"Note for booking {subscription.SubscriptionId}",
                 TransactionContext = transactionContext,
@@ -124,7 +131,7 @@ namespace VoltSwap.BusinessLayer.Services
                 BatterySwapStationId = request.StationId,
                 Note = request.Note,
                 SubscriptionId = request.SubscriptionId,
-                Status = "Not done",
+                Status = "Pending",
                 DateBooking = request.DateBooking,
                 TimeBooking = request.TimeBooking,
                 CreateBookingAt = DateTime.UtcNow.ToLocalTime()
@@ -153,17 +160,106 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 Status = 201,
                 Message = "Booking created successfully",
-                Data = new { appointment }
+                Data =  appointment 
+            };
+        }
+        public async Task<ServiceResult> CreateBookingAsync_HC(CreateBookingRequest request)
+        {
+            var subscription = await GetSubscriptionById(request.SubscriptionId);
+            if (subscription == null)
+            {
+                return new ServiceResult { Status = 404, Message = "Subscription not found" };
+            }
+
+            var getFee = await _unitOfWork.Fees.GetByIdAsync(f => f.PlanId == subscription.PlanId && f.TypeOfFee =="Booking");
+
+            //tạo transaction cho booking
+            var newTransId = await GenerateTransactionId();
+            string transactionContext = $"{subscription.UserDriverId}-BOOKING-{newTransId.Substring(6)}";
+            var newTransaction = new Transaction
+            {
+                TransactionId = newTransId,
+                SubscriptionId = subscription.SubscriptionId,
+                UserDriverId = subscription.UserDriverId,
+                TransactionType = "Booking",
+                Amount = 0,
+                Currency = "VND",
+                TransactionDate = DateTime.UtcNow.ToLocalTime(),
+                PaymentMethod = "Bank transfer",
+                Status = "Processing ",
+                Fee = getFee.Amount,
+                TotalAmount = 30000,
+                Note = $"Note for booking {subscription.SubscriptionId}",
+                TransactionContext = transactionContext,
+            };
+            await _unitOfWork.Trans.CreateAsync(newTransaction);
+            await _unitOfWork.SaveChangesAsync();
+            // 1 sub chỉ có 1 booking chưa hoàn thành
+            //var hasActive = await _unitOfWork.Bookings
+            //                                 .GetAllQueryable()
+            //                                 .AnyAsync(a => a.SubscriptionId == request.SubscriptionId &&
+            //                                             ( a.Status == "Not done"));
+
+            //if (hasActive)
+            //    return new ServiceResult(409, "This subscription already has an unfinished booking.");
+
+            string bookingId = await GenerateBookingId();
+
+            //var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
+
+
+
+            var appointmentDB = new Appointment
+            {
+
+                AppointmentId = bookingId,
+                UserDriverId = request.DriverId,
+                BatterySwapStationId = request.StationId,
+                Note = request.Note,
+                SubscriptionId = request.SubscriptionId,
+                Status = "Success",
+                DateBooking = request.DateBooking,
+                TimeBooking = request.TimeBooking,
+                CreateBookingAt = DateTime.UtcNow.ToLocalTime()
+
+
+            };
+            await _bookingRepo.CreateAsync(appointmentDB);
+            await _unitOfWork.SaveChangesAsync();
+
+
+            var appointment = new BookingResponse
+            {
+                TransactionId = newTransId,
+                AppointmentId = appointmentDB.AppointmentId,
+                DriverId = appointmentDB.UserDriverId,
+                BatterySwapStationId = appointmentDB.BatterySwapStationId,
+                Note = appointmentDB.Note,
+                SubscriptionId = appointmentDB.SubscriptionId,
+                Status = appointmentDB.Status,
+                DateBooking = appointmentDB.DateBooking,
+                TimeBooking = appointmentDB.TimeBooking,
+                CreateBookingAt = appointmentDB.CreateBookingAt
+            };
+
+            return new ServiceResult
+            {
+                Status = 201,
+                Message = "Booking created successfully",
+                Data =  appointment 
             };
         }
 
         //Bin: Staff xem danh sách booking của trạm mình theo tháng
-        public async Task<ServiceResult> GetBookingsByStationAndMonthAsync(string stationId, int month, int year)
+        public async Task<ServiceResult> GetBookingsByStationAndMonthAsync(ViewBookingRequest request)
         {
+            var today = DateTime.UtcNow.ToLocalTime();
+            var stationId = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.StaffId);
             var bookingList = await _bookingRepo.GetAllQueryable()
-                .Where(b => b.BatterySwapStationId == stationId &&
-                            b.CreateBookingAt.Month == month &&
-                            b.CreateBookingAt.Year == year)
+                .Where(b => b.BatterySwapStationId == stationId.BatterySwapStationId 
+                //&& b.CreateBookingAt == today
+                )
+
                 .ToListAsync();
             var bookingResponses = new List<ViewBookingResponse>();
             foreach (var booking in bookingList)

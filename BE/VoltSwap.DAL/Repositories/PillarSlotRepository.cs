@@ -81,6 +81,15 @@ namespace VoltSwap.DAL.Repositories
                 .ToListAsync();
         }
 
+        public async Task<PillarSlot> GetEmptySlot (int  pillarslotId)
+        {
+            return await _context.PillarSlots
+                .Where(ps => ps.SlotId == pillarslotId
+                    && ps.BatteryId == null
+                    && ps.PillarStatus == "Available")
+                .FirstOrDefaultAsync();
+        }
+
 
     }
 }

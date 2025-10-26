@@ -137,4 +137,13 @@ namespace VoltSwap.Common.DTOs
         public int MonthSwap { get; set; }
         public int YearSwap { get; set; }
     }
+
+    public class LockedPillarSlotDto
+    {
+        public int SlotId { get; set; }
+        public string StaitonId { get; set; }
+        public string PillarId { get; set; }
+        public string AppointmentId { get; set; }
+        public int SlotNumber { get; set; }
+    }
 }

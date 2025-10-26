@@ -39,5 +39,29 @@ namespace VoltSwap.API.Controllers
             var result = await _slotService.GetBatteryInPillar(pillarId);
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
+
+        //Bin: api để cho pin trong kho vào các slot trống trong trụ
+        [HttpPost("store-battery-inventory-to-pillar-slot")]
+        public async Task<IActionResult> StoreBatteryInventoryToPillarSlot([FromBody] PlaceBattteryInPillarRequest requestDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _slotService.PlaceBatteryInPillarAsync(requestDto);
+            return StatusCode(result.Status, new { message = result.Message, data = result.Data });
+        }
+
+        //Bin: api để lấy pin từ các slot LOCK trong trụ
+        [HttpGet("Lock-slot")]
+        public async Task<IActionResult> GetBatteryInLockSlot([FromQuery] UserRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _slotService.GetLockedPillarSlotByStaffId(request);
+            return StatusCode(result.Status, new { message = result.Message, data = result.Data });
+        }
     }
 }

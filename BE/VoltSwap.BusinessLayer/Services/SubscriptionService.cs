@@ -85,38 +85,13 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            bool hasChanges = false;
-
-
-            foreach (var sub in userSubscriptions)
-            {
-                // Nếu đã quá 4 ngày kể từ EndDate -> Inactive 
-                if (sub.EndDate.AddDays(4) < today && sub.Status != "Inactive")
-                {
-                    sub.Status = "Inactive";
-                    hasChanges = true;
-                }
-                // Nếu hết hạn nhưng chưa quá 4 ngày -> Expired
-                else if (sub.EndDate < today && sub.Status == "Active")
-                {
-                    sub.Status = "Expired";
-                    hasChanges = true;
-                }
-            }
-
-            // Nếu có thay đổi -> cập nhật DB
-            if (hasChanges)
-            {
-                _unitOfWork.Subscriptions.UpdateRange(userSubscriptions);
-                await _unitOfWork.SaveChangesAsync();
-            }
 
             var subscriptionDtos = userSubscriptions
                 .Where(sub => sub.Status != "Inactive")
                 .Select(sub => new ServiceOverviewItemDto
                 {
                     SubId = sub.SubscriptionId,
-                    PlanName = sub.Plan?.PlanName,
+                    PlanName = sub.Plan.PlanName,
                     PlanStatus = sub.Status,
                     SwapLimit = null,
                     Remaining_swap = sub.RemainingSwap,
@@ -328,7 +303,7 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 // Sinh 10 chữ số ngẫu nhiên
                 var random = new Random();
-                subscriptionId = $"SUB-{string.Concat(Enumerable.Range(0, 9).Select(_ => random.Next(0, 8).ToString()))}";
+                subscriptionId = $"SUB-{string.Concat(Enumerable.Range(0, 8).Select(_ => random.Next(0, 8).ToString()))}";
 
                 // Kiểm tra xem có trùng không
                 isDuplicated = await _subRepo.AnyAsync(u => u.SubscriptionId == subscriptionId);
@@ -344,7 +319,7 @@ namespace VoltSwap.BusinessLayer.Services
             string dayOnly = DateTime.Today.Day.ToString("D2");
             do
             {
-                // Sinh 10 chữ số ngẫu nhiên
+                // Sinh 8 chữ số ngẫu nhiên
                 var random = new Random();
                 transactionId = $"TRANS-{dayOnly}-{string.Concat(Enumerable.Range(0, 10).Select(_ => random.Next(0, 10).ToString()))}";
 

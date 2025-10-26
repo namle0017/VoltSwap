@@ -68,6 +68,24 @@ namespace VoltSwap.DAL.Repositories
             .ToListAsync();
         }
 
+        // Check sub đã có booking chưa
+        public async Task<bool> CheckSubscriptionHasBookingAsync(string subscriptionId)
+        {
+            var hasBooking = await _context.PillarSlots
+                .AnyAsync(ps => ps.Appointment != null && ps.Appointment.SubscriptionId == subscriptionId);
+            return hasBooking;
+        }
+        //Cái repo này sẽ lấy ra các battery nào có trong pillar mà bị lock để đưa cho FE để biết slot nào bị lock
+        public async Task<List<PillarSlot>> GetBatteriesLockByPillarIdAsync(string pillarId)
+        {
+            return await _context.PillarSlots
+            .Where(ps => ps.BatterySwapPillarId == pillarId
+                         && ps.Battery != null
+                         && ps.AppointmentId != null)
+            .OrderByDescending(ps => ps.Battery.Soc)
+            .ToListAsync();
+        }
+
         public async Task<List<Battery>> GetBatteriesByStationIdAsync(String stationId)
         {
             var bat = await _context.Batteries

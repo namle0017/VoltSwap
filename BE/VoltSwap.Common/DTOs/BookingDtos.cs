@@ -48,9 +48,8 @@ namespace VoltSwap.Common.DTOs
 
     public class ViewBookingRequest
     {
-        public  string StationId { get; set; }
-        public int Month { get; set; }
-        public int Year { get; set; }
+        public  string StaffId { get; set; }
+
     }
 
     public class ViewBookingResponse

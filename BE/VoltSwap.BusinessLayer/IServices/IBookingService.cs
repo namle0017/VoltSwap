@@ -12,6 +12,6 @@ namespace VoltSwap.BusinessLayer.IServices
     {
         Task<ServiceResult> CreateBookingAsync(CreateBookingRequest request);
         Task<ServiceResult> CancelBookingAsync(CancelBookingRequest request);
-        Task<ServiceResult> GetBookingsByStationAndMonthAsync(string stationId, int month, int year);
+        Task<ServiceResult> GetBookingsByStationAndMonthAsync(ViewBookingRequest request);
     }
 }
