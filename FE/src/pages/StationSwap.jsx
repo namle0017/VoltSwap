@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 // src/pages/StationSwap.jsx
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import {
     getStationList,
     validateSubscription,
@@ -10,7 +10,6 @@ import {
 } from "@/api/batterySwapApi";
 import api from "@/api/api";
 
-// === FALLBACK data ===
 const FALLBACK_STATIONS = [
     { stationId: "STA-10-03-7891", stationName: "Thu Duc Station (Fallback)" },
     { stationId: "STA-01-12-5678", stationName: "District 1 Station (Fallback)" },
@@ -30,19 +29,13 @@ const isPositiveMsg = (msg = "") => {
     );
 };
 
-// ===== Trạng thái slot =====
-const isOpen = (slot) => toLower(slot?.pillarStatus) === "available";
-const isLocked = (slot) => {
-    const s = toLower(slot?.pillarStatus);
-    return s === "unavailable" || s === "lock" || s === "locked";
-};
-const slotColorClass = (slot) => (isOpen(slot) ? "bg-emerald-500" : "bg-slate-400");
+const slotColorClass = (isGreen) => (isGreen ? "bg-emerald-500" : "bg-slate-400");
 
 // ===== Extract từ response BE =====
 const extractSlotsFromResponse = (raw) => {
     if (Array.isArray(raw)) return raw;
     if (raw && typeof raw === "object") {
-        if (Array.isArray(raw.pillarSlot)) return raw.pillarSlot;     // mẫu mới
+        if (Array.isArray(raw.pillarSlot)) return raw.pillarSlot;
         if (Array.isArray(raw.pillarSlotDtos)) return raw.pillarSlotDtos;
         if (Array.isArray(raw.data)) return raw.data;
     }
@@ -52,6 +45,12 @@ const extractBatTake = (raw) => {
     if (!raw || typeof raw !== "object") return [];
     if (Array.isArray(raw.batTake)) return raw.batTake;
     if (raw.data && Array.isArray(raw.data.batTake)) return raw.data.batTake;
+    return [];
+};
+const extractSlotEmptyIds = (raw) => {
+    if (!raw || typeof raw !== "object") return [];
+    if (Array.isArray(raw.slotEmpty)) return raw.slotEmpty;
+    if (raw.data && Array.isArray(raw.data.slotEmpty)) return raw.data.slotEmpty;
     return [];
 };
 
@@ -72,6 +71,7 @@ const groupSlotsByPillar = (slots = [], currentStationId) => {
                 slotNumber: nextNum,
                 stationId: currentStationId,
                 pillarId: pid,
+                // trạng thái thật từ BE không còn ý nghĩa ở step 2; vẫn điền để đủ dữ liệu
                 pillarStatus: "Unavailable",
                 batteryStatus: "Available",
                 batterySoc: 0,
@@ -83,40 +83,6 @@ const groupSlotsByPillar = (slots = [], currentStationId) => {
     return map;
 };
 
-// đảm bảo mỗi trụ ≥ 4 slot mở; rồi random mở thêm = số pin gói (phân bổ đều)
-const ensureOpenPerPillarAndRandomMore = (pillarMap, numToOpenExtra = 0) => {
-    for (const [, arr] of pillarMap) {
-        const opened = arr.filter(isOpen).length;
-        const need = Math.max(0, 4 - opened);
-        if (need > 0) {
-            const locked = arr.filter(isLocked);
-            locked.sort(() => 0.5 - Math.random());
-            locked.slice(0, need).forEach((s) => {
-                s.pillarStatus = "Available";
-                if (!s.batteryId) {
-                    s.batteryStatus = "Available";
-                    s.batterySoc = 0;
-                    s.batterySoh = 0;
-                }
-            });
-        }
-    }
-    if (numToOpenExtra > 0) {
-        const allLocked = [];
-        for (const [, arr] of pillarMap) arr.forEach((s) => isLocked(s) && allLocked.push(s));
-        const shuffled = allLocked.sort(() => 0.5 - Math.random());
-        shuffled.slice(0, numToOpenExtra).forEach((s) => {
-            s.pillarStatus = "Available";
-            if (!s.batteryId) {
-                s.batteryStatus = "Available";
-                s.batterySoc = 0;
-                s.batterySoh = 0;
-            }
-        });
-    }
-    return pillarMap;
-};
-
 // === Hiển thị step 3: chỉ tô xanh các slot được mở để LẤY
 const makeStep3ViewMap = (pillarMap, pickedList, focusPillarId) => {
     const allowed = new Set((pickedList || []).map((x) => String(x.slotId)));
@@ -125,11 +91,31 @@ const makeStep3ViewMap = (pillarMap, pickedList, focusPillarId) => {
         const show = !focusPillarId || pid === focusPillarId;
         const cloned = arr.map((s) => {
             const isAllowed = allowed.has(String(s.slotId));
-            const forcedStatus = isAllowed ? "Available" : "Unavailable"; // chỉ slot lấy pin mới xanh
+            return { ...s, __dim: !show, __green: isAllowed };
+        });
+        view.set(pid, cloned);
+    }
+    return view;
+};
+
+// === View step 2 (Swap-In): CHỈ xanh các slot có trong slotEmpty từ BE; trụ khác mờ
+const makeStep2ViewMap_AllowedSlotsOnly = (
+    pillarMap,
+    selectedPillarId,
+    selectedSlotIds,
+    allowedSet
+) => {
+    const view = new Map();
+    const selectedSet = new Set((selectedSlotIds || []).map(String));
+    for (const [pid, arr] of pillarMap) {
+        const show = !selectedPillarId || pid === selectedPillarId;
+        const cloned = arr.map((s) => {
+            const isAllowed = allowedSet.has(String(s.slotId));
             return {
                 ...s,
-                pillarStatus: forcedStatus,
-                __dim: !show, // đánh dấu để mờ trụ khác
+                __dim: !show,
+                __selected: selectedSet.has(String(s.slotId)),
+                __green: isAllowed, // dùng __green để render màu
             };
         });
         view.set(pid, cloned);
@@ -137,23 +123,6 @@ const makeStep3ViewMap = (pillarMap, pickedList, focusPillarId) => {
     return view;
 };
 
-// === View step 2: chỉ trụ được chọn hiển thị trạng thái thật (xanh/xám); trụ khác mờ xám
-const makeStep2ViewMap = (pillarMap, selectedPillarId, selectedSlotIds) => {
-    const view = new Map();
-    const selectedSet = new Set((selectedSlotIds || []).map(String));
-    for (const [pid, arr] of pillarMap) {
-        const show = !selectedPillarId || pid === selectedPillarId;
-        const cloned = arr.map((s) => ({
-            ...s,
-            __dim: !show, // trụ khác mờ
-            __selected: selectedSet.has(String(s.slotId)),
-        }));
-        view.set(pid, cloned);
-    }
-    return view;
-};
-
-// Map -> array entries sorted
 const flattenFromPillarMap = (pillarMap) => {
     const entries = Array.from(pillarMap.entries());
     entries.sort(([a], [b]) => String(a).localeCompare(String(b)));
@@ -161,10 +130,10 @@ const flattenFromPillarMap = (pillarMap) => {
 };
 
 export default function StationSwap() {
+    const navigate = useNavigate();
     const location = useLocation();
     const [searchParams] = useSearchParams();
 
-    // === preset từ Booking/Station ===
     const presetStationId =
         location.state?.stationId ||
         searchParams.get("stationId") ||
@@ -177,7 +146,6 @@ export default function StationSwap() {
         "";
     const isPreset = Boolean(presetStationId && presetSubscriptionId);
 
-    // === states chính ===
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [stations, setStations] = useState([]);
@@ -189,8 +157,8 @@ export default function StationSwap() {
     const [submitting, setSubmitting] = useState(false);
     const [subscriptionInfo, setSubscriptionInfo] = useState(null);
 
-    const [pillarSlotsMap, setPillarSlotsMap] = useState(new Map()); // Map<pillarId, Slot[]>
-    const [slotIdToPillar, setSlotIdToPillar] = useState(new Map()); // Map<slotId, pillarId>
+    const [pillarSlotsMap, setPillarSlotsMap] = useState(new Map());
+    const [slotIdToPillar, setSlotIdToPillar] = useState(new Map());
 
     const [batteryIdsInput, setBatteryIdsInput] = useState("");
     const [swapInResult, setSwapInResult] = useState(null);
@@ -201,14 +169,14 @@ export default function StationSwap() {
     const [autoPickError, setAutoPickError] = useState("");
     const [swapInCount, setSwapInCount] = useState(0);
 
-    // NEW: chọn trụ cho Swap-In; và trụ focus cho Swap-Out
     const [selectedPillarId, setSelectedPillarId] = useState("");
     const [pickupPillarId, setPickupPillarId] = useState("");
 
-    // NEW: chọn slot thủ công ở bước 2 (theo thứ tự click)
-    const [selectedSlotIds, setSelectedSlotIds] = useState([]); // array of slotId
+    const [selectedSlotIds, setSelectedSlotIds] = useState([]);
 
-    // === parse & load stations ===
+    // ✅ NEW: các slot rỗng cho Swap-In do BE cung cấp
+    const [allowedSwapIn, setAllowedSwapIn] = useState(new Set());
+
     const tryParseStations = (raw) => {
         if (typeof raw === "string") {
             try {
@@ -258,7 +226,6 @@ export default function StationSwap() {
         loadStations();
     }, []);
 
-    // === Auto fill preset ===
     useEffect(() => {
         if (!stationLoading && isPreset) {
             setStationId(presetStationId);
@@ -278,8 +245,15 @@ export default function StationSwap() {
         );
     }, [subscriptionInfo]);
 
-    const getMustPickCount = () =>
-        requiredBatteryCount > 0 ? requiredBatteryCount : swapInCount || 1;
+    const getMustPickCount = () => {
+        const beCount = (autoPicked?.length || outOptions?.length || 0);
+        return (
+            (requiredBatteryCount && requiredBatteryCount > 0 && requiredBatteryCount) ||
+            (swapInCount && swapInCount > 0 && swapInCount) ||
+            (beCount && beCount > 0 && beCount) ||
+            1
+        );
+    };
 
     const resetAll = () => {
         setStep(1);
@@ -300,6 +274,7 @@ export default function StationSwap() {
         setSelectedPillarId("");
         setPickupPillarId("");
         setSelectedSlotIds([]);
+        setAllowedSwapIn(new Set());
     };
 
     // === validate subscription ===
@@ -316,8 +291,7 @@ export default function StationSwap() {
         try {
             const res = await validateSubscription(subTrim, sta);
             const data = res.data;
-            if (!data || typeof data !== "object")
-                throw new Error("BE trả dữ liệu không hợp lệ");
+            if (!data || typeof data !== "object") throw new Error("BE trả dữ liệu không hợp lệ");
 
             if (data.isValid === false || toLower(data.status) === "invalid") {
                 setSubError(data.message || "Subscription không hợp lệ.");
@@ -338,38 +312,38 @@ export default function StationSwap() {
             const info = data.data ?? data;
             setSubscriptionInfo(info);
 
-            // lấy slots + batTake
             const rawSlots = extractSlotsFromResponse(info);
             const batTake = extractBatTake(info);
+            const slotEmptyIds = extractSlotEmptyIds(info); // ✅ danh sách slot rỗng
 
-            const numToOpen =
-                info?.packagePins ??
-                info?.batteryCount ??
-                info?.numberOfBatteries ??
-                info?.requiredBatteries ??
-                0;
+            // Group không mở thêm ô nào nữa
+            const pMap = groupSlotsByPillar(rawSlots, sta);
 
-            let pMap = groupSlotsByPillar(rawSlots, sta);
-            pMap = ensureOpenPerPillarAndRandomMore(pMap, Number(numToOpen) || 0);
-
-            // build slotId -> pillarId
+            // Index slotId -> pillarId
             const indexMap = new Map();
-            for (const [pid, arr] of pMap) {
-                arr.forEach((s) => indexMap.set(String(s.slotId), pid));
-            }
-
+            for (const [pid, arr] of pMap) arr.forEach((s) => indexMap.set(String(s.slotId), pid));
             setPillarSlotsMap(new Map(pMap));
             setSlotIdToPillar(indexMap);
 
-            // nếu BE gửi batTake thì giữ sẵn danh sách pick
+            // ✅ Lưu allowed slot cho Swap-In
+            const allowedSet = new Set((slotEmptyIds || []).map(String));
+            setAllowedSwapIn(allowedSet);
+
+            // Nếu có slot trống → gợi ý chọn trụ theo slotEmpty đầu tiên
+            if (allowedSet.size > 0 && !selectedPillarId) {
+                const firstEmpty = String(slotEmptyIds[0]);
+                const pid = indexMap.get(firstEmpty);
+                if (pid) setSelectedPillarId(pid);
+            }
+
+            // Nếu BE gửi batTake → chuẩn bị step 3
             if (Array.isArray(batTake) && batTake.length > 0) {
                 const picked = batTake
                     .filter((x) => x?.batteryId && x?.slotId)
                     .map((x) => ({ batteryId: x.batteryId, slotId: x.slotId }));
                 setAutoPicked(picked);
                 setOutOptions(picked);
-
-                // Xác định trụ cấp pin ở Step 3 theo slot đầu tiên
+                setSwapInCount(picked.length);
                 const pid = indexMap.get(String(picked[0]?.slotId)) || "";
                 setPickupPillarId(pid);
             } else {
@@ -378,11 +352,10 @@ export default function StationSwap() {
                 setPickupPillarId("");
             }
 
-            // reset lựa chọn cũ nếu validate lại
-            setSelectedPillarId("");
             setSelectedSlotIds([]);
 
-            setStep(2);
+            const initialTake = /please,\s*take\s*batteries/i.test(String(data.message || info.message || ""));
+            setStep(initialTake ? 3 : 2);
         } catch (err) {
             setSubError(
                 `❌ ${err?.response?.data?.message || err?.message || "Không xác thực được Subscription."}`
@@ -398,7 +371,6 @@ export default function StationSwap() {
         doValidate(subscriptionId, stationId);
     };
 
-    // === chọn slot thủ công ở bước 2 ===
     const parsedBatteryIds = useMemo(() => {
         return batteryIdsInput
             .split(/[\n,]/g)
@@ -409,18 +381,17 @@ export default function StationSwap() {
     const togglePickSlot = (slot) => {
         if (step !== 2) return;
         if (!selectedPillarId) return;
-        if (!slot || !isOpen(slot)) return;
-        if (slot.pillarId !== selectedPillarId) return;
+        if (!slot || slot.pillarId !== selectedPillarId) return;
+        // ✅ chỉ cho chọn nếu slot thuộc allowedSwapIn
+        if (!allowedSwapIn.has(String(slot.slotId))) return;
 
         const maxNeed = parsedBatteryIds.length || getMustPickCount();
         if (!maxNeed) return;
 
         setSelectedSlotIds((prev) => {
             const id = String(slot.slotId);
-            // đang chọn -> bỏ chọn
             if (prev.includes(id)) return prev.filter((x) => x !== id);
-            // chưa chọn -> thêm nếu chưa vượt maxNeed
-            if (prev.length >= maxNeed) return prev; // đạt giới hạn
+            if (prev.length >= maxNeed) return prev;
             return [...prev, id];
         });
     };
@@ -429,7 +400,10 @@ export default function StationSwap() {
     const getFreeSlotIdsOnSelectedPillar = () => {
         if (!selectedPillarId) return [];
         const arr = pillarSlotsMap.get(selectedPillarId) || [];
-        return arr.filter(isOpen).map((s) => s.slotId);
+        // ✅ chỉ lấy free trong allowedSwapIn
+        return arr
+            .filter((s) => allowedSwapIn.has(String(s.slotId)))
+            .map((s) => s.slotId);
     };
 
     const handleSwapIn = async () => {
@@ -454,22 +428,18 @@ export default function StationSwap() {
         const freeSlotIds = getFreeSlotIdsOnSelectedPillar();
         if (freeSlotIds.length < ids.length) {
             alert(
-                `Trụ "${selectedPillarId}" không đủ slot trống. Cần ${ids.length}, đang có ${freeSlotIds.length}. Vui lòng chọn trụ khác.`
+                `Trụ "${selectedPillarId}" không đủ slot trống (theo danh sách BE). Cần ${ids.length}, đang có ${freeSlotIds.length}. Vui lòng chọn trụ khác.`
             );
             return;
         }
 
-        // ƯU TIÊN mapping THỦ CÔNG (batteryId ↔ selectedSlotIds theo thứ tự)
         let slotOrder = selectedSlotIds.slice(0, ids.length);
-
-        // Nếu chưa chọn đủ slot thủ công -> tự gán phần còn lại
         if (slotOrder.length < ids.length) {
             const chosenSet = new Set(slotOrder.map(String));
             const remain = freeSlotIds.filter((sid) => !chosenSet.has(String(sid)));
             const need = ids.length - slotOrder.length;
             slotOrder = slotOrder.concat(remain.slice(0, need).map(String));
         }
-
         if (slotOrder.length < ids.length) {
             alert("Chưa đủ slot để gán pin. Vui lòng chọn thêm ô hoặc đổi trụ.");
             return;
@@ -490,7 +460,7 @@ export default function StationSwap() {
                     subscriptionId: subscriptionId.trim(),
                     stationId,
                 },
-                pillarId: selectedPillarId, // ⬅️ gửi đúng trụ đang nộp pin
+                pillarId: selectedPillarId,
             };
 
             const res = await swapInBattery(payload);
@@ -502,14 +472,12 @@ export default function StationSwap() {
                 slotId: it.slotId ?? it.SlotId,
             }));
 
-            // fallback nếu BE không trả
+            // fallback: tự suy ra từ slot đang có pin (nếu cần)
             if (!fromBE.length) {
                 const out = [];
-                for (const [pid, arr] of pillarSlotsMap) {
+                for (const [, arr] of pillarSlotsMap) {
                     arr.forEach((s) => {
-                        if (isLocked(s) && toLower(s?.batteryStatus) === "available" && s?.batteryId) {
-                            out.push({ batteryId: s.batteryId, slotId: s.slotId });
-                        }
+                        if (s?.batteryId) out.push({ batteryId: s.batteryId, slotId: s.slotId });
                     });
                 }
                 fromBE = out;
@@ -530,12 +498,11 @@ export default function StationSwap() {
                 setAutoPickError("");
             }
 
-            // Xác định trụ cấp pin (Step 3) theo slot đầu tiên của danh sách pick
             const firstSlot = (fromBE[0] || {}).slotId;
             const pid = firstSlot ? slotIdToPillar.get(String(firstSlot)) : "";
             setPickupPillarId(pid || "");
 
-            setStep(3); // chuyển sang xác nhận lấy pin
+            setStep(3);
         } catch (err) {
             const status = err?.response?.status;
             const data = err?.response?.data;
@@ -590,7 +557,7 @@ export default function StationSwap() {
                 batteryDtos: picked.map(({ batteryId, slotId }) => ({ batteryId, slotId })),
                 subscriptionId: subscriptionId.trim(),
                 accessRequest: { subscriptionId: subscriptionId.trim(), stationId },
-                pillarId: pickupPillarId || stationId, // ưu tiên trụ cấp pin
+                pillarId: pickupPillarId || stationId,
             };
 
             const res = await swapOutBattery(payload);
@@ -623,7 +590,6 @@ export default function StationSwap() {
 
     const displayPillarMap = useMemo(() => {
         if (step === 3) {
-            // chỉ trụ cấp pin sáng; và chỉ slot lấy pin màu xanh
             const focusPid =
                 pickupPillarId ||
                 (mustPickList.length
@@ -632,8 +598,13 @@ export default function StationSwap() {
             return makeStep3ViewMap(pillarSlotsMap, mustPickList, focusPid);
         }
         if (step === 2) {
-            // chỉ trụ đã chọn cho Swap-In sáng; ô Available xanh; bôi nổi slot được chọn thủ công
-            return makeStep2ViewMap(pillarSlotsMap, selectedPillarId, selectedSlotIds);
+            // ✅ ép xanh đúng các slot trong allowedSwapIn
+            return makeStep2ViewMap_AllowedSlotsOnly(
+                pillarSlotsMap,
+                selectedPillarId,
+                selectedSlotIds,
+                allowedSwapIn
+            );
         }
         return pillarSlotsMap;
     }, [
@@ -644,11 +615,11 @@ export default function StationSwap() {
         mustPickList,
         slotIdToPillar,
         selectedSlotIds,
+        allowedSwapIn,
     ]);
 
     const pillarEntries = useMemo(() => flattenFromPillarMap(displayPillarMap), [displayPillarMap]);
 
-    // === UI ===
     return (
         <div className="p-6 max-w-5xl mx-auto space-y-6">
             <h1 className="text-2xl font-bold text-center">📗 Battery Swap Simulation</h1>
@@ -704,11 +675,11 @@ export default function StationSwap() {
                                 <div className="flex items-center gap-4 text-xs text-gray-600">
                                     <span className="inline-flex items-center gap-1">
                                         <span className="w-3 h-3 rounded bg-emerald-500 inline-block" />
-                                        Mở (Available)
+                                        Slot có thể chọn
                                     </span>
                                     <span className="inline-flex items-center gap-1">
                                         <span className="w-3 h-3 rounded bg-slate-400 inline-block" />
-                                        Khoá (Unavailable/Lock)
+                                        Không thể chọn
                                     </span>
                                 </div>
                             </div>
@@ -717,7 +688,7 @@ export default function StationSwap() {
                                 <div className="text-xs text-gray-600 space-y-1">
                                     <div>1) <b>Chọn một trụ</b> để nộp pin (Swap-In).</div>
                                     <div>2) Nhập danh sách <b>BatteryId</b>.</div>
-                                    <div>3) <b>Click các ô màu xanh</b> trên trụ đã chọn để gán lần lượt BatteryId → Slot.</div>
+                                    <div>3) <b>Click các ô màu xanh</b> (BE cho phép trong <code>slotEmpty</code>) để gán BatteryId → Slot.</div>
                                 </div>
                             )}
                             {step === 3 && (
@@ -733,7 +704,6 @@ export default function StationSwap() {
                             ) : (
                                 <div className="grid md:grid-cols-3 sm:grid-cols-2 grid-cols-1 gap-4">
                                     {pillarEntries.map(([pid, slots]) => {
-                                        // card style theo step
                                         const isSelected = step === 2 && selectedPillarId && pid === selectedPillarId;
                                         const isDim = slots.some((s) => s.__dim);
                                         return (
@@ -743,9 +713,10 @@ export default function StationSwap() {
                                                 onClick={() => {
                                                     if (step === 2) {
                                                         setSelectedPillarId(pid);
-                                                        // khi đổi trụ giữ lại chọn slot chỉ nếu cùng trụ
                                                         setSelectedSlotIds((prev) => {
-                                                            const set = new Set((pillarSlotsMap.get(pid) || []).map((s) => String(s.slotId)));
+                                                            const set = new Set(
+                                                                (pillarSlotsMap.get(pid) || []).map((s) => String(s.slotId))
+                                                            );
                                                             return prev.filter((x) => set.has(String(x)));
                                                         });
                                                     }
@@ -766,23 +737,21 @@ export default function StationSwap() {
                                                     {slots.map((slot, i) => {
                                                         const pickedIdx =
                                                             selectedSlotIds.findIndex((x) => x === String(slot?.slotId)) + 1;
-                                                        const selectable =
+                                                        const canPick =
                                                             step === 2 &&
                                                             selectedPillarId === pid &&
-                                                            isOpen(slot);
+                                                            allowedSwapIn.has(String(slot?.slotId)); // ✅ chỉ slotEmpty mới xanh/click
                                                         return (
                                                             <div
                                                                 key={slot?.slotId ?? `${pid}-${i}`}
-                                                                onClick={() => selectable && togglePickSlot(slot)}
-                                                                aria-label={isOpen(slot) ? "Mở (Available)" : "Khoá (Unavailable/Lock)"}
+                                                                onClick={() => canPick && togglePickSlot(slot)}
                                                                 className={[
                                                                     "h-10 rounded-md transition-all relative",
-                                                                    slotColorClass(slot),
-                                                                    selectable ? "cursor-pointer hover:ring-2 hover:ring-blue-400" : "cursor-default",
+                                                                    slotColorClass(canPick || slot.__green), // __green dùng ở step 3
+                                                                    canPick ? "cursor-pointer hover:ring-2 hover:ring-blue-400" : "cursor-default",
                                                                     pickedIdx ? "ring-4 ring-blue-500" : "",
                                                                 ].join(" ")}
-                                                                title={`Slot ${slot?.slotNumber ?? i + 1}${slot?.batteryId ? ` • ${slot.batteryId}` : ""
-                                                                    }`}
+                                                                title={`Slot ${slot?.slotNumber ?? i + 1}${slot?.batteryId ? ` • ${slot.batteryId}` : ""}`}
                                                             >
                                                                 {pickedIdx ? (
                                                                     <span className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white">
@@ -844,7 +813,7 @@ export default function StationSwap() {
                                 </div>
                                 {selectedPillarId ? (
                                     <div className="mt-1 text-xs text-gray-600">
-                                        Trụ đã chọn: <b>{selectedPillarId}</b>. Hãy click ô xanh trên trụ này để gán đủ <b>{parsedBatteryIds.length || getMustPickCount()}</b> slot.
+                                        Trụ đã chọn: <b>{selectedPillarId}</b>. Chỉ có thể gán vào <b>các ô xanh</b> BE trả trong <code>slotEmpty</code>.
                                     </div>
                                 ) : (
                                     <div className="mt-1 text-xs text-orange-600">Chưa chọn trụ.</div>
@@ -865,14 +834,13 @@ export default function StationSwap() {
                                         loading ||
                                         !selectedPillarId ||
                                         parsedBatteryIds.length === 0 ||
-                                        selectedSlotIds.length < parsedBatteryIds.length // yêu cầu chọn đủ
+                                        selectedSlotIds.length < parsedBatteryIds.length
                                     }
-                                    title="Nếu bạn không chọn đủ slot, hệ thống sẽ tự gán phần còn lại."
                                 >
                                     {loading ? "Đang gửi..." : "Gửi Swap-In"}
                                 </button>
                                 <span className="text-xs text-gray-500">
-                                    Mẹo: Bạn có thể không chọn đủ slot — hệ thống sẽ tự gán phần còn lại vào các ô mở còn trống.
+                                    (Chỉ gán được vào các slot BE cho phép)
                                 </span>
                             </div>
 
@@ -928,7 +896,6 @@ export default function StationSwap() {
 
                             <div className="text-sm text-gray-500">
                                 Trên lưới bên trên: chỉ <b>trụ cấp pin</b> sáng và chỉ <b>các ô xanh</b> là ô đã mở để lấy.
-                                Lấy đủ số pin như bảng rồi bấm nút bên dưới.
                             </div>
 
                             <div className="flex gap-2">
@@ -958,18 +925,17 @@ export default function StationSwap() {
                     {step === 4 && (
                         <div className="card p-6 space-y-2">
                             <h2 className="text-base font-semibold">✅ Hoàn tất đổi pin</h2>
-                            <div>
-                                Trạm: <b>{stationId}</b>
-                            </div>
-                            <div>
-                                Subscription: <b>{subscriptionId}</b>
-                            </div>
+                            <div>Trạm: <b>{stationId}</b></div>
+                            <div>Subscription: <b>{subscriptionId}</b></div>
                             <div className="pt-2 flex gap-2">
                                 <button className="btn-secondary" onClick={() => setStep(2)}>
                                     Đổi tiếp
                                 </button>
                                 <button className="btn-ghost" onClick={resetAll}>
                                     Làm mới
+                                </button>
+                                <button className="btn-primary" onClick={() => navigate("/user/service")}>
+                                    Hoàn thành
                                 </button>
                             </div>
                         </div>
