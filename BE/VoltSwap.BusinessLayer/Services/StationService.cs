@@ -19,6 +19,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<BatterySwapStation> _stationRepo;
         private readonly IGenericRepositories<Battery> _batteryRepo;
         private readonly IGenericRepositories<StationStaff> _staRepo;
+        private readonly IBatteryService _batService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
         public StationService(
@@ -26,11 +27,13 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<BatterySwapStation> stationRepo,
             IGenericRepositories<Battery> batteryRepo,
             IGenericRepositories<StationStaff> staRepo,
+            IBatteryService batService,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
         {
             _stationRepo = stationRepo;
             _batteryRepo = batteryRepo;
+            _batService = batService;
             _staRepo = staRepo;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
@@ -203,6 +206,7 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<BatteryStatusResponse> GetNumberOfBatteryStatusAsync(string staffId)
         {
+            var updateBatSoc = await _batService.UpdateBatterySocAsync();
             var getBatResponse = await GetBatteryByStaffId(staffId);
             if (getBatResponse == null)
             {
@@ -240,6 +244,7 @@ namespace VoltSwap.BusinessLayer.Services
                 return new List<BatResponse>();
             }
             var getBattery = await _unitOfWork.Stations.GetBatteriesByStationIdAsync(getStation.BatterySwapStationId);
+            Console.WriteLine($"DB returned: {getBattery.Count} batteries");
             return getBattery.Select(x => new BatResponse
             {
                 BatteryId = x.BatteryId,

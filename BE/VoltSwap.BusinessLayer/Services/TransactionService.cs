@@ -27,7 +27,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<Fee> _feeRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
-        private readonly IPlanService _plansService;
+        private readonly IPlanService _planService;
         private static readonly TimeZoneInfo VN_TZ =
     System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)
         ? TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time")
@@ -48,7 +48,7 @@ namespace VoltSwap.BusinessLayer.Services
             _transRepo = transRepo;
             _driverRepo = driverRepo;
             _subRepo = subRepo;
-            _plansService = plansService;
+            _planService = plansService;
             _feeRepo = feeRepo;
             _slotRepo = slotRepo;
             _unitOfWork = unitOfWork;
@@ -67,8 +67,6 @@ namespace VoltSwap.BusinessLayer.Services
                 //Nếu chạy chỗ này thì kêu gọi 2 hàm để generate ra transId và SubId và 2 cái này đều sẽ lấy số random cộng với là sẽ check lại nếu bị vấn đề dup id để tránh conflict
                 string transactionId = await GenerateTransactionId();
 
-                string transactionContext = $"{requestDto.DriverId}-{requestDto.TransactionType.Replace(" ", "_").ToUpper()}-{transactionId.Substring(6)}";
-
                 var transactionDetail = new Transaction
                 {
                     TransactionId = transactionId,
@@ -78,12 +76,12 @@ namespace VoltSwap.BusinessLayer.Services
                     Amount = requestDto.Amount,
                     Currency = "VND",
                     TransactionDate = DateTime.UtcNow.ToLocalTime(),
-                    PaymentMethod = "Bank transfer",
-                    Status = "Pending",
+                    PaymentMethod = requestDto.PaymentMethod,
+                    Status = requestDto.Status,
                     Fee = requestDto.Fee,
                     TotalAmount = (requestDto.Amount + requestDto.Fee),
-                    TransactionContext = transactionContext,
-                    Note = requestDto.TransactionNote,
+                    TransactionContext = requestDto.TransactionContext,
+                    Note = $"{requestDto.SubId}-{requestDto.TransactionType}",
                 };
                 await _transRepo.CreateAsync(transactionDetail);
                 var saved = await _unitOfWork.SaveChangesAsync();
@@ -127,10 +125,6 @@ namespace VoltSwap.BusinessLayer.Services
                 };
             }
         }
-
-
-        // Nemo: Hàm cho người dùng register gói
-
 
         //Hàm này để hiển thị lên transaction mà user cần trả thông qua TransactionReponse
         public async Task<ServiceResult> GetTransactionDetailAsync(string transactionId)
@@ -473,7 +467,7 @@ namespace VoltSwap.BusinessLayer.Services
         {
             var getDateNow = DateTime.UtcNow.ToLocalTime();
             var totalMonth = await _transRepo.GetAllQueryable()
-                .Where(trans => trans.Status == "Hiding" && trans.TransactionDate.Month == getDateNow.Month)
+                .Where(trans => trans.Status == "Waiting" && trans.TransactionDate.Month == getDateNow.Month)
                 .GroupBy(trans => trans.SubscriptionId)
                 .Select(g => new
                 {
@@ -483,7 +477,9 @@ namespace VoltSwap.BusinessLayer.Services
                 .ToListAsync();
 
             var totalPreviousMonth = await _transRepo.GetAllQueryable()
-                .Where(trans => trans.Status == "Hiding" && trans.TransactionDate.Month == getDateNow.AddMonths(-1).Month)
+                .Where(trans => trans.Status == "Success"
+                && trans.TransactionType == "Renew"
+                && trans.TransactionDate.Month == getDateNow.AddMonths(-1).Month)
                 .GroupBy(trans => trans.SubscriptionId)
                 .Select(g => new
                 {
@@ -494,6 +490,14 @@ namespace VoltSwap.BusinessLayer.Services
 
             var grandTotal = totalMonth.Sum(trans => trans.Total);
             var grandPreviousTotal = totalPreviousMonth.Sum(trans => trans.Total);
+            if (grandPreviousTotal == 0 || grandTotal == 0)
+            {
+                return new MonthlyRevenueResponse
+                {
+                    TotalRevenue = (double)grandTotal,
+                    MonthlyPnl = 0,
+                };
+            }
 
             return new MonthlyRevenueResponse
             {
@@ -553,6 +557,69 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<string> GenerateTransactionConext(TransactionContextRequest requestDto)
         {
             return $"{requestDto.DriverId}-{requestDto.TransactionType.Replace(" ", "_").ToUpper()}-{requestDto.SubscriptionId.Substring(6)}";
+        }
+
+        public async Task<ServiceResult> CreateTransactionChain()
+        {
+            var currentYear = DateTime.UtcNow.ToLocalTime().Year;
+            var prevMonth = DateTime.UtcNow.AddMonths(-1).ToLocalTime().Month;
+            var getTransactionHiding = await _unitOfWork.Trans.GetAllAsync(
+                    predicate: trans => trans.Status == "Waiting"
+                    && trans.TransactionDate.Month == prevMonth
+                    && trans.TransactionDate.Year == currentYear,
+                    asNoTracking: false
+                );
+            var getSubUnactiveList = new List<string>();
+            foreach (var item in getTransactionHiding)
+            {
+                var checkSubUnactive = await CheckSubEndDate(item.SubscriptionId);
+                var createTransactionConext = new TransactionContextRequest
+                {
+                    TransactionType = item.TransactionType,
+                    SubscriptionId = item.SubscriptionId,
+                    DriverId = item.UserDriverId,
+                };
+                item.Status = "Pending";
+
+                item.TransactionContext = await GenerateTransactionConext(createTransactionConext);
+                await _transRepo.UpdateAsync(item);
+                await _unitOfWork.SaveChangesAsync();
+                var getPlanId = await GetPlanIdBySubId(item.SubscriptionId);
+                if (checkSubUnactive == false)
+                {
+                    var createTransaction = new TransactionRequest
+                    {
+                        DriverId = item.UserDriverId,
+                        SubId = item.SubscriptionId,
+                        PlanId = getPlanId,
+                        PaymentMethod = item.PaymentMethod,
+                        Amount = await _planService.GetPriceByPlanId(getPlanId),
+                        Fee = 0,
+                        Status = "Waiting",
+                        TransactionType = "Monthly fee",
+                        TransactionContext = null,
+                    };
+                    await CreateTransactionAsync(createTransaction);
+                }
+            }
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successfull",
+            };
+        }
+
+        public async Task<bool> CheckSubEndDate(string subId)
+        {
+            return await _unitOfWork.Subscriptions.AnyAsync(sub => sub.EndDate != null);
+        }
+
+        public async Task<string> GetPlanIdBySubId(string subId)
+        {
+            return await _unitOfWork.Subscriptions.GetAllQueryable()
+                            .Where(sub => sub.SubscriptionId == subId)
+                            .Select(sub => sub.PlanId)
+                            .FirstOrDefaultAsync();
         }
 
 

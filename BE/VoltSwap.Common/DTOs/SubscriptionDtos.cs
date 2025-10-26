@@ -21,7 +21,7 @@ namespace VoltSwap.Common.DTOs
     public class ReponseSub
     {
         public String SubscriptionId { get; set; }
-        public string PreviousSubcriptionId  { get; set; }
+        public string PreviousSubcriptionId { get; set; }
         public String PlanName { get; set; }
         public String Status { get; set; }
         public double SubFee { get; set; }
@@ -50,5 +50,12 @@ namespace VoltSwap.Common.DTOs
     public class SubscriptionListReponse
     {
 
+    }
+
+    //Nemo: DTO cho register gói mới
+    public class RegisterNewPlanRequest
+    {
+        public UserRequest DriverId { get; set; }
+        public string PlanId { get; set; }
     }
 }

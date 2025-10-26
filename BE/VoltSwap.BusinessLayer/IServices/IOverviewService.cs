@@ -11,6 +11,6 @@ namespace VoltSwap.BusinessLayer.IServices
     public interface IOverviewService
     {
         Task<IServiceResult> StaffOverviewAsync(UserRequest requestDto);
-        Task<IServiceResult> AdminOverviewAsync(UserRequest requestDto);
+        Task<IServiceResult> AdminOverviewAsync();
     }
 }

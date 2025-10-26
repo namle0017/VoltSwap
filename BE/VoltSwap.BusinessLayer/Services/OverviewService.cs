@@ -99,7 +99,7 @@ namespace VoltSwap.BusinessLayer.Services
 
 
         //Nemo: feat cho admin overview
-        public async Task<IServiceResult> AdminOverviewAsync(UserRequest requestDto)
+        public async Task<IServiceResult> AdminOverviewAsync()
         {
             //0. Lấy năm, tháng hiện tại
             int currentMonth = DateTime.UtcNow.ToLocalTime().Month;

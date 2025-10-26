@@ -66,7 +66,7 @@ namespace VoltSwap.API.Controllers
                 new
                 {
                     message = getStaffInformation.Message,
-                    //data = getStaffInformation.Data
+                    data = getStaffInformation.Data
                 });
         }
 

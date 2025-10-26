@@ -24,5 +24,6 @@ namespace VoltSwap.BusinessLayer.IServices
         //Nemo: Count số lần swap trong ngày cho admin
 
         Task<BatterySwapInDayResponse> CalNumberOfSwapDailyForAdmin();
+        Task<int> UpdatebatSwapOutAsync(string batId, string stationId, string subId);
     }
 }

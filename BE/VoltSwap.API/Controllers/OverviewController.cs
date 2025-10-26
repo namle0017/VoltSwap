@@ -29,14 +29,14 @@ namespace VoltSwap.API.Controllers
         }
 
         //Nemo: Admin-overview
-        [HttpGet("staff-overview")]
-        public async Task<IActionResult> AdminOverview([FromQuery] UserRequest request)
+        [HttpGet("admin-overview")]
+        public async Task<IActionResult> AdminOverview()
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
-            var result = await _overviewService.AdminOverviewAsync(request);
+            var result = await _overviewService.AdminOverviewAsync();
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
     }

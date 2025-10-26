@@ -64,7 +64,6 @@ namespace VoltSwap.DAL.Repositories
         public async Task<List<Battery>> GetBatteriesByStationIdAsync(String stationId)
         {
             var bat = await _context.Batteries
-                .Include(bat => bat.BatterySwapStation)
                 .Where(bat => bat.BatterySwapStationId == stationId)
                 .ToListAsync();
             return bat;
