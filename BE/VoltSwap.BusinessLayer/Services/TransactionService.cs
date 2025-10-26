@@ -23,6 +23,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<User> _driverRepo;
         private readonly IPillarSlotRepository _slotRepo;
         private readonly IGenericRepositories<Subscription> _subRepo;
+        private readonly IGenericRepositories<Plan> _planRepo;
         private readonly IGenericRepositories<Appointment> _appoinmentRepo;
         private readonly IGenericRepositories<Fee> _feeRepo;
         private readonly IUnitOfWork _unitOfWork;
@@ -39,6 +40,7 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<Subscription> subRepo,
             IGenericRepositories<Appointment> appointmentRepo,
             IGenericRepositories<Fee> feeRepo,
+            IGenericRepositories<Plan> planRepo,
             IPillarSlotRepository slotRepo,
             IPlanService plansService,
             IUnitOfWork unitOfWork,
@@ -49,6 +51,7 @@ namespace VoltSwap.BusinessLayer.Services
             _driverRepo = driverRepo;
             _subRepo = subRepo;
             _planService = plansService;
+            _planRepo = planRepo;
             _feeRepo = feeRepo;
             _slotRepo = slotRepo;
             _unitOfWork = unitOfWork;
@@ -226,7 +229,7 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm này để admin có thể xem các transaction mà user mới tạo, để check coi là approve hay deny nếu approve thì trong transaction sẽ được cập nhật status thành Active và trong subscription sẽ được cập nhật status thành active nếu mà transactionType là Buy plan hoặc là Renew plan
         public async Task<ServiceResult> CreateTransactionsByAdminAsync()
         {
-            var transactions = await _transRepo.GetAllAsync(t => t.Status == "Hiding");
+            var transactions = await _transRepo.GetAllAsync(t => t.Status == "Waiting");
             if (transactions == null || !transactions.Any())
             {
                 return new ServiceResult
@@ -559,6 +562,8 @@ namespace VoltSwap.BusinessLayer.Services
             return $"{requestDto.DriverId}-{requestDto.TransactionType.Replace(" ", "_").ToUpper()}-{requestDto.SubscriptionId.Substring(6)}";
         }
 
+
+
         public async Task<ServiceResult> CreateTransactionChain()
         {
             var currentYear = DateTime.UtcNow.ToLocalTime().Year;
@@ -623,84 +628,82 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
 
-        //public async Task<List<MonthlyRevenueResponse>> GetMonthlySubscription()
-        //{
-        //    // Lấy giờ hiện tại
-        //    var now = DateTime.UtcNow.ToLocalTime();
-        //    var prevMonth = now.AddMonths(-1);
+        //Nemo: Chức năng đăng ký gói mới
+        public async Task<ServiceResult> RegisterNewPlanAsync(RegisterNewPlanRequest requestDto)
+        {
+            var getFee = await _feeRepo.GetAllQueryable()
+                                    .FirstOrDefaultAsync(fee => fee.PlanId == requestDto.PlanId &&
+                                    fee.TypeOfFee == "Battery Deposit");
+            var getPlan = await _planRepo.GetAllQueryable().FirstOrDefaultAsync(plan => plan.PlanId == requestDto.PlanId);
+            var generateSubId = await GenerateSubscriptionId();
+            var getTransactionContext = new TransactionContextRequest
+            {
+                TransactionType = "Deposit Fee",
+                SubscriptionId = generateSubId,
+                DriverId = requestDto.DriverId.UserId,
+            };
+            var generateTransContext = await GenerateTransactionConext(getTransactionContext);
+            var getDepositTrans = new TransactionRequest
+            {
+                DriverId = requestDto.DriverId.UserId,
+                SubId = generateSubId,
+                PlanId = requestDto.PlanId,
+                PaymentMethod = "Bank Transfer",
+                Status = "Pending",
+                Amount = 0,
+                Fee = getFee.Amount,
+                TransactionType = "Battery Deposit",
 
+                TransactionContext = generateTransContext,
+            };
 
-        //    var query = _transRepo.GetAllQueryable()
-        //        .Include(t => t.Subscription)
-        //            .ThenInclude(s => s.Plan)
-        //        .Where(t => t.Status == "success");
+            var getNewPlanTransaction = new TransactionRequest
+            {
+                DriverId = requestDto.DriverId.UserId,
+                SubId = generateSubId,
+                PlanId = requestDto.PlanId,
+                PaymentMethod = "Bank Transfer",
+                Status = "Waiting",
+                Amount = getPlan.Price ?? 0m,
+                Fee = 0,
+                TransactionType = "Monthly Fee",
+                TransactionContext = "",
+            };
 
-        //    // Doanh thu tháng này
-        //    var currentMonthData = await query
-        //        .Where(t => t.TransactionDate.Month == now.Month && t.TransactionDate.Year == now.Year)
-        //        .GroupBy(t => new { t.Subscription.PlanId, t.Subscription.Plan.PlanName })
-        //        .Select(g => new
-        //        {
-        //            g.Key.PlanId,
-        //            g.Key.PlanName,
-        //            Total = g.Sum(x => x.Amount)
-        //        })
-        //        .ToListAsync();
+            var createDeposit = await CreateTransactionAsync(getDepositTrans);
+            var createNewPlanTransaction = await CreateTransactionAsync(getNewPlanTransaction);
 
-        //    var prevMonthData = await query
-        //        .Where(t => t.TransactionDate.Month == prevMonth.Month && t.TransactionDate.Year == prevMonth.Year)
-        //        .GroupBy(t => new { t.Subscription.PlanId, t.Subscription.Plan.PlanName })
-        //        .Select(g => new
-        //        {
-        //            g.Key.PlanId,
-        //            g.Key.PlanName,
-        //            Total = g.Sum(x => x.Amount)
-        //        })
-        //        .ToListAsync();
+            var subscriptionDetail = new Subscription
+            {
+                SubscriptionId = generateSubId,
+                PlanId = requestDto.PlanId,
+                UserDriverId = requestDto.DriverId.UserId,
+                StartDate = DateOnly.FromDateTime(DateTime.Today),
+                EndDate = DateOnly.FromDateTime(DateTime.Today).AddDays(await _planService.GetDurationDays(requestDto.PlanId)),
+                CurrentMileage = 0,
+                RemainingSwap = 0,
+                Status = "Inactive",
+                CreateAt = DateTime.UtcNow,
+            };
 
-        //    // Ghép lại & tính PnL
-        //    var result = currentMonthData.Select(cur =>
-        //    {
-        //        var prev = prevMonthData.FirstOrDefault(p => p.PlanId == cur.PlanId);
-        //        var prevTotal = prev?.Total ?? 0;
+            await _subRepo.CreateAsync(subscriptionDetail);
+            var saved = await _unitOfWork.SaveChangesAsync();
+            if (saved <= 0)
+            {
+                return new ServiceResult
+                {
+                    Status = 500,
+                    Message = "Failed to save transaction to database"
+                };
+            }
+            var result = await GetUserTransactionHistoryAsync(requestDto.DriverId.UserId);
 
-        //        return new MonthlySubscriptionResponse
-        //        {
-        //            PlanId = cur.PlanId,
-        //            PlanName = cur.PlanName,
-        //            TotalAmountInMonth = (double)cur.Total,
-        //            PercentPnlInMonth = (double)((cur.Total/prevTotal)*100),
-        //        };
-        //    }).ToList();
-
-        //    return result;
-        //}
-
-
-
-
-
-        //Dưới này là làm lại cái transaction từ trả trước thành trả sau
-        //Nemo: Register plan
-        //public async Task<> RegisterNewPlan()
-        //    {
-
-
-        //        var subscriptionDetail = new Subscription
-        //        {
-        //            SubscriptionId = subId,
-        //            PlanId = requestDto.PlanId,
-        //            UserDriverId = requestDto.DriverId,
-        //            StartDate = DateOnly.FromDateTime(DateTime.Today),
-        //            EndDate = DateOnly.FromDateTime(DateTime.Today).AddDays(await _plansService.GetDurationDays(requestDto.PlanId)),
-        //            CurrentMileage = 0,
-        //            RemainingSwap = 0,
-        //            Status = "Inactive",
-        //            CreateAt = DateTime.UtcNow,
-        //        };
-
-        //        await _subRepo.CreateAsync(subscriptionDetail);
-        //        await _unitOfWork.SaveChangesAsync();
-        //    }
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "You have successfully registered for the package.",
+                Data = result,
+            };
+        }
     }
 }

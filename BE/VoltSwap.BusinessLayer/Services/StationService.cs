@@ -84,11 +84,12 @@ namespace VoltSwap.BusinessLayer.Services
             })
             .ToList();
 
-            var getList = stationList.Select(station => new ListStationForTransferResponse
+            var getList = new ListStationForTransferResponse
             {
                 ActiveStationsLeft = activeStationList,
-                ActiveStationsRight = activeStationList,
-            });
+                ActiveStationsRight = activeStationList
+            };
+
             return new ServiceResult
             {
                 Status = 200,

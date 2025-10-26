@@ -17,26 +17,27 @@ namespace VoltSwap.API.Controllers
         {
             _transService = transService;
         }
-        //hàm này để admin approve 
-        [HttpPost("admin-approve-transaction")]
-        public async Task<IActionResult> ApproveTransactionAdmin([FromBody] ApproveTransactionRequest requestDto)
+        //Nemo: hàm này để admin create transaction vào mỗi tháng
+        [HttpPost("admin-create-transaction")]
+        public async Task<IActionResult> ApproveTransactionAdmin()
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
-            var transaction = await _transService.UpdateTransactionStatusAsync_V2(requestDto);
-            return StatusCode(transaction.Status, new { message = transaction.Message, data = transaction });
+            var transaction = await _transService.CreateTransactionChain();
+            return StatusCode(transaction.Status, new { message = transaction.Message });
         }
 
+        //Nemo: Người dùng đăng ký mua gói
         [HttpPost("transaction-register")]
-        public async Task<IActionResult> TransactionApiClient([FromBody] TransactionRequest requestDto)
+        public async Task<IActionResult> TransactionApiClient([FromBody] RegisterNewPlanRequest requestDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
-            var transactionMethod = await _transService.CreateTransactionAsync(requestDto);
+            var transactionMethod = await _transService.RegisterNewPlanAsync(requestDto);
             return Ok(transactionMethod);
         }
 

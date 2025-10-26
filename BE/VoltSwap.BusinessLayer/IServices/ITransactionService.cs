@@ -29,5 +29,6 @@ namespace VoltSwap.BusinessLayer.IServices
 
         //Nemo: lấy planId qua subId
         Task<string> GetPlanIdBySubId(string subId);
+        Task<ServiceResult> RegisterNewPlanAsync(RegisterNewPlanRequest requestDto);
     }
 }

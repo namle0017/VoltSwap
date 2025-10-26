@@ -104,14 +104,21 @@ namespace VoltSwap.BusinessLayer.Services
                 };
             }
 
+            var getPillarSlotSwapIn = await GetPillarSlotSwapIn(requestDto);
+            var swapInList = await _slotRepo.GetAllQueryable()
+                                .Where(x => x.PillarStatus == "Available"
+                                && x.BatterySwapPillarId == getPillarSlotSwapIn)
+                                .Select(x => x.SlotId)
+                                .ToListAsync();
             var getBatteryInUsingAvailable = await GetBatteryInUsingAvailable(requestDto.SubscriptionId);
             return new ServiceResult
             {
                 Status = 200,
                 Message = "Please put your battery",
-                Data = new BatterySwapInListResponse
+                Data = new BatterySwapListResponse
                 {
                     PillarSlotDtos = getPillarSlotList,
+                    SlotEmpty = swapInList,
                 }
             };
 
@@ -296,6 +303,7 @@ namespace VoltSwap.BusinessLayer.Services
             return dtoList;
         }
 
+
         //Hàm này để lấy được cục pin phù hợp
         public async Task<List<BatteryDto>> GetBatteryInUsingAvailable(string subId)
         {
@@ -312,7 +320,7 @@ namespace VoltSwap.BusinessLayer.Services
         {
             // Lấy danh sách tất cả pin trong Subscription đó
             var batteriesInSub = await _unitOfWork.BatterySwap
-                .GetBatteriesBySubscriptionId(subId); // viết thêm hàm này trong repo nếu chưa có
+                .GetBatteriesBySubscriptionId(subId);
 
             List<BatterySession> allSessions = new();
 
@@ -624,7 +632,7 @@ namespace VoltSwap.BusinessLayer.Services
                                     .Select(bs => new
                                     {
                                         Month = bs.Key,
-                                        BatterySwapInMonth = bs.Count() / 2,
+                                        BatterySwapInMonth = bs.Count(),
                                     })
                                     .ToListAsync();
 
@@ -665,6 +673,32 @@ namespace VoltSwap.BusinessLayer.Services
                 var getBat = await _slotService.GetBatteriesInPillarByPillarIdAsync(item.PillarId);
                 int result = getBat.Count();
                 if (result > topNumber)
+                {
+                    return item.PillarId;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private async Task<string> GetPillarSlotSwapIn(AccessRequest requestDto)
+        {
+            int topNumber = await _unitOfWork.Subscriptions.GetNumberOfbatteryInSub(requestDto.SubscriptionId);
+            var getPillarInStation = await _pillarRepo.GetAllQueryable()
+                                        .Where(pi => pi.BatterySwapStationId == requestDto.StationId)
+                                        .Include(pi => pi.BatterySwapStation)
+                                        .Select(g => new
+                                        {
+                                            PillarId = g.BatterySwapPillarId
+                                        })
+                                        .ToListAsync();
+            foreach (var item in getPillarInStation)
+            {
+                var getBat = await _slotRepo.GetAllQueryable()
+                                .Where(x => x.PillarStatus == "Available")
+                                .ToListAsync();
+                int result = getBat.Count();
+                if (result >= topNumber)
                 {
                     return item.PillarId;
                 }
@@ -962,7 +996,7 @@ namespace VoltSwap.BusinessLayer.Services
                             && bs.Status == "Returned"
                             && bs.BatteryOutId != null)
                         .CountAsync();
-            if (getBatterySwap == 0 && getPrevDayBatterySwap == 0)
+            if (getBatterySwap == 0 || getPrevDayBatterySwap == 0)
             {
                 return new BatterySwapInDayResponse
                 {
@@ -976,6 +1010,24 @@ namespace VoltSwap.BusinessLayer.Services
                 TotalSwap = getBatterySwap,
                 PercentSwap = getBatterySwap / getPrevDayBatterySwap,
             };
+        }
+
+        public Task<ServiceResult> TranferBatBetweenStation(BatteryTranferRequest requestDto)
+        {
+            var getBatteryTransferList = requestDto.BatId;
+            foreach (var item in getBatteryTransferList)
+            {
+                var createTransfer = new TransferLog
+                {
+                    OldLocationId = requestDto.StationFrom,
+                    NewLocationId = requestDto.StationTo,
+                    BatteryId = item,
+                    Reason = requestDto.Reason,
+
+                };
+            }
+
+            throw new NotImplementedException();
         }
     }
 }

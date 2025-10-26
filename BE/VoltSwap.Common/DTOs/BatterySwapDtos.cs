@@ -29,6 +29,15 @@ namespace VoltSwap.Common.DTOs
 
         public string PillarId { get; set; }
     }
+    public class BatterySwapListResponse
+    {
+        public List<BatteryDto> BatteryDtos { get; set; }
+        public List<PillarSlotDto> PillarSlotDtos { get; set; }
+        public AccessRequest accessRequest { get; set; }
+
+        public string PillarId { get; set; }
+        public List<int> SlotEmpty { get; set; }
+    }
 
     //Nemo: cái class này thì sẽ để bên FE trả về các thông tin:
     // Swap in: Để biết pin truyền vào đã đúng chưa, thông qua batteryDtos,
@@ -149,5 +158,16 @@ namespace VoltSwap.Common.DTOs
     {
         public List<PillarSlotDto> PillarSlot { get; set; }
         public List<BatteryDto> BatTake { get; set; }
+    }
+
+
+    //Nemo: DTO request cho đổi pin giữa các trạm
+    public class BatteryTranferRequest
+    {
+        public string StationFrom { get; set; }
+        public string StationTo { get; set; }
+        public List<string> BatId { get; set; }
+        public String Reason { get; set; }
+        public string CreateBy { get; set; }
     }
 }
