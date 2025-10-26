@@ -63,5 +63,17 @@ namespace VoltSwap.API.Controllers
             var result = await _slotService.GetLockedPillarSlotByStaffId(request);
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
+
+        //Bin: api để lấy pin từ các slot USE trong trụ
+        [HttpPost("take-out-slot")]
+        public async Task<IActionResult> TakeOutBatteryFromPillarSlot([FromBody] TakeBattteryInPillarRequest requestDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _slotService.TakeOutBatteryInPillar(requestDto);
+            return StatusCode(result.Status, new { message = result.Message, data = result.Data });
+        }
     }
 }

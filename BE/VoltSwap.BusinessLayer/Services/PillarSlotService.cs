@@ -113,6 +113,57 @@ namespace VoltSwap.BusinessLayer.Services
             return pillarSlots;
         }
 
+        //Bin: lay pin tu tru ra 
+        public async Task<ServiceResult> TakeOutBatteryInPillar(TakeBattteryInPillarRequest request)
+        {
+            var stationstaff = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.StaffId);
+            if (stationstaff == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Station staff not found",
+                };
+            }
+            var slotwithbattery = await _unitOfWork.PillarSlots.GetSlotWithBattery(request.PillarSlotId, request.BatteryId);
+            if (slotwithbattery == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Pillar slot not found or no battery in slot",
+                };
+            }
+            slotwithbattery.BatteryId = null;
+            slotwithbattery.PillarStatus = "Available";
+            slotwithbattery.UpdateAt = DateTime.UtcNow.ToLocalTime();
+            await _unitOfWork.PillarSlots.UpdateAsync(slotwithbattery);
+            await _unitOfWork.SaveChangesAsync();
+
+            var battery = await _unitOfWork.Batteries.FindingBatteryById(request.BatteryId);
+            battery.BatteryStatus = "Warehouse";
+            battery.UpdateAt = DateTime.UtcNow.ToLocalTime();
+            await _unitOfWork.Batteries.UpdateAsync(battery);
+            await _unitOfWork.SaveChangesAsync();
+            var slotdtos = new TakeBattteryInPillarRespone
+            {
+                StaffId = stationstaff.UserStaffId,
+                StationId = stationstaff.BatterySwapStationId,
+                PillarId = slotwithbattery.BatterySwapPillarId,
+                PillarSlotId = slotwithbattery.SlotId,
+                BatteryId = battery.BatteryId
+            };
+
+            var result = new ServiceResult
+            {
+                Status = 200,
+                Message = "Take out battery in pillar successfull",
+                Data = slotdtos
+            };
+            return result;
+        }
+
+
         //Bin: hàm này để đưa pin trong kho vào trụ
         public async Task<ServiceResult> PlaceBatteryInPillarAsync(PlaceBattteryInPillarRequest requestDto)
         {
