@@ -29,7 +29,7 @@ namespace VoltSwap.API.Controllers
 
         //Bin: lấy danh sách plan đề xuất
         [HttpGet("plan-suggest-list")]
-        public async Task<IActionResult> GetPlanSuggestList([FromQuery] PlanSuggestRequest request)
+        public async Task<IActionResult> GetPlanSuggestList([FromQuery] PlanSuggestRequest? request)
         {
             var planNames = string.IsNullOrEmpty(request.PlanName)
         ? new List<string>()

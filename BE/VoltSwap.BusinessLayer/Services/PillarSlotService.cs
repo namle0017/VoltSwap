@@ -112,5 +112,101 @@ namespace VoltSwap.BusinessLayer.Services
                 .ToListAsync();
             return pillarSlots;
         }
+
+        //Bin: hàm này để đưa pin trong kho vào trụ
+        public async Task<ServiceResult> PlaceBatteryInPillarAsync(PlaceBattteryInPillarRequest requestDto)
+        {
+            var stationstaff = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(requestDto.StaffId);
+            if (stationstaff == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Station staff not found",
+                };
+            }
+            var slotempty = await _unitOfWork.PillarSlots.GetEmptySlot(requestDto.PillarSlotId);
+            if (slotempty == null || slotempty.BatteryId != null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Pillar slot not found or not empty",
+                };
+            }
+
+            var battery = await _unitOfWork.Batteries.FindingBatteryInventoryById(requestDto.BatteryWareHouseId,stationstaff.BatterySwapStationId);
+            if (battery == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Battery not found in inventory",
+                };
+            }
+
+            slotempty.BatteryId = battery.BatteryId;
+            slotempty.PillarStatus = "Unavailable";
+
+            slotempty.UpdateAt = DateTime.UtcNow.ToLocalTime();
+            if (battery.Soc == 100)
+            {
+                battery.BatteryStatus = "Available";
+                battery.UpdateAt = DateTime.UtcNow.ToLocalTime();
+            }
+            else
+            {
+                battery.BatteryStatus = "Charging";
+                battery.UpdateAt = DateTime.UtcNow.ToLocalTime();
+            }
+            await _unitOfWork.PillarSlots.UpdateAsync(slotempty);
+            await _unitOfWork.Batteries.UpdateAsync(battery);
+            await _unitOfWork.SaveChangesAsync();
+
+            var slotdtos = new PlaceBattteryInPillarRespone
+            {
+                StaffId = stationstaff.UserStaffId,
+                StationId = stationstaff.BatterySwapStationId,
+                PillarId = slotempty.BatterySwapPillarId,
+                PillarSlotId = slotempty.SlotId,
+                BatteryWareHouseId = battery.BatteryId
+            };
+
+
+            var result = new ServiceResult
+            {
+                Status = 200,
+                Message = "Place battery in pillar successfull",
+                Data = slotdtos
+            };
+            return result;
+
+        }
+         //Bin: xem các slot đã có booking và khóa 
+         public async Task<ServiceResult> GetLockedPillarSlotByStaffId(UserRequest requestDto)
+        {
+            var stationStaff = await _stationStaffRepo.GetAllQueryable()
+                                .Where(st => st.UserStaffId == requestDto.UserId)
+                                .Include(st => st.BatterySwapStation).FirstOrDefaultAsync();
+            var lockedSlots = await _slotRepo.GetAllQueryable()
+                                .Include(ps => ps.BatterySwapPillar)
+                                .Where(ps => ps.BatterySwapPillar.BatterySwapStationId == stationStaff.BatterySwapStationId
+                                   && ps.AppointmentId != null)
+                                .ToListAsync();
+            var dtoList = lockedSlots .Select(slot => new LockedPillarSlotDto
+            {
+                SlotId = slot.SlotId,
+                StaitonId = slot.BatterySwapPillar.BatterySwapStationId,
+                PillarId = slot.BatterySwapPillarId,
+                AppointmentId = slot.AppointmentId,
+                SlotNumber = slot.SlotNumber,
+            }).ToList();
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successfull",
+                Data = dtoList,
+            };
+        }
     }
 }

@@ -73,7 +73,7 @@ namespace VoltSwap.API.Controllers
             {
                 return BadRequest(ModelState);
             }
-            var result = await _transService.CreateTransactionsByAdminAsync();
+            var result = await _transService.GetTransactionsByAdminAsync();
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
 

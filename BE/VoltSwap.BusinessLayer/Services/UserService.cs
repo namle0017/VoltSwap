@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Azure.Core;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -353,44 +354,56 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
         //Bin : tạo mới staff
-        public async Task<IServiceResult> CreateNewStaffAsync(StaffUpdate requestDto)
+        public async Task<IServiceResult> CreateNewStaffAsync(StaffCreateRequest request)
         {
-            var newStaffId = await GenerateStaffId();
-            var checkExistEmail =  await _unitOfWork.Users.AnyAsync(u => u.UserEmail == requestDto.StaffEmail);
-            if (!checkExistEmail)
+            try
             {
+                var isUserActive = await _unitOfWork.Users.CheckUserActive(request.StaffEmail);
+                if (isUserActive != null)
+                {
+                    return new ServiceResult
+                    {
+                        Status = 409,
+                        Message = "Email already exists"
+                    };
+                }
+
+                string role = "Staff";
+                string password = "VoltSwapProjectSwp";
+                var supervisorId = await GetAdminId();
+                var userId = await GenerateStaffId();
+                var newUser = new User()
+                {
+                    UserId = userId,
+                    UserName = request.StaffName,
+                    UserEmail = request.StaffEmail,
+                    UserPasswordHash = GeneratedPasswordHash(password),
+                    UserTele = request.StaffTele,
+                    UserRole = role,
+                    UserAddress = request.StaffAddress,
+                    SupervisorId = supervisorId,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = "Active"
+                };
+
+                await _userRepo.CreateAsync(newUser);
+                await _unitOfWork.SaveChangesAsync();
+
                 return new ServiceResult
                 {
-                    Status = 409,
-                    Message = "Email don't exists",
+                    Status = 201,
+                    Message = "Create Staff successful"
                 };
             }
-            var newStaff = new User
+            catch (Exception ex)
             {
-                UserId = newStaffId,
-                UserName = requestDto.StaffName,
-                UserEmail = requestDto.StaffEmail,
-                UserTele = requestDto.StaffTele,
-                UserAddress = requestDto.StaffAddress,
-                UserRole = "Staff",
-                Status = requestDto.StaffStatus,
-                CreatedAt = DateTime.UtcNow.ToLocalTime(),
-            };
-            await _unitOfWork.Users.CreateAsync(newStaff);
-            var newStationStaff = new StationStaff
-            {
-                UserStaffId = newStaffId,
-                BatterySwapStationId = requestDto.StationStaff.StationId,
-                ShiftStart = requestDto.StationStaff.ShiftStart,
-                ShiftEnd = requestDto.StationStaff.ShiftEnd,
-            };
-            await _unitOfWork.StationStaffs.CreateAsync(newStationStaff);
-            await _unitOfWork.SaveChangesAsync();
-            return new ServiceResult
-            {
-                Status = 201,
-                Message = "Create new staff successfully",
-            };
+                Console.WriteLine(ex.Message);
+                return new ServiceResult
+                {
+                    Status = 500,
+                    Message = "An error occurred during registration"
+                };
+            }
         }
 
         public async Task<string> GenerateStaffId()
@@ -405,6 +418,16 @@ namespace VoltSwap.BusinessLayer.Services
             }
             while (isUnique);
             return staffId;
+        }
+        private string GeneratedPasswordHash(String password) => BCrypt.Net.BCrypt.HashPassword(password);
+
+        private bool VerifyPasswords(String passwordRquest, string passwrodHash) => BCrypt.Net.BCrypt.Verify(passwordRquest, passwrodHash);
+
+        private async Task<string> GetAdminId()
+        {
+            var userAdmin = await _unitOfWork.Users.GetAdminAsync();
+            string adminId = userAdmin.UserId;
+            return adminId;
         }
 
         //Bin: Lấy thông tin các xe của driver theo userId để làm detail

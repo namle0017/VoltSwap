@@ -45,6 +45,7 @@ namespace VoltSwap.DAL.Repositories
         {
             var count = await _context.Subscriptions
                 .Where(sub => sub.SubscriptionId == subId)
+                .Include(plan => plan.Plan )
                 .Select(sub => sub.Plan.NumberOfBattery)
                 .FirstOrDefaultAsync();
             return count ?? 0;

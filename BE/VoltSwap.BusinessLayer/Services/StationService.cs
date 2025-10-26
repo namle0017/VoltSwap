@@ -276,5 +276,26 @@ namespace VoltSwap.BusinessLayer.Services
                 TotalStation = totalStation,
             };
         }
+
+
+        //Bin: lấy list Battery Swap trong ngày của trạm
+        //public async Task<IServiceResult> BatterySwapListAsync(StaffRequest request)
+        //{
+        //    var checkExist = await _unitOfWork.Users.AnyAsync(ss => ss.UserId == request.StaffId && ss.Status == "Active");
+        //    if (!checkExist)
+        //    {
+        //        return new ServiceResult
+        //        {
+        //            Status = 404,
+        //            Message = "Staff not found or Inactive Staff",
+        //        };
+        //    }
+        //    var getstaion = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.StaffId);
+        //    var getbatteryswap = _unitOfWork.BatterySwap.GetByIdAsync(getstaion.BatterySwapStationId);
+        //    var result = new 
+
+
+        //}
+        
     }
 }

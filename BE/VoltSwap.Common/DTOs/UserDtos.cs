@@ -53,6 +53,16 @@ namespace VoltSwap.Common.DTOs
         public StationStaffResponse StationStaff { get; set; }
     }
 
+    public class StaffCreateRequest
+    {
+        public string StaffName { get; set; }
+        public string StaffEmail { get; set; }
+        public string StaffTele { get; set; }
+        public string StaffAddress { get; set; }
+        public string StaffStatus { get; set; }
+        public StationStaffResponse StationStaff { get; set; }
+    }
+
     public class StationStaffResponse
     {
         public string StationId { get; set; }
@@ -89,5 +99,17 @@ namespace VoltSwap.Common.DTOs
     {
         public string PlanName { get; set; }
         public int Swap { get; set; } = 0;
-        }
+    }
+
+    public class CreateStaffRequest
+    {
+        public string UserName { get; set; }
+
+        public string UserPassword { get; set; }
+        public string UserEmail { get; set; }
+        public string UserTele { get; set; }
+        public string UserRole { get; set; }
+        public String UserAddress { get; set; }
+        public String Supervisor { get; set; } = string.Empty;
+    }
 }

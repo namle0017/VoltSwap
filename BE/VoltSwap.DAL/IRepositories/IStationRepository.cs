@@ -18,5 +18,8 @@ namespace VoltSwap.DAL.IRepositories
         Task<PillarSlot> GetPillarSlotAsync(int slotId);
         Task<BatterySwapStation> GetStationByPillarId(String pillarId);
         Task<BatterySwapStation> GetStationByIdAsync(String stationId);
+
+        Task<bool> CheckSubscriptionHasBookingAsync(string subscriptionId);
+        Task<List<PillarSlot>> GetBatteriesLockByPillarIdAsync(string pillarId);
     }
 }

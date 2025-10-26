@@ -229,14 +229,31 @@ namespace VoltSwap.BusinessLayer.Services
             int topNumber = await _unitOfWork.Subscriptions.GetNumberOfbatteryInSub(requestBatteryList.AccessRequest.SubscriptionId);
 
 
+
             //Chỗ này để đưa cho FE để FE hiển thị các slot pin available để user để lấy pin ra
-            var getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarIdAsync(requestBatteryList.PillarId, topNumber);
-            //lúc này là trả về các slot pin để FE hiển thị (bao gồm id pin và slotId)
-            var dtoList = getPillarSlotList.Select(slot => new BatteryDto
+            //Bin (cải tiến lại)
+
+            var checkbooking = await _unitOfWork.Stations.CheckSubscriptionHasBookingAsync(requestBatteryList.AccessRequest.SubscriptionId);
+            var getPillarSlotList = new List<PillarSlot>();
+            if (checkbooking)
             {
-                SlotId = slot.SlotId,
-                BatteryId = slot.BatteryId,
-            }).ToList();
+                getPillarSlotList = await _unitOfWork.Stations.GetBatteriesLockByPillarIdAsync(requestBatteryList.PillarId);
+            }
+            else
+            {
+                getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarIdAsync(requestBatteryList.PillarId, topNumber);
+            }
+
+                //end
+
+                //var getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarIdAsync(requestBatteryList.PillarId, topNumber);
+
+                //lúc này là trả về các slot pin để FE hiển thị (bao gồm id pin và slotId)
+                var dtoList = getPillarSlotList.Select(slot => new BatteryDto
+                {
+                    SlotId = slot.SlotId,
+                    BatteryId = slot.BatteryId,
+                }).ToList();
             return new ServiceResult
             {
                 Status = 200,

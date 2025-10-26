@@ -227,7 +227,7 @@ namespace VoltSwap.BusinessLayer.Services
 
 
         //Hàm này để admin có thể xem các transaction mà user mới tạo, để check coi là approve hay deny nếu approve thì trong transaction sẽ được cập nhật status thành Active và trong subscription sẽ được cập nhật status thành active nếu mà transactionType là Buy plan hoặc là Renew plan
-        public async Task<ServiceResult> CreateTransactionsByAdminAsync()
+        public async Task<ServiceResult> GetTransactionsByAdminAsync()
         {
             var transactions = await _transRepo.GetAllAsync(t => t.Status == "Waiting");
             if (transactions == null || !transactions.Any())
@@ -251,6 +251,42 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 Status = 200,
                 Message = "Waiting transactions retrieved successfully.",
+                Data = pendingTransactions
+            };
+        }
+
+        //Bin: admin bấm nút Create All để hiển thị transaction bên người dùng
+        public async Task<ServiceResult> CreateAllTransactionForUserAsync()
+        {
+            var transactions = await _transRepo.GetAllAsync(t => t.Status == "Waiting");
+            if (transactions == null || !transactions.Any())
+            {
+                return new ServiceResult
+                {
+                    Status = 204,
+                    Message = "No Waiting transactions found."
+                };
+            }
+
+            foreach (var transaction in transactions)
+            {
+                transaction.Status = "Pending";
+            }
+            _transRepo.UpdateRange(transactions); 
+            await _unitOfWork.SaveChangesAsync();
+
+            var pendingTransactions = transactions.Select(t => new TransactionListReponse
+            {
+                TransactionId = t.TransactionId,
+                Amount = t.TotalAmount,
+                PaymentDate = t.TransactionDate,
+                PaymentStatus = t.Status,
+                TransactionNote = t.Note
+            }).ToList();
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "transactions retrieved successfully.",
                 Data = pendingTransactions
             };
         }
