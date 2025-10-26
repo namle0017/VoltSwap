@@ -9,7 +9,7 @@ using VoltSwap.DAL.Models;
 
 namespace VoltSwap.DAL.IRepositories
 {
-    public interface IUsersRepositories : IGenericRepositories<User> 
+    public interface IUsersRepositories : IGenericRepositories<User>
     {
         Task<User?> GetByEmailAsync(String email);
         Task<User?> GetUserAsync(string email, string password_hash);
@@ -19,6 +19,6 @@ namespace VoltSwap.DAL.IRepositories
         Task<List<User>> GetStaffWithStationAsync();
         Task<List<User>> GetAllUsersAsync();
 
-
+        Task<User> CheckUserActiveById(string userId);
     }
 }

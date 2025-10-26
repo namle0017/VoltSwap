@@ -24,7 +24,7 @@ namespace VoltSwap.API.Controllers
             if (string.IsNullOrWhiteSpace(req.DriverId))
                 return BadRequest(new { message = "userId is required" });
 
-            var result = await _subService.GetUserSubscriptionsAsync(new CheckSubRequest { DriverId = req.DriverId });
+            var result = await _subService.GetUserSubscriptionsAsync(req);
             return StatusCode(result.Status, result);
         }
         //[HttpPost("create")]

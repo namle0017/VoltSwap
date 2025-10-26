@@ -17,5 +17,7 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<ServiceResult> ChangeSubcriptionAsync(string DriverId, string SubId, string newPlanId);
         Task<ServiceResult> RenewSubcriptionAsync(string DriverId, string SubId);
         Task<List<Subscription>> GetPreviousSubscriptionAsync(CurrentSubscriptionResquest requestDto);
+
+        //Task<ServiceResult> RegisterNewPlanAsync(RegisterNewPlanRequest requestDto);
     }
 }

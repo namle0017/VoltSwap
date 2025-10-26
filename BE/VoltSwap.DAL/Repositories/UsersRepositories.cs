@@ -35,6 +35,10 @@ namespace VoltSwap.DAL.Repositories
         {
             return await _context.Users.FirstOrDefaultAsync(x => x.UserEmail == userEmail && x.Status == "Active");
         }
+        public async Task<User> CheckUserActiveById(string userId)
+        {
+            return await _context.Users.FirstOrDefaultAsync(x => x.UserId == userId && x.Status == "Active");
+        }
 
         public async Task<User?> GetUserAsync(string email, string password_hash)
         {

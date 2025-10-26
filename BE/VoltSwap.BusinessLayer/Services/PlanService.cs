@@ -230,6 +230,43 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
+        //Nemo: Lấy plan summary cho admin
+        public async Task<ReportSummaryResponse> GetPlanSummaryAsync(int month, int year)
+        {
+            var planList = await _planRepo.GetAllAsync();
+            var planSummaries = new List<PlanListResponse>();
+
+            int TotalActiveUsers = 0;
+            decimal TotalRevenue = 0;
+            foreach (var plan in planList)
+            {
+                var userCount = await _unitOfWork.Plans.CountUsersByPlanIdAsync(plan.PlanId, month, year);
+
+                var totalRevenueByPlan = await _unitOfWork.Plans.GetRevenueByPlanIdAsync(plan.PlanId, month, year);
+
+                //tính lấy Summary
+                TotalActiveUsers += userCount;
+                TotalRevenue += totalRevenueByPlan;
+
+                planSummaries.Add(new PlanListResponse
+                {
+
+                    PlanName = plan.PlanName,
+                    TotalUsers = userCount,
+                    TotalRevenue = totalRevenueByPlan
+                });
+            }
+            var TotalSwap = await _unitOfWork.Subscriptions.GetTotalSwapsUsedInMonthAsync(month, year);
+
+            var summary = new ReportSummaryResponse
+            {
+                TotalMonthlyRevenue = TotalRevenue,
+                SwapTimes = TotalSwap,
+                ActiveCustomer = TotalActiveUsers
+            };
+            return summary;
+        }
+
         //Bin: Lấy List PLan detail
         public async Task<ServiceResult> GetPlanDetailListAsync()
         {
@@ -256,7 +293,7 @@ namespace VoltSwap.BusinessLayer.Services
                         SwapLimit = plan.SwapLimit,
                         Price = plan.Price,
                         CratedAt = DateOnly.FromDateTime((DateTime)plan.CreateAt),
-                     
+
                     },
                     TotalUsers = userCountByPlan
                 });
@@ -271,7 +308,7 @@ namespace VoltSwap.BusinessLayer.Services
                 var anyPlan = group.FirstOrDefault();
 
                 var fees = await _unitOfWork.Plans.GetAllFeeAsync(anyPlan.PlanId);
-               
+
                 var excess = fees
                     .Where(f => string.Equals(f.TypeOfFee, "Excess Mileage", StringComparison.OrdinalIgnoreCase))
                     .OrderBy(f => f.MinValue)
@@ -280,7 +317,7 @@ namespace VoltSwap.BusinessLayer.Services
                         MinValue = f.MinValue,
                         MaxValue = f.MaxValue,
                         Amount = f.Amount,
-                        Unit = f.Unit 
+                        Unit = f.Unit
                     }).ToList();
 
                 var deposit = fees.FirstOrDefault(f => string.Equals(f.TypeOfFee, "Battery Deposit", StringComparison.OrdinalIgnoreCase));
@@ -300,21 +337,21 @@ namespace VoltSwap.BusinessLayer.Services
                             TypeOfFee = deposit.TypeOfFee,
                             Amount = deposit.Amount,
                             Unit = deposit.Unit
-                            
+
                         },
                         Booking = booking == null ? null : new SimpleFee
                         {
                             TypeOfFee = booking.TypeOfFee,
                             Amount = booking.Amount,
                             Unit = booking.Unit
-                            
+
                         },
                         BatterySwap = swapFee == null ? null : new SimpleFee
                         {
                             TypeOfFee = swapFee.TypeOfFee,
                             Amount = swapFee.Amount,
                             Unit = swapFee.Unit
-                           
+
                         }
                     }
                 };
@@ -339,12 +376,12 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm để lấy nhóm plan
         private string GetGroupKey(string? planName)
         {
-           
+
             var name = planName.Trim();
             if (name.StartsWith("TP", StringComparison.OrdinalIgnoreCase)) return "TP";
             if (name.StartsWith("G", StringComparison.OrdinalIgnoreCase)) return "G";
-         return "Other";
+            return "Other";
         }
     }
- }
+}
 

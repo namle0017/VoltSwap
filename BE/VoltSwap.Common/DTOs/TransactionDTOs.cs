@@ -15,10 +15,12 @@ namespace VoltSwap.Common.DTOs
         public String DriverId { get; set; }
         public string SubId { get; set; }
         public String PlanId { get; set; }
+        public string PaymentMethod { get; set; }
         public decimal Amount { get; set; }
         public decimal Fee { get; set; }
+        public string Status { get; set; }
         public string TransactionType { get; set; }
-        public string TransactionNote { get; set; }
+        public string TransactionContext { get; set; }
         //Nemo: thêm transactionNote để cho lưu các fee hay note nào đó
     }
 

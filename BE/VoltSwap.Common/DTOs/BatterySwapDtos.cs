@@ -47,7 +47,6 @@ namespace VoltSwap.Common.DTOs
         public string SubscriptionId { get; set; }
         public AccessRequest AccessRequest { get; set; }
         public string PillarId { get; set; }
-        public string Status { get; set; }
     }
 
     public class BatteryRequest
@@ -136,6 +135,20 @@ namespace VoltSwap.Common.DTOs
         public string SubId { get; set; }
         public int MonthSwap { get; set; }
         public int YearSwap { get; set; }
+    }
+
+    //Nemo: Dto cho tính số lần swap trong ngày của admin
+    public class BatterySwapInDayResponse
+    {
+        public int TotalSwap { get; set; }
+        public double PercentSwap { get; set; }
+    }
+
+    //Nemo: Để trả về swapout
+    public class BatterySwapOutResponse
+    {
+        public List<PillarSlotDto> PillarSlot { get; set; }
+        public List<BatteryDto> BatTake { get; set; }
     }
 
     public class LockedPillarSlotDto

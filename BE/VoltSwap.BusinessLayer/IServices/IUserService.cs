@@ -17,6 +17,7 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<IServiceResult> GetAllDriversAsync();
         Task<IServiceResult> GetDriverDetailInformationAsync(UserRequest requestDto);
         Task<IServiceResult> DeleteUserAsync(UserRequest requestDto);
+        Task<int> GetNumberOfDriver();
 
         }
 }

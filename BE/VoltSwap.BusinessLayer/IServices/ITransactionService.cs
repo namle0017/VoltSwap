@@ -18,5 +18,16 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<IServiceResult> ConfirmPaymentAsync(string transactionId);
         //Task<ServiceResult> RegisterNewPlan(RegisterNewPlanDTO requestDto);
         Task<String> GenerateTransactionConext(TransactionContextRequest requestDto);
+        Task<MonthlyRevenueResponse> GetMonthlyRevenue();
+        Task<string> GenerateSubscriptionId();
+
+        //Nemo: Tạo Transaction hàng loạt
+        Task<ServiceResult> CreateTransactionChain();
+
+        //Nemo: Check coi sub nào có trạng thái muốn huỷ
+        Task<bool> CheckSubEndDate(string subId);
+
+        //Nemo: lấy planId qua subId
+        Task<string> GetPlanIdBySubId(string subId);
     }
 }
