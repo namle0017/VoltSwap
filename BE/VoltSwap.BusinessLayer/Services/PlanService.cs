@@ -292,7 +292,7 @@ namespace VoltSwap.BusinessLayer.Services
                         MilleageBaseUsed = plan.MileageBaseUsed,
                         SwapLimit = plan.SwapLimit,
                         Price = plan.Price,
-                        CratedAt = DateOnly.FromDateTime((DateTime)plan.CreateAt),
+                        CreatedAt = DateOnly.FromDateTime((DateTime)plan.CreateAt),
 
                     },
                     TotalUsers = userCountByPlan

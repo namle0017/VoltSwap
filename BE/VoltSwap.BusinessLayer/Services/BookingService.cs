@@ -250,7 +250,7 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
-        //Bin: Staff xem danh sách booking của trạm mình theo tháng
+        //Bin: Staff xem danh sách booking của trạm mình
         public async Task<ServiceResult> GetBookingsByStationAndMonthAsync(ViewBookingRequest request)
         {
             var today = DateTime.UtcNow.ToLocalTime();
@@ -273,6 +273,7 @@ namespace VoltSwap.BusinessLayer.Services
                     Date = booking.DateBooking,
                     DriverName = driver.UserName,
                     NumberBattery = requiredBatteries,
+                    Note = booking.Note,
                     DriverTele = driver.UserTele,
                     TimeBooking = booking.TimeBooking,
                     Status = booking.Status,
