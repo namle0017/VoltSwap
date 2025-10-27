@@ -43,7 +43,15 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<ServiceResult> LoginAsync(LoginRequest requestDto)
         {
             var user = await _unitOfWork.Users.GetByEmailAsync(requestDto.Email);
-            if (user == null || !VerifyPasswords(requestDto.Password, user.UserPasswordHash)) throw new UnauthorizedAccessException("Invalid email or password");
+            if (user == null || !VerifyPasswords(requestDto.Password, user.UserPasswordHash))
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "Incorrect Password or Email",
+                    Data = new UserInfo(),
+                };
+            }
             //bên trái là dành cho password người dùng đưa vào, bên phải là dành cho password đã hash từ dưới database
             var token = GenerateJwtToken(user);
             var refreshToken = GenerateRefreshToken(user.UserId);

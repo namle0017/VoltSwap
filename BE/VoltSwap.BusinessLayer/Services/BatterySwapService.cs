@@ -169,7 +169,7 @@ namespace VoltSwap.BusinessLayer.Services
             );
             var getSessionList = await GenerateBatterySession(requestBatteryList.SubscriptionId);
 
-            var calMilleageFee = await CalMilleageFee(requestBatteryList, getSessionList);
+            //var calMilleageFee = await CalMilleageFee(requestBatteryList, getSessionList);
             // Tạo dictionary để tra cứu nhanh
             var swapHistoryDict = swapOutHistories.ToDictionary(x => x.BatteryOutId, x => x);
 

@@ -25,16 +25,16 @@ namespace VoltSwap.DAL.Repositories
         {
             var getStation = await _context.StationStaffs.FirstOrDefaultAsync(station => station.BatterySwapStationId == StationId);
             var result = await _context.Batteries
-                .Where(bat => bat.BatterySwapStationId == getStation.BatterySwapStationId && bat.BatteryStatus == "Warehouse")
+                .Where(bat => bat.BatterySwapStationId == getStation.BatterySwapStationId && (bat.BatteryStatus == "Warehouse" || bat.BatteryStatus == "Maintenance"))
                 .ToListAsync();
             return result;
         }
 
         public async Task<List<Battery>> GetNumberOfBatteries()
         {
-            var result =await  _context.Batteries
+            var result = await _context.Batteries
                 .Include(bat => bat.BatterySwapStation)
-                .Where(bat => bat.BatteryStatus == "Available" && bat.BatterySwapStation.Status=="Active")
+                .Where(bat => bat.BatteryStatus == "Available" && bat.BatterySwapStation.Status == "Active")
                 .ToListAsync();
             return result;
         }
@@ -47,7 +47,7 @@ namespace VoltSwap.DAL.Repositories
         {
             return await _context.Batteries
                 .Include(bat => bat.BatterySwapStation)
-                .Where(bat => bat.BatterySwapStationId == stationId 
+                .Where(bat => bat.BatterySwapStationId == stationId
                 && bat.BatteryStatus == "Warehouse"
                 && bat.BatteryId == batId).FirstOrDefaultAsync();
         }
