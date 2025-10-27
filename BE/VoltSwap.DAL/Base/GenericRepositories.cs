@@ -7,6 +7,7 @@ namespace VoltSwap.DAL.Base
     public class GenericRepositories<T> : IGenericRepositories<T> where T : class
     {
         protected VoltSwapDbContext _context;
+        protected readonly DbSet<T> _dbSet;
 
         public GenericRepositories()
         {
@@ -16,6 +17,7 @@ namespace VoltSwap.DAL.Base
         public GenericRepositories(VoltSwapDbContext context)
         {
             _context = context;
+            _dbSet = context.Set<T>();
         }
 
         public List<T> GetAll()
@@ -62,9 +64,16 @@ namespace VoltSwap.DAL.Base
         {
             await _context.Set<T>().AddAsync(entity);
         }
-        public async Task BulkCreateAsync(IEnumerable<T> entities)
+        public async Task BulkCreateAsync<T>(IEnumerable<T> entities) where T : class
         {
             await _context.Set<T>().AddRangeAsync(entities);
+            await _context.SaveChangesAsync();   // <-- THÊM DÒNG NÀY
+        }
+
+        public async Task AddRangeAndSaveAsync(IEnumerable<T> entities)
+        {
+            await _dbSet.AddRangeAsync(entities);
+            await _context.SaveChangesAsync();   // Lưu ngay
         }
 
         //public async Task<int> CreateAsync(T entity)

@@ -75,24 +75,38 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm để lấy danh sách các trạm đang hoạt động cho admin để đổi pin 
         public async Task<ServiceResult> GetActiveStation()
         {
-            var stationList = await _unitOfWork.Stations.GetAllAsync(station => station.Status == "Active");
-            var activeStationList = stationList
-            .Select(station => new StationActiveReponse
-            {
-                StationId = station.BatterySwapStationId,
-                StationName = station.BatterySwapStationName,
-            })
-            .ToList();
+            // B1: Lấy danh sách trạm active
+            var stationList = await _unitOfWork.Stations
+                .GetAllAsync(station => station.Status == "Active");
 
-            var getList = stationList.Select(station => new ListStationForTransferResponse
+            // B2: Tạo danh sách kết quả
+            var activeStationList = new List<StationActiveListReponse>();
+
+            // B3: Duyệt từng trạm, await từng cái một → an toàn với DbContext
+            foreach (var station in stationList)
+            {
+                var batteryList = await GetBatteryInventoryByStationIdForAdmin(station.BatterySwapStationId);
+
+                activeStationList.Add(new StationActiveListReponse
+                {
+                    StationId = station.BatterySwapStationId,
+                    StationName = station.BatterySwapStationName,
+                    BatteryList = batteryList
+                });
+            }
+
+            // B4: Gán cho cả 2 bên (trái/phải)
+            var getList = new ListStationForTransferResponse
             {
                 ActiveStationsLeft = activeStationList,
-                ActiveStationsRight = activeStationList,
-            });
+                ActiveStationsRight = activeStationList
+            };
+
+            // B5: Trả về thành công
             return new ServiceResult
             {
                 Status = 200,
-                Message = "Successful",
+                Message = "Get list success",
                 Data = getList
             };
         }
@@ -163,6 +177,23 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "Get battery inventory successfully",
                 Data = batteryInventoryDto
             };
+        }
+
+        //Nemo: Lấy số lượng batttery inventory của trạm
+        public async Task<List<BatResponse>> GetBatteryInventoryByStationIdForAdmin(string stationId)
+        {
+            var batteryInventory = await _unitOfWork.Batteries.GetBatteriesInventoryByStationId(stationId);
+            var batteryInventoryDto = batteryInventory.Select(bat => new BatResponse
+            {
+                BatteryId = bat.BatteryId,
+                StationId = bat.BatterySwapStationId,
+                Soc = bat.Soc,
+                Soh = bat.Soh,
+                Capacity = bat.Capacity,
+                Status = bat.BatteryStatus
+            }).ToList();
+
+            return batteryInventoryDto;
         }
 
         //Bin: Search Battery in Station by StaffId
@@ -295,6 +326,6 @@ namespace VoltSwap.BusinessLayer.Services
 
 
         //}
-        
+
     }
 }

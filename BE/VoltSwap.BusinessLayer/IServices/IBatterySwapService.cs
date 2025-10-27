@@ -25,5 +25,10 @@ namespace VoltSwap.BusinessLayer.IServices
 
         Task<BatterySwapInDayResponse> CalNumberOfSwapDailyForAdmin();
         Task<int> UpdatebatSwapOutAsync(string batId, string stationId, string subId);
+
+
+        //Nemo: Chuyển đổi pin trong warehouse giữa các trạm
+        Task<ServiceResult> TranferBatBetweenStation(BatteryTranferRequest requestDto);
+        Task<List<BatterySession>> GenerateBatterySession(string subId);
     }
 }

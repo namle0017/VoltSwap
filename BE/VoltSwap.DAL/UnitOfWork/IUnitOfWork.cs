@@ -26,6 +26,7 @@ namespace VoltSwap.DAL.UnitOfWork
         IPillarSlotRepository PillarSlots { get; }
         IPillarRepository Pillars { get; }
         IFeeRepository Fees { get; }
+        IBatterySessionRepository BatSession { get; }
 
 
     }
