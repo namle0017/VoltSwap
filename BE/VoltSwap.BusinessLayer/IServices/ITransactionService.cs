@@ -33,7 +33,7 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<string> GetPlanIdBySubId(string subId);
         Task<ServiceResult> RegisterNewPlanAsync(RegisterNewPlanRequest requestDto);
 
-        Task<ServiceResult> CancelPlanAsync(CancelPlanRequest requestDto);
+        //Task<ServiceResult> CancelPlanAsync(CancelPlanRequest requestDto);
 
         Task<int> UpdateTransactionAsync(UpdateTransactionRequest requestDto);
 

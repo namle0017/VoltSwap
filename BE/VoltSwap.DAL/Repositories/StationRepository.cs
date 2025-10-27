@@ -69,15 +69,16 @@ namespace VoltSwap.DAL.Repositories
             return hasBooking;
         }
         //Cái repo này sẽ lấy ra các battery nào có trong pillar mà bị lock để đưa cho FE để biết slot nào bị lock
-        public async Task<List<PillarSlot>> GetBatteriesLockByPillarIdAsync(string pillarId)
+        public async Task<List<PillarSlot>> GetBatteriesLockByPillarIdAsync(string pillarId, string bookingId)
         {
             return await _context.PillarSlots
             .Where(ps => ps.BatterySwapPillarId == pillarId
                          && ps.Battery != null
-                         && ps.AppointmentId != null)
+                         && ps.AppointmentId != bookingId)
             .OrderByDescending(ps => ps.Battery.Soc)
             .ToListAsync();
         }
+        
 
         public async Task<List<Battery>> GetBatteriesByStationIdAsync(String stationId)
         {

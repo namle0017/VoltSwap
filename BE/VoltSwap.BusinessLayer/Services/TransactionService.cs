@@ -27,7 +27,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IPillarSlotRepository _slotRepo;
         private readonly IGenericRepositories<Subscription> _subRepo;
         private readonly IGenericRepositories<Plan> _planRepo;
-        private readonly IGenericRepositories<Appointment> _appoinmentRepo;
+
         private readonly IGenericRepositories<Fee> _feeRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
@@ -42,7 +42,7 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<User> driverRepo,
             IGenericRepositories<Transaction> transRepo,
             IGenericRepositories<Subscription> subRepo,
-            IGenericRepositories<Appointment> appointmentRepo,
+
             IGenericRepositories<Fee> feeRepo,
             IGenericRepositories<Plan> planRepo,
         IVnPayService vnPayService,
@@ -51,7 +51,7 @@ namespace VoltSwap.BusinessLayer.Services
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
         {
-            _appoinmentRepo = appointmentRepo;
+
             _transRepo = transRepo;
             _driverRepo = driverRepo;
             _subRepo = subRepo;
@@ -624,8 +624,6 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = result,
             };
         }
-
-        //Nemo: Sau khi người dùng đã trả xong deposit thì mới tạo cái kia
         public async Task<int> CreateNewSubcription(RequestNewPlanDto requestDto)
         {
             var getTrans = await _unitOfWork.Trans.GetAllQueryable().FirstOrDefaultAsync(x => x.TransactionId == requestDto.TransactionId);
@@ -687,34 +685,8 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "Something wrong, please contact to admin or waiting...",
                 };
             }
-
-            var getTrans = await _unitOfWork.Trans.GetAllQueryable().Where(x => x.SubscriptionId == requestDto.SubId && x.Status == "Waiting").FirstOrDefaultAsync();
-            getTrans.Status = "Pending";
-
-            await _transRepo.UpdateAsync(getTrans);
-            var check = await _unitOfWork.SaveChangesAsync();
-            if (check < 0)
-            {
-                return new ServiceResult
-                {
-                    Status = 400,
-                    Message = "Something wrong, please contact to admin or waiting...",
-                };
-            }
-
-            return new ServiceResult
-            {
-                Status = 200,
-                Message = "Please confirm and refund for customer",
-                Data = new CancelPlanResponse
-                {
-                    SubId = requestDto.SubId,
-                    DriverId = requestDto.DriverId,
-                    TotalAmount = -(getFee.Amount),
-                    PaymentDate = DateTime.UtcNow.ToLocalTime(),
-                },
-            };
         }
+
 
 
         //Nemo: Update Transaction
@@ -747,7 +719,28 @@ namespace VoltSwap.BusinessLayer.Services
 
 
         //Nemo: Confirm cancel
-        //public async Task<ServiceResult> ConfirmCancelAsync()
+        public async Task<ServiceResult> ConfirmCancelAsync(ConfirmTransactionRequest request)
+        {
+            var gettrans = await _unitOfWork.Trans.GetByIdAsync(request.TransactionId);
+            var getsub = await _unitOfWork.Subscriptions.GetByIdAsync(gettrans.SubscriptionId);
+            var mess = "";
+
+            mess = "Confirm Success.";
+            gettrans.Status = "Success";
+            gettrans.ConfirmDate = DateTime.Now.ToLocalTime();
+            getsub.Status = "Inactive";
+            await _subRepo.UpdateAsync(getsub);
+            await _transRepo.UpdateAsync(gettrans);
+
+
+            await _unitOfWork.SaveChangesAsync();
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = mess,
+
+            };
+        }
 
         public async Task<PaymentResponseModel> ProcessVnPayCallbackAsync(IQueryCollection queryCollection)
         {
@@ -764,7 +757,7 @@ namespace VoltSwap.BusinessLayer.Services
             // 2. Tìm giao dịch bằng TransactionId (là vnp_TxnRef)
             var transaction = await _transRepo.GetAllQueryable()
                 .FirstOrDefaultAsync(t => t.TransactionId == response.OrderId);
-            
+
 
             if (transaction == null)
             {

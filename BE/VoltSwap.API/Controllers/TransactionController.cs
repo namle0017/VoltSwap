@@ -118,5 +118,20 @@ namespace VoltSwap.API.Controllers
                 message = result.Message,
             });
         }
+
+        //Bin: staff confirm transaction huy goi 
+        [HttpPost("staff-confirm-transaction")]
+        public async Task<IActionResult> ConfirmByStaff([FromBody] ConfirmTransactionRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _transService.ConfirmCancelAsync(request);
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+            });
+        }
     }
 }

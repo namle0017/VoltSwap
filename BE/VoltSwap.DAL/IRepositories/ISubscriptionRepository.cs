@@ -17,5 +17,6 @@ namespace VoltSwap.DAL.IRepositories
         Task<int> GetTotalSwapsUsedByDriverIdAsync(string DriverId);
         Task<int> GetBatteryCountBySubscriptionIdAsync(string subscriptionId);
         Task<int> GetTotalSwapsUsedInMonthAsync(int month, int year);
+        Task<User> GetUserBySubscriptionIdAsync(string subId);
     }
 }
