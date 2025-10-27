@@ -1,194 +1,161 @@
-// src/pages/Overview.jsx
+// src/pages/staff/Overview.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
-import api from "@/api/api";
+import api from "@/api/api"; // axios instance
 
-export default function Overview({ staffId: staffIdProp }) {
-    const { staffId: staffIdFromRoute } = useParams();
-    const [searchParams] = useSearchParams();
+// ✅ Endpoint & param mới
+const ROUTE = "/Overview/staff-overview"; // GET with ?userId=...
 
-    // Lấy staffId theo thứ tự ưu tiên, KHÔNG gán mặc định cứng
-    const [staffId, setStaffId] = useState(() => {
-        return (
-            staffIdProp ||
-            staffIdFromRoute ||
-            searchParams.get("staffId") ||
-            localStorage.getItem("StaffId") ||
-            localStorage.getItem("staffId") ||
-            ""
-        );
-    });
+function StatCard({ icon, label, value, loading }) {
+    return (
+        <div className="rounded-2xl border bg-white shadow-sm p-4 flex items-center gap-3">
+            <div className="text-2xl">{icon}</div>
+            <div>
+                <div className="text-slate-500 text-sm">{label}</div>
+                <div className="text-2xl font-bold">{loading ? "…" : (value ?? 0)}</div>
+            </div>
+        </div>
+    );
+}
 
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [payload, setPayload] = useState(null);
+function badgeTone(statusRaw) {
+    const s = String(statusRaw || "").toLowerCase();
+    if (s === "done") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    if (s === "processing") return "bg-amber-50 text-amber-700 border-amber-200";
+    return "bg-slate-50 text-slate-700 border-slate-200";
+}
 
-    // Call API khi có staffId hợp lệ
-    useEffect(() => {
-        if (!staffId) return; // Chưa có staffId -> chưa gọi API
-        let alive = true;
+export default function Overview() {
+    const [loading, setLoading] = useState(true);
+    const [err, setErr] = useState("");
+    const [data, setData] = useState(null);
 
-        (async () => {
-            try {
-                setLoading(true);
-                setError("");
-                const res = await api.get(`/Overview/staff-overview/${encodeURIComponent(staffId)}`);
-                const data = res?.data?.data;
-                if (!data) throw new Error("Unexpected response structure");
-                if (alive) setPayload(data);
-            } catch (e) {
-                if (alive) setError(e?.message || "Không thể tải overview");
-            } finally {
-                if (alive) setLoading(false);
-            }
-        })();
+    // ✅ Ưu tiên userId (theo yêu cầu), fallback các key khác nếu thiếu
+    const userId = (
+        localStorage.getItem("userId") ||
+        localStorage.getItem("staffId") ||
+        localStorage.getItem("StaffId") ||
+        ""
+    ).trim();
 
-        return () => {
-            alive = false;
-        };
-    }, [staffId]);
-
-    // ===== Helpers =====
-    const fmtDateTime = (s) => {
-        if (!s) return "";
+    const fetchOverview = async () => {
         try {
-            const d = new Date(s);
-            const date = d.toLocaleDateString("vi-VN", { year: "numeric", month: "2-digit", day: "2-digit" });
-            const time = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-            return `${date} • ${time}`;
-        } catch {
-            return s;
+            if (!userId) {
+                setErr("Thiếu userId trong localStorage. Vui lòng đăng nhập lại.");
+                setData(null);
+                setLoading(false);
+                return;
+            }
+            setErr("");
+            setLoading(true);
+
+            // ✅ Gọi đúng: /api/Overview/staff-overview?userId=...
+            const res = await api.get(ROUTE, { params: { userId } });
+            setData(res?.data?.data || null);
+        } catch (e) {
+            setErr(e?.response?.data?.message || e?.message || "Tải overview thất bại");
+            setData(null);
+        } finally {
+            setLoading(false);
         }
     };
 
-    // ===== Extract BE fields =====
-    const numberOfBatteryFully = payload?.numberOfBat?.numberOfBatteryFully ?? 0;
-    const numberOfBatteryCharging = payload?.numberOfBat?.numberOfBatteryCharging ?? 0;
-    const numberOfBatteryMaintenance = payload?.numberOfBat?.numberOfBatteryMaintenance ?? 0;
-    const numberOfBatteryInWarehouse = payload?.numberOfBat?.numberOfBatteryInWarehouse ?? 0;
-    const swapsToday = payload?.swapInDat ?? payload?.swapInDay ?? 0; // dự phòng key khác tên
+    useEffect(() => {
+        fetchOverview();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId]);
 
-    const stats = [
-        { id: "full", title: "Fully Charge Battery", value: numberOfBatteryFully, icon: "🔋" },
-        { id: "charging", title: "Charging Battery", value: numberOfBatteryCharging, icon: "🔌" },
-        { id: "swaps", title: "Amount Of Swap today", value: swapsToday, icon: "⚡" },
-    ];
+    const stats = useMemo(() => {
+        const n = data?.numberOfBat || {};
+        return [
+            { key: "full", icon: "🔋", label: "Fully Charged", value: n.numberOfBatteryFully },
+            { key: "charging", icon: "🔌", label: "Charging", value: n.numberOfBatteryCharging },
+            { key: "maintenance", icon: "🛠️", label: "Maintenance", value: n.numberOfBatteryMaintenance },
+            { key: "warehouse", icon: "📦", label: "In Warehouse", value: n.numberOfBatteryInWarehouse },
+            { key: "swaps", icon: "⚡", label: "Swaps Today", value: data?.swapInDat },
+        ];
+    }, [data]);
 
     const tickets = useMemo(() => {
-        const list = payload?.repostList ?? [];
-        return list.map((r, idx) => {
-            const statusRaw = (r.reportStatus || "").toLowerCase();
-            let status = "pending";
-            if (statusRaw === "processing") status = "processing";
-            else if (statusRaw === "done") status = "done";
-            return {
-                key: `${r.staffId || "st"}-${idx}`,
-                title: r.reportType || "Report",
-                who: r.driverName || r.staffId || "—",
-                place: r.reportNote || "",
-                status,
-                time: fmtDateTime(r.createAt),
-            };
-        });
-    }, [payload]);
+        const list = Array.isArray(data?.repostList) ? data.repostList : [];
+        return list.map((t, i) => ({
+            id: i + 1,
+            type: t.reportType || "Report",
+            note: t.reportNote || "",
+            who: t.driverName || t.staffId || "—",
+            time: t.createAt ? new Date(t.createAt).toLocaleString() : "—",
+            status: t.reportStatus || "Pending",
+        }));
+    }, [data]);
 
-    // ===== UI nhập staffId nếu chưa có =====
-    if (!staffId) {
-        const [temp, setTemp] = useState("");
-        const [remember, setRemember] = useState(true);
-
-        return (
-            <div className="card" style={{ padding: 16 }}>
-                <h3 style={{ marginTop: 0 }}>Nhập Staff ID</h3>
-                <p className="muted">FE sẽ gửi staffId cho BE, không dùng giá trị mặc định.</p>
-                <div className="row" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input
-                        value={temp}
-                        onChange={(e) => setTemp(e.target.value)}
-                        placeholder="VD: ST-20000013"
-                        className="input"
-                        style={{ minWidth: 260 }}
-                    />
+    return (
+        <section className="space-y-6">
+            {/* Header */}
+            <header className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h1 className="text-xl font-bold m-0">Overview</h1>
+                    <p className="text-slate-500 text-sm">Tổng quan trạm & hoạt động trong ngày</p>
+                </div>
+                <div className="flex items-center gap-2">
                     <button
-                        className="btn primary"
-                        onClick={() => {
-                            if (!temp.trim()) return;
-                            if (remember) {
-                                localStorage.setItem("StaffId", temp.trim());
-                            }
-                            setStaffId(temp.trim());
-                        }}
+                        type="button"
+                        className="px-3 py-2 rounded-lg border text-sm"
+                        onClick={fetchOverview}
+                        disabled={loading}
+                        title="Làm mới dữ liệu"
                     >
-                        Xác nhận
+                        ↻ {loading ? "Loading..." : "Refresh"}
                     </button>
                 </div>
-                <label className="mt-2" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input
-                        type="checkbox"
-                        checked={remember}
-                        onChange={(e) => setRemember(e.target.checked)}
-                    />
-                    <span>Lưu vào localStorage cho lần sau</span>
-                </label>
-            </div>
-        );
-    }
+            </header>
 
-    // ===== Render chính =====
-    return (
-        <div>
-            {/* KPIs */}
-            <div className="kpi3">
+            {/* Error */}
+            {!!err && <div className="text-sm text-red-600">{err}</div>}
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 {stats.map((s) => (
-                    <div key={s.id} className="kpi-card">
-                        <div className="kpi-ico" aria-hidden>{s.icon}</div>
-                        <div>
-                            <div className="kpi-title">{s.title}</div>
-                            <div className="kpi-value">{loading ? "…" : s.value}</div>
-                        </div>
-                    </div>
+                    <StatCard
+                        key={s.key}
+                        icon={s.icon}
+                        label={s.label}
+                        value={s.value}
+                        loading={loading}
+                    />
                 ))}
             </div>
 
-            {/* Phụ: maintenance + warehouse */}
-            <div className="mt-3" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <span className="pill neutral">Maintenance: {loading ? "…" : numberOfBatteryMaintenance}</span>
-                <span className="pill neutral">In Warehouse: {loading ? "…" : numberOfBatteryInWarehouse}</span>
-            </div>
-
-            {/* Tickets */}
-            <div className="tickets" style={{ marginTop: 24 }}>
-                <div className="tickets-head">
+            {/* Tickets / Reports */}
+            <div className="rounded-2xl border bg-white shadow-sm">
+                <div className="px-4 py-3 border-b flex items-center gap-2">
                     <span>⚠️</span>
-                    <span>Xử lý sự cố</span>
-                    <span className="muted" style={{ marginLeft: 8 }}>
-                        ({loading ? "…" : (payload?.repostList?.length ?? 0)})
-                    </span>
+                    <span className="font-semibold">Sự cố / Ticket</span>
                 </div>
 
-                {loading && <div className="muted">Đang tải overview…</div>}
-                {error && !loading && <div className="error">Lỗi: {error}</div>}
-                {!loading && !error && (payload?.repostList?.length ?? 0) === 0 && (
-                    <div className="muted">Không có báo cáo.</div>
-                )}
-
-                {!loading && !error && tickets.map((t) => (
-                    <div key={t.key} className="ticket">
-                        <div>
-                            <div className="ticket-title">{t.title}</div>
-                            <div className="ticket-sub">
-                                {t.who}{t.place ? ` • ${t.place}` : ""}
+                {loading ? (
+                    <div className="p-4 text-sm text-slate-500">Đang tải…</div>
+                ) : !tickets.length ? (
+                    <div className="p-4 text-sm text-slate-500">Không có ticket.</div>
+                ) : (
+                    <div className="divide-y">
+                        {tickets.map((t) => (
+                            <div key={t.id} className="p-4 flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <div className="font-medium">
+                                        {t.type}{t.note ? ` — ${t.note}` : ""}
+                                    </div>
+                                    <div className="text-slate-500 text-sm">{t.who}</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 rounded text-xs border ${badgeTone(t.status)}`}>
+                                        {t.status}
+                                    </span>
+                                    <span className="text-slate-500 text-xs">{t.time}</span>
+                                </div>
                             </div>
-                        </div>
-                        <div className="ticket-right">
-                            <span className={`pill ${t.status === "processing" ? "processing" : t.status === "done" ? "done" : "pending"}`}>
-                                {t.status === "processing" ? "Processing" : t.status === "done" ? "Done" : "Pending"}
-                            </span>
-                            <span className="time">{t.time}</span>
-                        </div>
+                        ))}
                     </div>
-                ))}
+                )}
             </div>
-        </div>
+        </section>
     );
 }
