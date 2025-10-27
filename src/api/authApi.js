@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const AUTH_API = axios.create({
-  baseURL: "https://018ff75e5828.ngrok-free.app/api/Auth", // ✅ chuẩn cú pháp
+  baseURL: "https://9aa70bf1f143.ngrok-free.app/api/Auth", // ✅ chuẩn cú pháp
   headers: { "Content-Type": "application/json" },
 });
 
