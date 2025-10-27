@@ -1,6 +1,6 @@
 // pages/Stations.jsx
 /* eslint-disable no-unused-vars */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
     ResponsiveContainer,
     BarChart,
@@ -13,8 +13,10 @@ import {
 import api from "@/api/api";
 
 const MONTH_LABELS = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 ];
+
 const formatNumber = (n) =>
     typeof n === "number" ? n.toLocaleString("vi-VN") : "0";
 
@@ -56,6 +58,7 @@ export default function Stations() {
             })),
         [batterySwapMonthly]
     );
+
     const CustomBarTooltip = ({ active, payload, label }) =>
         active && payload?.length ? (
             <div className="bg-white p-3 rounded-lg shadow-lg border">
@@ -84,58 +87,88 @@ export default function Stations() {
         [stations]
     );
 
-    useEffect(() => {
-        const loadStations = async () => {
-            setLoadingStations(true);
-            setStationsErr("");
-            try {
-                const token = localStorage.getItem("token");
-                const res = await api.get("/Station/station-list", {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                });
-                const data = Array.isArray(res?.data?.data) ? res.data.data : [];
-                setStations(data);
-            } catch (e) {
-                console.error("station-list error:", e?.response?.data || e);
-                setStationsErr("Không tải được danh sách trạm.");
-                setStations([]); // fallback rỗng
-            } finally {
-                setLoadingStations(false);
-            }
-        };
-        loadStations();
+    const loadStations = useCallback(async () => {
+        setLoadingStations(true);
+        setStationsErr("");
+        try {
+            const token = localStorage.getItem("token");
+            const res = await api.get("Station/station-list", {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            const data = Array.isArray(res?.data?.data) ? res.data.data : [];
+            setStations(data);
+        } catch (e) {
+            console.error("station-list error:", e?.response?.data || e);
+            setStationsErr("Không tải được danh sách trạm.");
+            setStations([]); // fallback rỗng
+        } finally {
+            setLoadingStations(false);
+        }
     }, []);
 
+    useEffect(() => {
+        loadStations();
+    }, [loadStations]);
+
     // ===== Inventory for transfer (BE) =====
-    const [inventory, setInventory] = useState([]);
+    const [inventory, setInventory] = useState([]);            // list pin đã flatten
+    const [inventoryStations, setInventoryStations] = useState([]); // các trạm có pin (source options)
     const [loadingInv, setLoadingInv] = useState(true);
     const [invErr, setInvErr] = useState("");
 
-    useEffect(() => {
-        const loadInv = async () => {
-            setLoadingInv(true);
-            setInvErr("");
-            try {
-                const token = localStorage.getItem("token");
-                const res = await api.get("/BatterySwap/station-inventory-for-transfer", {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    const loadInv = useCallback(async () => {
+        setLoadingInv(true);
+        setInvErr("");
+        try {
+            const token = localStorage.getItem("token");
+            const res = await api.get("Station/station-active", {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+
+            // Parse NEW shape
+            const root = res?.data?.data || {};
+            const stationsArr = Array.isArray(root.activeStationsLeft)
+                ? root.activeStationsLeft
+                : [];
+
+            // danh sách trạm có pin (dropdown Source)
+            const srcStations = stationsArr.map((s) => ({
+                stationId: s.stationId,
+                stationName: s.stationName,
+            }));
+            setInventoryStations(srcStations);
+
+            // flatten batteryList & gắn stationName
+            const flat = [];
+            stationsArr.forEach((s) => {
+                (s.batteryList || []).forEach((b) => {
+                    flat.push({
+                        ...b,
+                        stationName: s.stationName,
+                    });
                 });
-                const data = Array.isArray(res?.data?.data) ? res.data.data : [];
-                setInventory(data);
-            } catch (e) {
-                console.error("inventory-for-transfer error:", e?.response?.data || e);
-                setInvErr("Không tải được danh sách pin điều phối.");
-                setInventory([]);
-            } finally {
-                setLoadingInv(false);
-            }
-        };
-        loadInv();
+            });
+            setInventory(flat);
+        } catch (e) {
+            console.error("inventory-for-transfer error:", e?.response?.data || e);
+            setInvErr("Không tải được danh sách pin điều phối.");
+            setInventory([]);
+            setInventoryStations([]);
+        } finally {
+            setLoadingInv(false);
+        }
     }, []);
+
+    useEffect(() => {
+        loadInv();
+    }, [loadInv]);
 
     // ===== Allocation state =====
     const [fromStation, setFromStation] = useState(""); // filter nguồn (optional)
     const [toStation, setToStation] = useState("");     // bắt buộc chọn đích
+    const [reason, setReason] = useState("");           // Reason optional
+    const [transferring, setTransferring] = useState(false);
+
     const [selectedBatteryIds, setSelectedBatteryIds] = useState(new Set());
 
     const inventoryFiltered = useMemo(() => {
@@ -159,7 +192,7 @@ export default function Stations() {
     };
     const clearAllSelection = () => setSelectedBatteryIds(new Set());
 
-    const handleTransfer = () => {
+    const handleTransfer = async () => {
         if (!toStation) {
             alert("Vui lòng chọn trạm đích (Destination).");
             return;
@@ -168,18 +201,67 @@ export default function Stations() {
             alert("Vui lòng chọn ít nhất 1 pin để điều phối.");
             return;
         }
+
+        // Xác định stationFrom:
+        let src = fromStation;
+        if (!src) {
+            // Suy luận từ các pin đã chọn
+            const stationSet = new Set(
+                inventory
+                    .filter((b) => selectedBatteryIds.has(b.batteryId))
+                    .map((b) => String(b.stationId))
+            );
+            if (stationSet.size === 0) {
+                alert("Không xác định được trạm nguồn. Vui lòng chọn Source (filter).");
+                return;
+            }
+            if (stationSet.size > 1) {
+                alert("Bạn đang chọn pin từ nhiều trạm. Vui lòng lọc còn 1 trạm nguồn (Source).");
+                return;
+            }
+            src = Array.from(stationSet)[0];
+        }
+
+        if (src === toStation) {
+            alert("Trạm nguồn và trạm đích không được trùng nhau.");
+            return;
+        }
+
         const payload = {
-            destinationStationId: toStation,
-            batteryIds: Array.from(selectedBatteryIds),
-            // (tuỳ BE) có thể gửi kèm source: fromStation (nếu muốn)
+            stationFrom: src,
+            stationTo: toStation,
+            batId: Array.from(selectedBatteryIds),
+            reason: reason?.trim() || "Station rebalancing",
+            createBy: localStorage.getItem("userId") || "admin",
         };
-        // TODO: gọi API điều phối khi BE sẵn sàng
-        alert(
-            `✅ Sẵn sàng điều phối ${payload.batteryIds.length} pin tới trạm ${payload.destinationStationId}.\n` +
-            `Payload:\n` + JSON.stringify(payload, null, 2)
-        );
-        // Sau khi gọi thành công:
-        // setSelectedBatteryIds(new Set());
+
+        try {
+            setTransferring(true);
+            const token = localStorage.getItem("token");
+            await api.post("BatterySwap/transfer-battery", payload, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+
+            alert(
+                `✅ Đã tạo lịch điều phối ${payload.batId.length} pin từ ${payload.stationFrom} → ${payload.stationTo}.`
+            );
+
+            // refresh inventory & clear selections
+            setSelectedBatteryIds(new Set());
+            setReason("");
+            await loadInv();
+            await loadStations();
+        } catch (e) {
+            console.error("transfer-battery error:", e?.response?.data || e);
+            const msg =
+                e?.response?.data?.message ||
+                e?.response?.data ||
+                e?.message ||
+                "Tạo điều phối thất bại.";
+            alert("❌ " + msg);
+        } finally {
+            setTransferring(false);
+        }
     };
 
     return (
@@ -263,7 +345,7 @@ export default function Stations() {
                             onChange={(e) => setFromStation(e.target.value)}
                         >
                             <option value="">Tất cả trạm</option>
-                            {stationOptions.map((st) => (
+                            {(inventoryStations.length ? inventoryStations : stationOptions).map((st) => (
                                 <option key={st.stationId} value={st.stationId}>
                                     {st.stationName} ({st.stationId})
                                 </option>
@@ -285,22 +367,32 @@ export default function Stations() {
                             ))}
                         </select>
                     </div>
-                    <div className="flex items-end gap-2">
-                        <button
-                            className="px-3 py-2 border rounded-lg hover:bg-gray-50"
-                            onClick={selectAllInFilter}
-                            disabled={loadingInv || inventoryFiltered.length === 0}
-                        >
-                            Select all (filter)
-                        </button>
-                        <button
-                            className="px-3 py-2 border rounded-lg hover:bg-gray-50"
-                            onClick={clearAllSelection}
-                            disabled={selectedBatteryIds.size === 0}
-                        >
-                            Clear
-                        </button>
+                    <div>
+                        <label className="block text-sm text-gray-700 mb-1">Reason (optional)</label>
+                        <input
+                            className="w-full border rounded-lg px-3 py-2"
+                            placeholder="VD: Rebalance tồn kho"
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                        />
                     </div>
+                </div>
+
+                <div className="flex items-center gap-2 mb-3">
+                    <button
+                        className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                        onClick={selectAllInFilter}
+                        disabled={loadingInv || inventoryFiltered.length === 0}
+                    >
+                        Select all (filter)
+                    </button>
+                    <button
+                        className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                        onClick={clearAllSelection}
+                        disabled={selectedBatteryIds.size === 0}
+                    >
+                        Clear
+                    </button>
                 </div>
 
                 {/* Inventory table */}
@@ -325,6 +417,7 @@ export default function Stations() {
                                     <th className="p-2 text-left">SoH</th>
                                     <th className="p-2 text-left">Capacity</th>
                                     <th className="p-2 text-left">Station</th>
+                                    <th className="p-2 text-left">Station Name</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -345,6 +438,7 @@ export default function Stations() {
                                             <td className="p-2">{b.soh}</td>
                                             <td className="p-2">{b.capacity}</td>
                                             <td className="p-2">{b.stationId}</td>
+                                            <td className="p-2">{b.stationName}</td>
                                         </tr>
                                     );
                                 })}
@@ -358,11 +452,11 @@ export default function Stations() {
                         Đã chọn: <b>{selectedBatteryIds.size}</b> pin
                     </div>
                     <button
-                        className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
+                        className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-60"
                         onClick={handleTransfer}
-                        disabled={loadingInv || selectedBatteryIds.size === 0 || !toStation}
+                        disabled={transferring || loadingInv || selectedBatteryIds.size === 0 || !toStation}
                     >
-                        Schedule Battery Transfer
+                        {transferring ? "Scheduling..." : "Schedule Battery Transfer"}
                     </button>
                 </div>
             </div>

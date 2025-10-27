@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Base URL cho module Auth
 const AUTH_API = axios.create({
-  baseURL: "https://b154731d593b.ngrok-free.app/api/Auth", // thay bằng URL ngrok hiện tại của bạn
+  baseURL: "https://5b7876766e72.ngrok-free.app/api/Auth", // thay bằng URL ngrok hiện tại của bạn
   headers: { "Content-Type": "application/json" },
 });
 

@@ -50,7 +50,6 @@ import RegisterService from "@/pages/user/RegisterService";
 import ChangeService from "@/pages/user/ChangeService";
 import Station from "@/pages/user/Station";
 import Transaction from "@/pages/user/Transaction";
-import Payment from "@/pages/user/Payment";
 import Vehicle from "@/pages/user/Vehicle";
 import Support from "@/pages/user/Support";
 import Profile from "@/pages/user/Profile";
@@ -84,7 +83,6 @@ const router = createBrowserRouter([
       { path: "vehicle", element: <Vehicle /> },
       { path: "station", element: <Station /> },
       { path: "transaction", element: <Transaction /> },
-      { path: "paynow/:id", element: <Payment /> },
       { path: "support", element: <Support /> },
       { path: "profile", element: <Profile /> },
       { path: "service/suggest", element: <SuggestService /> },

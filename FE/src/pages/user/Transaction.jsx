@@ -1,29 +1,51 @@
 // src/pages/user/Transaction.jsx
 import React, { useEffect, useState } from "react";
 import api from "@/api/api";
-import { useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 export default function Transaction() {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [payingId, setPayingId] = useState("");
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
 
+    // XỬ LÝ CALLBACK TỪ VNPAY
+    useEffect(() => {
+        const success = searchParams.get("success");
+        const txnRef = searchParams.get("txnRef");
+        const transNo = searchParams.get("transNo");
+
+        if (success === "true" && txnRef) {
+            setTransactions(prev => prev.map(t =>
+                t.transactionId === txnRef
+                    ? { ...t, paymentStatus: "Success", vnpayTransactionNo: transNo }
+                    : t
+            ));
+
+            alert(`Thanh toán thành công! Mã VNPAY: ${transNo}`);
+            navigate("/user/transaction", { replace: true });
+
+            setTimeout(() => window.location.reload(), 2000);
+        }
+        else if (success === "false") {
+            alert("Thanh toán thất bại. Vui lòng thử lại.");
+            navigate("/user/transaction", { replace: true });
+        }
+    }, [searchParams, navigate]);
+
+    // Load danh sách
     useEffect(() => {
         const loadTransactions = async () => {
             try {
                 const token = localStorage.getItem("token");
                 const userId = localStorage.getItem("userId");
 
-                console.log("📡 Requesting transactions for user:", userId);
-
                 const res = await api.get(
                     `/Transaction/user-transaction-history-list/${userId}`,
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
 
-                console.log("🔍 API Response:", res.data);
-
-                // Parse linh động
                 const transactionData =
                     (res.data && Array.isArray(res.data.data) && res.data.data) ||
                     (res.data && Array.isArray(res.data) && res.data) ||
@@ -31,7 +53,7 @@ export default function Transaction() {
 
                 setTransactions(transactionData);
             } catch (err) {
-                console.error("❌ Failed to load transactions:", err);
+                console.error("Failed to load transactions:", err);
                 alert("Failed to load transaction history.");
             } finally {
                 setLoading(false);
@@ -39,6 +61,30 @@ export default function Transaction() {
         };
         loadTransactions();
     }, []);
+
+    const startPayment = async (transactionId) => {
+        if (!transactionId) return;
+        setPayingId(transactionId);
+        try {
+            const token = localStorage.getItem("token");
+            const res = await api.post(
+                "/Payment/create-payment",
+                null,
+                {
+                    params: { transactionId },
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                }
+            );
+
+            const url = res?.data?.paymentUrl || res?.data?.data?.paymentUrl || "";
+            if (!url) throw new Error("No payment URL");
+            window.location.href = url;
+        } catch (err) {
+            alert(`Tạo phiên thanh toán thất bại: ${err?.response?.data?.message || err.message}`);
+        } finally {
+            setPayingId("");
+        }
+    };
 
     if (loading)
         return (
@@ -79,16 +125,16 @@ export default function Transaction() {
                                 </tr>
                             ) : (
                                 transactions.map((t) => {
+                                    const status = String(t.paymentStatus || "Pending");
+                                    const isPending = /pending|waiting/i.test(status);
                                     const formattedDate = t.paymentDate
                                         ? new Date(t.paymentDate).toLocaleDateString("en-CA")
                                         : "—";
+                                    const btnLoading = payingId === t.transactionId;
 
                                     return (
                                         <tr
-                                            key={
-                                                t.transactionId ||
-                                                `${t.planId}-${t.createdAt || Math.random()}`
-                                            }
+                                            key={t.transactionId || `${t.planId}-${t.createdAt || Math.random()}`}
                                             className="border-b hover:bg-gray-50 transition duration-150"
                                         >
                                             <td className="py-3 px-2 font-semibold text-gray-700">
@@ -102,33 +148,28 @@ export default function Transaction() {
                                             </td>
                                             <td className="py-3 px-2">
                                                 <span
-                                                    className={`px-3 py-1 rounded-full text-sm font-semibold ${t.paymentStatus === "success"
-                                                            ? "bg-green-100 text-green-700"
-                                                            : t.paymentStatus === "fail"
-                                                                ? "bg-red-100 text-red-700"
-                                                                : "bg-yellow-100 text-yellow-700"
+                                                    className={`px-3 py-1 rounded-full text-sm font-semibold ${/success|approved/i.test(status)
+                                                        ? "bg-green-100 text-green-700"
+                                                        : /fail|denied|cancel/i.test(status)
+                                                            ? "bg-red-100 text-red-700"
+                                                            : "bg-yellow-100 text-yellow-700"
                                                         }`}
                                                 >
-                                                    {t.paymentStatus || "Pending"}
+                                                    {status}
                                                 </span>
                                             </td>
-                                            <td className="py-3 px-2 text-gray-600">
-                                                {formattedDate}
-                                            </td>
+                                            <td className="py-3 px-2 text-gray-600">{formattedDate}</td>
                                             <td className="py-3 px-2">
-                                                {t.paymentStatus === "Pending" && t.amount > 0 ? (
+                                                {isPending && Number(t.amount || 0) > 0 ? (
                                                     <button
-                                                        onClick={() =>
-                                                            navigate(`/user/paynow/${t.transactionId}`)
-                                                        }
-                                                        className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded hover:bg-blue-700 transition"
+                                                        onClick={() => startPayment(t.transactionId)}
+                                                        disabled={btnLoading}
+                                                        className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
                                                     >
-                                                        💳 Pay Now
+                                                        {btnLoading ? "Processing…" : "💳 Pay Now"}
                                                     </button>
                                                 ) : (
-                                                    <span className="text-gray-400 text-sm italic">
-                                                        —
-                                                    </span>
+                                                    <span className="text-gray-400 text-sm italic">—</span>
                                                 )}
                                             </td>
                                         </tr>

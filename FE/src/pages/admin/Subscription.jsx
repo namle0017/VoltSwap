@@ -13,6 +13,26 @@ const parseCurrencyToNumber = (val) => {
     const digits = String(val || "").replace(/\D/g, "");
     return digits ? Number(digits) : 0;
 };
+const formatVND = (n) =>
+    typeof n === "number"
+        ? n.toLocaleString("vi-VN", { style: "currency", currency: "VND" })
+        : "₫0";
+
+/** Nhận biết object là fee đơn trị có `amount` (vd: batteryDeposit) */
+const isAmountObj = (v) =>
+    v && typeof v === "object" && "amount" in v && typeof v.amount === "number";
+
+/** Nhận biết mảng bậc thang (vd: excessMileage[]) */
+const isTierArray = (v) =>
+    Array.isArray(v) &&
+    v.length > 0 &&
+    v.every(
+        (t) =>
+            typeof t === "object" &&
+            "minValue" in t &&
+            "maxValue" in t &&
+            "amount" in t
+    );
 
 export default function Subscription() {
     /** ===== State ===== */
@@ -21,14 +41,9 @@ export default function Subscription() {
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
 
-    // (Giữ nguyên phần penalty UI của bạn)
-    const [penalty, setPenalty] = useState({
-        bookingFee: 20000,
-        swapFee: 15000,
-        excessMileageFee: 3500,
-        depositBatteryFee: 1000000,
-        updatedAt: "-",
-    });
+    // NEW: fee groups từ BE
+    const [feeGroups, setFeeGroups] = useState([]); // [{groupKey, feeSummary}, ...]
+    const [activeGroupKey, setActiveGroupKey] = useState(""); // chọn group đang xem
 
     // Modal create/update (GIỮ UI, nhưng bỏ date)
     const [isPkgModalOpen, setIsPkgModalOpen] = useState(false);
@@ -52,41 +67,83 @@ export default function Subscription() {
                     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
                 });
 
-                const list = res?.data?.data?.planDetail ?? [];
-                const revenue = Number(res?.data?.data?.totalRevenue || 0);
+                const data = res?.data?.data || {};
+                const list = data?.planDetail ?? [];
+                const revenue = Number(data?.totalRevenue || 0);
+                const groups = Array.isArray(data?.feeGroups) ? data.feeGroups : [];
+
                 setApiRevenue(revenue);
 
-                // Chuẩn hoá thành data cho cards
+                // Chuẩn hoá package cards
                 const mapped = list.map((item, idx) => {
                     const p = item?.plans || {};
+                    const createdAtRaw = p.createdAt || null; // <-- BE đang trả cratedAt
+                    const createdAt = createdAtRaw
+                        ? new Date(createdAtRaw).toLocaleDateString("vi-VN")
+                        : "-";
+
                     return {
                         id: idx + 1,
-                        planId: p.planId, // để dùng khi update nếu cần
+                        planId: p.planId,
                         name: `${p.planName} Package`,
                         users: item?.totalUsers ?? 0,
                         batteries: p.numberBattery ?? 0,
                         baseMileage: p.milleageBaseUsed ?? 0,
                         basePrice: Number(p.price || 0),
-                        createdAt: "-", // BE không trả -> hiển thị "-"
-                        updatedAt: "-",
+                        createdAt,      // <-- gán ngày tạo đã format
                     };
                 });
+
                 setPackages(mapped);
+
+                // Lưu feeGroups và set group mặc định
+                setFeeGroups(groups);
+                if (groups.length && !activeGroupKey) {
+                    setActiveGroupKey(groups[0].groupKey || "");
+                }
             } catch (e) {
                 console.error("view-plan-detail error", e?.response?.data || e);
-                setErr("Không thể tải danh sách gói.");
+                setErr("Không thể tải danh sách gói / fees.");
             } finally {
                 setLoading(false);
             }
         };
         load();
-    }, []);
+    }, []); // eslint-disable-line
 
     /** ===== Derived ===== */
-    // Nếu BE không trả revenue, fallback tính tạm theo client (giữ logic cũ)
     const monthlyRevenue = useMemo(() => {
-        return apiRevenue || packages.reduce((s, p) => s + (p.users || 0) * (p.basePrice || 0), 0);
+        return (
+            apiRevenue ||
+            packages.reduce((s, p) => s + (p.users || 0) * (p.basePrice || 0), 0)
+        );
     }, [apiRevenue, packages]);
+
+    const activeFeeSummary = useMemo(() => {
+        const found = feeGroups.find((g) => g.groupKey === activeGroupKey);
+        return found?.feeSummary || {};
+    }, [feeGroups, activeGroupKey]);
+
+    // Phân loại các thuộc tính trong feeSummary
+    const simpleAmountFees = useMemo(() => {
+        const out = [];
+        Object.entries(activeFeeSummary || {}).forEach(([key, val]) => {
+            if (isAmountObj(val)) {
+                out.push({ key, amount: val.amount, unit: val.unit || "VND" });
+            }
+        });
+        return out;
+    }, [activeFeeSummary]);
+
+    const tierFees = useMemo(() => {
+        const out = [];
+        Object.entries(activeFeeSummary || {}).forEach(([key, val]) => {
+            if (isTierArray(val)) {
+                out.push({ key, tiers: val });
+            }
+        });
+        return out;
+    }, [activeFeeSummary]);
 
     /** ===== Modal handlers (bỏ date) ===== */
     const openCreatePackage = () => {
@@ -120,14 +177,19 @@ export default function Subscription() {
         e.preventDefault();
         const payload = {
             // gợi ý: nếu bạn đặt tên theo "G1 Package" -> cắt "G1"
-            planName: (pkgForm.name || "").split(" ")[0].trim() || pkgForm.name.trim(),
+            planName:
+                (pkgForm.name || "").split(" ")[0].trim() || pkgForm.name.trim(),
             numberBattery: Number(pkgForm.batteries || 0),
             milleageBaseUsed: Number(pkgForm.baseMileage || 0),
             price: parseCurrencyToNumber(pkgForm.basePriceText),
-            // KHÔNG có createdAt/updatedAt trong payload
         };
 
-        if (!payload.planName || !payload.numberBattery || isNaN(payload.milleageBaseUsed) || !payload.price) {
+        if (
+            !payload.planName ||
+            !payload.numberBattery ||
+            isNaN(payload.milleageBaseUsed) ||
+            !payload.price
+        ) {
             alert("Vui lòng điền đầy đủ thông tin gói.");
             return;
         }
@@ -140,7 +202,6 @@ export default function Subscription() {
                 // await api.post("/Plan/create-plan", payload, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
                 console.log("[CREATE] payload gửi BE (không có date):", payload);
             } else {
-                // Tìm planId từ item đang edit (nếu cần gửi kèm)
                 const item = packages.find((p) => p.id === editingId);
                 const planId = item?.planId;
                 const body = planId ? { planId, ...payload } : payload;
@@ -149,54 +210,11 @@ export default function Subscription() {
                 // await api.post("/Plan/update-plan", body, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
                 console.log("[UPDATE] payload gửi BE (không có date):", body);
             }
-
-            // Sau khi BE OK: reload lại danh sách cho chắc
-            // Bạn có thể gọi lại API thay vì reload trang
-            // window.location.reload();
-
-            // Tạm thời đóng modal
             setIsPkgModalOpen(false);
         } catch (err) {
             console.error("create/update plan error", err?.response?.data || err);
             alert("❌ Thao tác thất bại.");
         }
-    };
-
-    /** ===== Penalty modal (giữ như cũ) ===== */
-    const [isPenaltyOpen, setIsPenaltyOpen] = useState(false);
-    const [penaltyForm, setPenaltyForm] = useState({
-        bookingFeeText: formatCurrencyInput(penalty.bookingFee),
-        swapFeeText: formatCurrencyInput(penalty.swapFee),
-        excessMileageFeeText: formatCurrencyInput(penalty.excessMileageFee),
-        depositBatteryFeeText: formatCurrencyInput(penalty.depositBatteryFee),
-    });
-
-    const openPenalty = () => {
-        setPenaltyForm({
-            bookingFeeText: formatCurrencyInput(penalty.bookingFee),
-            swapFeeText: formatCurrencyInput(penalty.swapFee),
-            excessMileageFeeText: formatCurrencyInput(penalty.excessMileageFee),
-            depositBatteryFeeText: formatCurrencyInput(penalty.depositBatteryFee),
-        });
-        setIsPenaltyOpen(true);
-    };
-    const closePenalty = () => setIsPenaltyOpen(false);
-
-    const submitPenalty = (e) => {
-        e.preventDefault();
-        const next = {
-            bookingFee: parseCurrencyToNumber(penaltyForm.bookingFeeText),
-            swapFee: parseCurrencyToNumber(penaltyForm.swapFeeText),
-            excessMileageFee: parseCurrencyToNumber(penaltyForm.excessMileageFeeText),
-            depositBatteryFee: parseCurrencyToNumber(penaltyForm.depositBatteryFeeText),
-            updatedAt: "-", // không nhập ngày
-        };
-        if (!next.bookingFee && !next.swapFee && !next.excessMileageFee && !next.depositBatteryFee) {
-            alert("Vui lòng nhập ít nhất một loại phí.");
-            return;
-        }
-        setPenalty(next);
-        setIsPenaltyOpen(false);
     };
 
     /** ===== UI ===== */
@@ -209,13 +227,7 @@ export default function Subscription() {
                     <p className="text-gray-600">Service Package Management</p>
                 </div>
                 <div className="flex gap-2">
-                    <button
-                        onClick={openPenalty}
-                        className="px-4 py-2 border rounded-lg hover:bg-gray-100 flex items-center"
-                    >
-                        <i className="bi bi-cash-coin" />
-                        <span className="ml-2">Update Penalty Fee</span>
-                    </button>
+                    {/* ĐÃ BỎ nút Update Penalty Fee cũ */}
                     <button
                         onClick={openCreatePackage}
                         className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 flex items-center"
@@ -229,25 +241,130 @@ export default function Subscription() {
             {/* Summary */}
             <div className="grid md:grid-cols-3 gap-6 mb-6">
                 <div className="bg-white rounded-lg shadow p-6">
-                    <div className="text-sm text-gray-500">Monthly Revenue (est.)</div>
+                    <div className="text-sm text-gray-500">Monthly Revenue</div>
                     <div className="text-2xl font-bold mt-2">
-                        {monthlyRevenue.toLocaleString("vi-VN")} VND
+                        {formatVND(monthlyRevenue)}
                     </div>
                 </div>
                 <div className="bg-white rounded-lg shadow p-6">
                     <div className="text-sm text-gray-500">Total Packages</div>
                     <div className="text-2xl font-bold mt-2">{packages.length}</div>
                 </div>
+
+                {/* NEW: Chọn Fee Group + hiển thị nhanh các fee đơn trị của group */}
                 <div className="bg-white rounded-lg shadow p-6">
-                    <div className="text-sm text-gray-500">Penalty Fee (updated)</div>
-                    <div className="text-base mt-2 text-gray-800">
-                        <div>Booking: {penalty.bookingFee.toLocaleString("vi-VN")} VND</div>
-                        <div>Swap: {penalty.swapFee.toLocaleString("vi-VN")} VND</div>
-                        <div>Excess km: {penalty.excessMileageFee.toLocaleString("vi-VN")} VND</div>
-                        <div>Deposit: {penalty.depositBatteryFee.toLocaleString("vi-VN")} VND</div>
-                        <div className="text-xs text-gray-500 mt-1">Date update: {penalty.updatedAt}</div>
+                    <div className="flex items-center justify-between">
+                        <div className="text-sm text-gray-500">Fees — Group</div>
+                        <select
+                            className="border rounded-lg px-2 py-1 text-sm"
+                            value={activeGroupKey}
+                            onChange={(e) => setActiveGroupKey(e.target.value)}
+                        >
+                            {feeGroups.map((g) => (
+                                <option key={g.groupKey} value={g.groupKey}>
+                                    {g.groupKey}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Tóm tắt nhanh (nếu có) */}
+                    <div className="mt-3 text-sm text-gray-800 space-y-1">
+                        {simpleAmountFees.length === 0 ? (
+                            <div className="text-gray-500">Không có fee đơn trị.</div>
+                        ) : (
+                            simpleAmountFees.map((f) => (
+                                <div key={f.key} className="flex justify-between">
+                                    <span className="capitalize">{f.key}:</span>
+                                    <span>
+                                        {f.unit?.toUpperCase().includes("VND")
+                                            ? formatVND(f.amount)
+                                            : `${f.amount} ${f.unit || ""}`}
+                                    </span>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
+            </div>
+
+            {/* Fee Groups chi tiết */}
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900">
+                        Fees by Group: {activeGroupKey || "—"}
+                    </h2>
+                    <div className="text-sm text-gray-500">
+                        (Dữ liệu theo /Plan/view-plan-detail)
+                    </div>
+                </div>
+
+                {/* Battery Deposit (nếu có) hiển thị nổi bật */}
+                {"batteryDeposit" in activeFeeSummary && isAmountObj(activeFeeSummary.batteryDeposit) && (
+                    <div className="mb-4 p-4 rounded-lg bg-amber-50 border border-amber-200">
+                        <div className="text-sm text-gray-600">Battery Deposit</div>
+                        <div className="text-xl font-bold">
+                            {formatVND(activeFeeSummary.batteryDeposit.amount)}
+                        </div>
+                    </div>
+                )}
+
+                {/* Render mọi fee đơn trị khác (ngoài batteryDeposit) */}
+                {simpleAmountFees.filter((f) => f.key !== "batteryDeposit").length > 0 && (
+                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                        {simpleAmountFees
+                            .filter((f) => f.key !== "batteryDeposit")
+                            .map((f) => (
+                                <div key={f.key} className="p-4 rounded-lg bg-gray-50 border">
+                                    <div className="text-sm text-gray-600 capitalize">{f.key}</div>
+                                    <div className="text-lg font-semibold">
+                                        {f.unit?.toUpperCase().includes("VND")
+                                            ? formatVND(f.amount)
+                                            : `${f.amount} ${f.unit || ""}`}
+                                    </div>
+                                </div>
+                            ))}
+                    </div>
+                )}
+
+                {/* Bảng bậc thang cho các fee dạng tiers (vd: excessMileage) */}
+                {tierFees.length === 0 ? (
+                    <div className="text-gray-500">Không có biểu phí bậc thang.</div>
+                ) : (
+                    tierFees.map((grp) => (
+                        <div key={grp.key} className="mb-6">
+                            <h3 className="font-semibold mb-2 capitalize">
+                                {grp.key} (tiered)
+                            </h3>
+                            <div className="overflow-x-auto border rounded-lg">
+                                <table className="min-w-full text-sm">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="p-2 text-left">Min</th>
+                                            <th className="p-2 text-left">Max</th>
+                                            <th className="p-2 text-left">Amount</th>
+                                            <th className="p-2 text-left">Unit</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {grp.tiers.map((t, i) => (
+                                            <tr key={i} className="border-t">
+                                                <td className="p-2">{t.minValue}</td>
+                                                <td className="p-2">{t.maxValue}</td>
+                                                <td className="p-2">
+                                                    {t.unit?.toUpperCase().includes("VND")
+                                                        ? formatVND(t.amount)
+                                                        : t.amount}
+                                                </td>
+                                                <td className="p-2">{t.unit || "-"}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
 
             {/* Package cards */}
@@ -264,7 +381,9 @@ export default function Subscription() {
                         <div key={pkg.id} className="bg-white rounded-lg shadow p-6">
                             <div className="flex items-start justify-between">
                                 <div>
-                                    <h3 className="text-lg font-semibold text-gray-900">{pkg.name}</h3>
+                                    <h3 className="text-lg font-semibold text-gray-900">
+                                        {pkg.name}
+                                    </h3>
                                     <p className="text-sm text-gray-500">Users: {pkg.users}</p>
                                 </div>
                                 <button
@@ -279,7 +398,9 @@ export default function Subscription() {
                             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                                 <div className="p-3 bg-gray-50 rounded-lg">
                                     <div className="text-gray-500">Number of batteries</div>
-                                    <div className="font-semibold text-gray-900">{pkg.batteries}</div>
+                                    <div className="font-semibold text-gray-900">
+                                        {pkg.batteries}
+                                    </div>
                                 </div>
                                 <div className="p-3 bg-gray-50 rounded-lg">
                                     <div className="text-gray-500">Base mileage</div>
@@ -290,14 +411,13 @@ export default function Subscription() {
                                 <div className="p-3 bg-gray-50 rounded-lg col-span-2">
                                     <div className="text-gray-500">Base price (VND / month)</div>
                                     <div className="font-semibold text-gray-900">
-                                        {pkg.basePrice.toLocaleString("vi-VN")} VND
+                                        {formatVND(pkg.basePrice)}
                                     </div>
                                 </div>
                             </div>
 
                             <div className="mt-4 text-xs text-gray-500">
                                 <div>Day create: {pkg.createdAt}</div>
-                                <div>Day update: {pkg.updatedAt}</div>
                             </div>
                         </div>
                     ))
@@ -312,17 +432,24 @@ export default function Subscription() {
                             <div className="text-lg font-semibold">
                                 {pkgMode === "create" ? "Create Package" : "Update Package"}
                             </div>
-                            <button className="p-2 hover:bg-gray-100 rounded-lg" onClick={closePkgModal}>
+                            <button
+                                className="p-2 hover:bg-gray-100 rounded-lg"
+                                onClick={closePkgModal}
+                            >
                                 <i className="bi bi-x-lg" />
                             </button>
                         </div>
 
                         <form className="p-5 space-y-4" onSubmit={submitPackage}>
                             <div>
-                                <label className="block text-sm text-gray-700 mb-1">Package Name</label>
+                                <label className="block text-sm text-gray-700 mb-1">
+                                    Package Name
+                                </label>
                                 <input
                                     value={pkgForm.name}
-                                    onChange={(e) => setPkgForm((s) => ({ ...s, name: e.target.value }))}
+                                    onChange={(e) =>
+                                        setPkgForm((s) => ({ ...s, name: e.target.value }))
+                                    }
                                     className="w-full border rounded-lg px-3 py-2"
                                     placeholder="VD: G1 Package, TP1 Package…"
                                     required
@@ -331,30 +458,40 @@ export default function Subscription() {
 
                             <div className="grid md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Number of batteries</label>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Number of batteries
+                                    </label>
                                     <input
                                         type="number"
                                         min={1}
                                         value={pkgForm.batteries}
-                                        onChange={(e) => setPkgForm((s) => ({ ...s, batteries: e.target.value }))}
+                                        onChange={(e) =>
+                                            setPkgForm((s) => ({ ...s, batteries: e.target.value }))
+                                        }
                                         className="w-full border rounded-lg px-3 py-2"
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Base mileage (km/month)</label>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Base mileage (km/month)
+                                    </label>
                                     <input
                                         type="number"
                                         min={0}
                                         value={pkgForm.baseMileage}
-                                        onChange={(e) => setPkgForm((s) => ({ ...s, baseMileage: e.target.value }))}
+                                        onChange={(e) =>
+                                            setPkgForm((s) => ({ ...s, baseMileage: e.target.value }))
+                                        }
                                         className="w-full border rounded-lg px-3 py-2"
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm text-gray-700 mb-1">Base price (VND/month)</label>
+                                <label className="block text-sm text-gray-700 mb-1">
+                                    Base price (VND/month)
+                                </label>
                                 <input
                                     inputMode="numeric"
                                     value={pkgForm.basePriceText}
@@ -368,107 +505,24 @@ export default function Subscription() {
                                     className="w-full border rounded-lg px-3 py-2"
                                     required
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Số tiền sẽ tự format khi gõ (vi-VN).</p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Số tiền sẽ tự format khi gõ (vi-VN).
+                                </p>
                             </div>
 
                             <div className="pt-2 flex justify-end gap-2">
-                                <button type="button" onClick={closePkgModal} className="px-4 py-2 border rounded-lg">
+                                <button
+                                    type="button"
+                                    onClick={closePkgModal}
+                                    className="px-4 py-2 border rounded-lg"
+                                >
                                     Cancel
                                 </button>
-                                <button type="submit" className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800">
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+                                >
                                     {pkgMode === "create" ? "Create" : "Save changes"}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* ===== Modal: Update Penalty Fee (giữ nguyên) ===== */}
-            {isPenaltyOpen && (
-                <div className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
-                        <div className="p-5 border-b flex items-center justify-between">
-                            <div className="text-lg font-semibold">Update Penalty Fee</div>
-                            <button className="p-2 hover:bg-gray-100 rounded-lg" onClick={closePenalty}>
-                                <i className="bi bi-x-lg" />
-                            </button>
-                        </div>
-
-                        <form className="p-5 space-y-4" onSubmit={submitPenalty}>
-                            <div className="grid md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Booking fee</label>
-                                    <input
-                                        inputMode="numeric"
-                                        value={penaltyForm.bookingFeeText}
-                                        onChange={(e) =>
-                                            setPenaltyForm((s) => ({
-                                                ...s,
-                                                bookingFeeText: formatCurrencyInput(e.target.value),
-                                            }))
-                                        }
-                                        className="w-full border rounded-lg px-3 py-2"
-                                        placeholder="vd: 20,000"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Swap fee</label>
-                                    <input
-                                        inputMode="numeric"
-                                        value={penaltyForm.swapFeeText}
-                                        onChange={(e) =>
-                                            setPenaltyForm((s) => ({
-                                                ...s,
-                                                swapFeeText: formatCurrencyInput(e.target.value),
-                                            }))
-                                        }
-                                        className="w-full border rounded-lg px-3 py-2"
-                                        placeholder="vd: 15,000"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Excess base mileage fee</label>
-                                    <input
-                                        inputMode="numeric"
-                                        value={penaltyForm.excessMileageFeeText}
-                                        onChange={(e) =>
-                                            setPenaltyForm((s) => ({
-                                                ...s,
-                                                excessMileageFeeText: formatCurrencyInput(e.target.value),
-                                            }))
-                                        }
-                                        className="w-full border rounded-lg px-3 py-2"
-                                        placeholder="vd: 3,500"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Deposit Battery fee</label>
-                                    <input
-                                        inputMode="numeric"
-                                        value={penaltyForm.depositBatteryFeeText}
-                                        onChange={(e) =>
-                                            setPenaltyForm((s) => ({
-                                                ...s,
-                                                depositBatteryFeeText: formatCurrencyInput(e.target.value),
-                                            }))
-                                        }
-                                        className="w-full border rounded-lg px-3 py-2"
-                                        placeholder="vd: 1,000,000"
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="pt-2 flex justify-end gap-2">
-                                <button type="button" onClick={closePenalty} className="px-4 py-2 border rounded-lg">
-                                    Cancel
-                                </button>
-                                <button type="submit" className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800">
-                                    Save fees
                                 </button>
                             </div>
                         </form>
