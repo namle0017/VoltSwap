@@ -112,11 +112,7 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             var getPillarSlotSwapIn = await GetPillarSlotSwapIn(requestDto);
-            var swapInList = await _slotRepo.GetAllQueryable()
-                                .Where(x => x.PillarStatus == "Available"
-                                && x.BatterySwapPillarId == getPillarSlotSwapIn)
-                                .Select(x => x.SlotId)
-                                .ToListAsync();
+            var swapInList = await GetSlotSwapIn(requestDto);
             var getBatteryInUsingAvailable = await GetBatteryInUsingAvailable(requestDto.SubscriptionId);
             return new ServiceResult
             {
@@ -216,9 +212,18 @@ namespace VoltSwap.BusinessLayer.Services
                     b.Status == "Using",
                 asNoTracking: false
             );
+            var getTransaction = await _unitOfWork.Trans.GetAllQueryable().FirstOrDefaultAsync(x => x.SubscriptionId == requestBatteryList.SubscriptionId && x.Status == "Waiting");
             var getSessionList = await GenerateBatterySession(requestBatteryList.SubscriptionId);
-
-            //var calMilleageFee = await CalMilleageFee(requestBatteryList, getSessionList);
+            var getBatRequest = new BatterySwapRequest
+            {
+                SubId = requestBatteryList.SubscriptionId,
+                MonthSwap = DateTime.UtcNow.ToLocalTime().Month,
+                YearSwap = DateTime.UtcNow.ToLocalTime().Year,
+            };
+            var calMilleageFee = await CalMilleageFee(getBatRequest, getSessionList);
+            getTransaction.Fee += calMilleageFee;
+            await _unitOfWork.Trans.UpdateAsync(getTransaction);
+            await _unitOfWork.SaveChangesAsync();
             // Tạo dictionary để tra cứu nhanh
             var swapHistoryDict = swapOutHistories.ToDictionary(x => x.BatteryOutId, x => x);
 
@@ -277,7 +282,7 @@ namespace VoltSwap.BusinessLayer.Services
             // 2. Lưu session NGAY
             await _unitOfWork.BatSession.BulkCreateAsync(getSessionList);
 
-            getSub.CurrentMileage = getMilleageBase.Sum(x => x.MilleageBase);
+            getSub.CurrentMileage += getMilleageBase.Sum(x => x.MilleageBase);
             getSub.RemainingSwap += await _unitOfWork.Subscriptions.GetNumberOfbatteryInSub(requestBatteryList.SubscriptionId);
 
             await _subRepo.UpdateAsync(getSub);
@@ -782,6 +787,41 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             return string.Empty;
+        }
+        //Nemo: Pillarslot empty
+        private async Task<List<int>> GetSlotSwapIn(AccessRequest requestDto)
+        {
+            int topNumber = await _unitOfWork.Subscriptions.GetNumberOfbatteryInSub(requestDto.SubscriptionId);
+            var getPillarInStation = await _pillarRepo.GetAllQueryable()
+                                        .Where(pi => pi.BatterySwapStationId == requestDto.StationId)
+                                        .Include(pi => pi.BatterySwapStation)
+                                        .Select(g => new
+                                        {
+                                            PillarId = g.BatterySwapPillarId
+                                        })
+                                        .ToListAsync();
+            foreach (var item in getPillarInStation)
+            {
+                var getBat = await _slotRepo.GetAllQueryable()
+                                .Where(x => x.PillarStatus == "Available")
+                                .ToListAsync();
+                int result = getBat.Count();
+                var getList = getBat;
+                if (result >= topNumber)
+                {
+                    return await _slotRepo.GetAllQueryable()
+                            .Where(x => x.BatterySwapPillar.BatterySwapPillarId == item.PillarId
+                            && x.PillarStatus == "Available")
+                            .OrderBy(x => x.SlotNumber) // sắp xếp nếu cần
+                            .Take(topNumber)
+                            .Select(x => x.SlotId) // chỉ lấy SlotId
+                            .ToListAsync();
+                }
+
+
+            }
+
+            return new List<int>();
         }
 
 

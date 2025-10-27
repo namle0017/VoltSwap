@@ -28,6 +28,19 @@ namespace VoltSwap.API.Controllers
                 result.Data
             });
         }
+
+        //Nemo: Hàm để booking để huỷ gói
+        [HttpPost("booking-cancel-plan")]
+        public async Task<IActionResult> CreateBookingCancelPlan([FromBody] CreateBookingRequest request)
+        {
+            var result = await _bookingService.BookingCancelPlanAsync(request);
+            return StatusCode(result.Status, new
+            {
+                result.Status,
+                result.Message,
+                result.Data
+            });
+        }
         [HttpPost("expire-check")]
         public async Task<IActionResult> ExpireCheck([FromBody] CancelBookingRequest request)
         {
