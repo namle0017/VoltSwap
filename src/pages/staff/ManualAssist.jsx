@@ -1,4 +1,3 @@
-
 // src/pages/staff/ManualAssist.jsx
 import React, { useMemo, useState } from "react";
 import api from "@/api/api"; // axios instance
@@ -18,13 +17,11 @@ export default function ManualAssist() {
     const [resp, setResp] = useState(null);
     const [err, setErr] = useState("");
 
-    // Hiện UI ngay khi chọn loại lỗi (không phụ thuộc subscriptionId)
     const wizardReady = useMemo(
         () => errorType === "pinIn" || errorType === "pinOut",
         [errorType]
     );
 
-    // Điều kiện bấm xác nhận
     const canConfirm = useMemo(() => {
         if (!(errorType === "pinIn" || errorType === "pinOut")) return false;
         if (!subscriptionId.trim()) return false;
@@ -40,14 +37,14 @@ export default function ManualAssist() {
         setResp(null);
 
         try {
-            // ✅ POST: chỉ gửi staffId (không gửi stationId)
             const payload = {
                 staffId,
                 batteryOutId: outBatteryId || null,
                 batteryInId: errorType === "pinIn" ? (inBatteryId || null) : null,
                 subId: subscriptionId,
             };
-            const res = await api.post("/BatterySwap/get-battery-in-station", payload);
+            // ĐÃ ĐỔI endpoint:
+            const res = await api.post("/api/BatterySwap/staff-help-customer", payload);
             setResp(res.data);
         } catch (e) {
             console.error(e);
@@ -73,7 +70,6 @@ export default function ManualAssist() {
                 setBatteries([]);
                 return;
             }
-            // ✅ GET: chỉ truyền staffId
             const res = await api.get("/Station/station-inventory", {
                 params: { staffId },
             });
@@ -83,7 +79,7 @@ export default function ManualAssist() {
                 soh: clamp01(it.soh),
                 soc: clamp01(it.soc),
                 capacityKWh: Number(it.capacity ?? it.capacityKWh ?? 0),
-                status: it.status || "Warehouse",
+                status: (it.status || "Warehouse"), // giữ nguyên status từ BE
             }));
             setBatteries(mapped);
         } catch (e) {
@@ -95,9 +91,11 @@ export default function ManualAssist() {
         }
     };
 
+    // 🔎 CHỈ hiện pin có status === 'warehouse' (case-insensitive) + lọc theo SOC
     const filteredBatteries = useMemo(
         () =>
             batteries
+                .filter((b) => isWarehouse(b.status))                 // chỉ Warehouse
                 .filter((b) => Number.isFinite(b.soc) && b.soc >= minSoc)
                 .sort((a, b) => (b.soc ?? 0) - (a.soc ?? 0)),
         [batteries, minSoc]
@@ -192,7 +190,7 @@ export default function ManualAssist() {
                                     </div>
                                 </label>
                                 <p className="small muted" style={{ marginTop: 6 }}>
-                                    * Dùng staffId để lấy toàn bộ pin bạn được phép xem.
+                                    * Chỉ hiển thị pin có trạng thái <b>warehouse</b>.
                                 </p>
                             </div>
                         </div>
@@ -223,7 +221,7 @@ export default function ManualAssist() {
                                 </div>
                             </label>
                             <p className="small muted" style={{ marginTop: 6 }}>
-                                * Dùng staffId để lấy toàn bộ pin bạn được phép xem.
+                                * Chỉ hiển thị pin có trạng thái <b>warehouse</b>.
                             </p>
                         </div>
                     )}
@@ -287,7 +285,7 @@ export default function ManualAssist() {
                                 {pickLoading
                                     ? Array.from({ length: 8 }).map((_, i) => <div key={i} className="slot-card skeleton" />)
                                     : filteredBatteries.length === 0
-                                        ? <div className="muted small">Không có pin phù hợp bộ lọc.</div>
+                                        ? <div className="muted small">Không có pin phù hợp (chỉ hiển thị trạng thái warehouse).</div>
                                         : filteredBatteries.map((b) => {
                                             const tone = statusTone(b.status);
                                             return (
@@ -371,11 +369,14 @@ function clamp01(n) {
     return Math.max(0, Math.min(100, r));
 }
 
-function statusTone(status) {
-    const s = (status || "").toLowerCase();
-    if (s === "warehouse" || s === "full" || s === "fullpin" || s === "best") {
-        return { bg: "rgba(16,185,129,.10)", fg: "#065f46", br: "#10b981", label: "Full (Warehouse)" };
-    }
-    return { bg: "rgba(148,163,184,.12)", fg: "#334155", br: "#94a3b8", label: "Empty" };
+function isWarehouse(status) {
+    return (status || "").trim().toLowerCase() === "warehouse";
 }
 
+function statusTone(status) {
+    const s = (status || "").toLowerCase();
+    if (s === "warehouse") {
+        return { bg: "rgba(16,185,129,.10)", fg: "#065f46", br: "#10b981", label: "Warehouse" };
+    }
+    return { bg: "rgba(148,163,184,.12)", fg: "#334155", br: "#94a3b8", label: "Other" };
+}
