@@ -9,7 +9,11 @@ export default function Service() {
     const [selected, setSelected] = useState("");
     const [loading, setLoading] = useState(true);
     const [showRenewModal, setShowRenewModal] = useState(false);
-
+    const [apiMessage, setApiMessage] = useState("");
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [cancelNote, setCancelNote] = useState("");
+    const [stations, setStations] = useState([]);
+    const [selectedStation, setSelectedStation] = useState("");
     // 🧭 Load danh sách subscription đang dùng
     useEffect(() => {
         const fetchSubs = async () => {
@@ -26,8 +30,16 @@ export default function Service() {
                 setSubs(data);
                 setSelected(data[0]?.subId || "");
             } catch (err) {
-                console.error("❌ Error fetching subscriptions:", err);
-                alert("Failed to load subscriptions!");
+                // 🌟 Lấy message từ BE trả về (dynamic)
+                const apiMessage = err?.response?.data?.message;
+
+                if (apiMessage) {
+                    setSubs([]);
+                    setApiMessage(apiMessage);
+                } else {
+                    console.error("❌ Unexpected error:", err);
+                    alert("⚠️ Could not load subscriptions.");
+                }
             } finally {
                 setLoading(false);
             }
@@ -35,9 +47,54 @@ export default function Service() {
 
         fetchSubs();
     }, []);
+    const loadStations = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await api.get("/Station/station-list", {
+                headers: { Authorization: `Bearer ${token}` },
+            });
 
+            const data = Array.isArray(res.data.data) ? res.data.data : [];
+            setStations(data);
+            setSelectedStation(data[0]?.stationId || ""); // chọn mặc định
+        } catch (err) {
+            console.error("❌ Failed to load stations:", err);
+            alert("Failed to load stations!");
+        }
+    };
     const current = subs.find((s) => s.subId === selected);
+    // 🔄 Hủy gói dịch vụ
+    const handleCancelSubscription = async () => {
+        if (!selectedStation) return alert("Please select a station!");
 
+        const driverId = localStorage.getItem("userId");
+        const token = localStorage.getItem("token");
+
+        const payload = {
+            stationId: selectedStation,
+            driverId,
+            note: cancelNote,
+            subscriptionId: current.subId,
+            dateBooking: new Date().toISOString().split("T")[0],
+            timeBooking: new Date().toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+            }),
+        };
+
+        try {
+            await api.post("/Booking/booking-cancel-plan", payload, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            alert("✅ Subscription canceled successfully!");
+            setShowCancelModal(false);
+            navigate("/user/transaction");
+        } catch (err) {
+            console.error("❌ Cancel failed:", err.response?.data || err);
+            alert(err.response?.data?.message || "Failed to cancel!");
+        }
+    };
     // ♻️ Renew plan
     const handleRenew = async () => {
         if (!current) return alert("No active subscription to renew!");
@@ -75,9 +132,7 @@ export default function Service() {
     if (!current)
         return (
             <div className="text-center bg-white p-8 rounded-2xl shadow-md border max-w-xl mx-auto mt-16">
-                <h3 className="text-xl font-semibold mb-2">
-                    You don't have a subscription yet
-                </h3>
+                <h3 className="text-xl font-semibold mb-2">{apiMessage}</h3>
                 <p className="text-gray-600 mb-5">
                     Register now to enjoy battery swaps and exclusive benefits.
                 </p>
@@ -162,7 +217,15 @@ export default function Service() {
                         >
                             <span>♻️</span> Renew Plan
                         </button>
-
+                        <button
+                            onClick={() => {
+                                setShowCancelModal(true);
+                                loadStations();
+                            }}
+                            className="bg-red-600 text-white w-full py-2 rounded-lg hover:bg-red-700"
+                        >
+                            ❌ Cancel Subscription
+                        </button>
                         <button
                             onClick={() => navigate("/user/service/register")}
                             className="w-full bg-indigo-500 text-white rounded-lg py-2 hover:bg-indigo-600 transition flex items-center justify-center gap-2"
@@ -194,7 +257,56 @@ export default function Service() {
                     </div>
                 </div>
             </div>
+            {/* 🔹 Modal xác nhận Cancel */}
+            {showCancelModal && (
+                <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50">
+                    <div className="bg-white rounded-2xl p-6 w-[90%] max-w-md shadow-xl">
+                        <h3 className="text-xl font-bold mb-3 text-red-600">
+                            Cancel Subscription
+                        </h3>
 
+                        <label className="block text-gray-700 font-medium mb-2">
+                            Select Station
+                        </label>
+                        <select
+                            className="w-full border rounded-lg p-2 mb-4"
+                            value={selectedStation}
+                            onChange={(e) => setSelectedStation(e.target.value)}
+                        >
+                            {stations.map((st) => (
+                                <option key={st.stationId} value={st.stationId}>
+                                    {st.stationName}
+                                </option>
+                            ))}
+                        </select>
+
+                        <label className="block text-gray-700 font-medium mb-2">
+                            Reason (optional)
+                        </label>
+                        <textarea
+                            className="w-full border rounded-lg p-2 mb-4"
+                            placeholder="Enter note..."
+                            value={cancelNote}
+                            onChange={(e) => setCancelNote(e.target.value)}
+                        />
+
+                        <div className="flex justify-center gap-4">
+                            <button
+                                onClick={() => setShowCancelModal(false)}
+                                className="px-5 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleCancelSubscription}
+                                className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                            >
+                                Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* 🔹 Modal xác nhận Renew */}
             {showRenewModal && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50">
