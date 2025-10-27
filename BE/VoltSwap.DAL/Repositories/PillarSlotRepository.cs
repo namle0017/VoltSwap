@@ -89,7 +89,19 @@ namespace VoltSwap.DAL.Repositories
                     && ps.PillarStatus == "Available")
                 .FirstOrDefaultAsync();
         }
-
+        public async Task<PillarSlot> GetSlotWithBattery( int PilarSlotId, string batteryId)
+        {
+            return await _context.PillarSlots
+                .Where(ps => ps.SlotId == PilarSlotId
+                    && ps.BatteryId == batteryId)
+                .FirstOrDefaultAsync();
+        }
+        public async Task<PillarSlot> GetSlotsByPillarSlotIdAsync(int pillarSlotId)
+        {
+            return await _context.PillarSlots
+                .Where(ps => ps.SlotId == pillarSlotId)
+                .FirstOrDefaultAsync();
+        }
 
     }
 }
