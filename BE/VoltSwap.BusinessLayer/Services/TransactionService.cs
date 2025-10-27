@@ -338,19 +338,19 @@ namespace VoltSwap.BusinessLayer.Services
 
             if (string.Equals(requestDto.NewStatus, "Approved", StringComparison.OrdinalIgnoreCase))
             {
-                var type = transaction.TransactionType .Trim().ToLowerInvariant();
+                var type = transaction.TransactionType.Trim().ToLowerInvariant();
                 switch (type)
                 {
                     var subscription = await _unitOfWork.Subscriptions
                         .GetAllQueryable()
                         .FirstOrDefaultAsync(s => s.SubscriptionId == transaction.SubscriptionId);
 
-                    if (subscription != null)
-                    {
-                        subscription.Status = "Active";
-                        await _unitOfWork.Subscriptions.UpdateAsync(subscription);
-                        await _unitOfWork.SaveChangesAsync();
-                    }
+                if (subscription != null)
+                {
+                    subscription.Status = "Active";
+                    await _unitOfWork.Subscriptions.UpdateAsync(subscription);
+                    await _unitOfWork.SaveChangesAsync();
+                } 
 
                     case "booking":
                         var appoinmentPending = await _unitOfWork.Bookings
