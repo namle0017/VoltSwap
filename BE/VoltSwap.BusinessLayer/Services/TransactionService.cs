@@ -591,23 +591,6 @@ namespace VoltSwap.BusinessLayer.Services
 
                 TransactionContext = generateTransContext,
             };
-
-            var getNewPlanTransaction = new TransactionRequest
-            {
-                DriverId = requestDto.DriverId.UserId,
-                SubId = generateSubId,
-                PlanId = requestDto.PlanId,
-                PaymentMethod = "Bank Transfer",
-                Status = "Waiting",
-                Amount = getPlan.Price ?? 0m,
-                Fee = 0,
-                TransactionType = "Monthly Fee",
-                TransactionContext = "",
-            };
-
-            var createDeposit = await CreateTransactionAsync(getDepositTrans);
-            var createNewPlanTransaction = await CreateTransactionAsync(getNewPlanTransaction);
-
             var subscriptionDetail = new Subscription
             {
                 SubscriptionId = generateSubId,
@@ -621,9 +604,10 @@ namespace VoltSwap.BusinessLayer.Services
                 CreateAt = DateTime.UtcNow,
             };
 
-            await _subRepo.CreateAsync(subscriptionDetail);
+            await _unitOfWork.Subscriptions.CreateAsync(subscriptionDetail);
+            var createDeposit = await CreateTransactionAsync(getDepositTrans);
             var saved = await _unitOfWork.SaveChangesAsync();
-            if (saved <= 0)
+            if (saved < 0)
             {
                 return new ServiceResult
                 {
@@ -639,6 +623,31 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "You have successfully registered for the package.",
                 Data = result,
             };
+        }
+
+        //Nemo: Sau khi người dùng đã trả xong deposit thì mới tạo cái kia
+        public async Task<int> CreateNewSubcription(RequestNewPlanDto requestDto)
+        {
+            var getTrans = await _unitOfWork.Trans.GetAllQueryable().FirstOrDefaultAsync(x => x.TransactionId == requestDto.TransactionId);
+            var getPlan = await _unitOfWork.Subscriptions.GetAllQueryable()
+                .Where(sub => sub.SubscriptionId == getTrans.SubscriptionId)
+                .Include(x => x.Plan).FirstOrDefaultAsync();
+
+            var getNewPlanTransaction = new TransactionRequest
+            {
+                DriverId = getTrans.UserDriverId,
+                SubId = getTrans.SubscriptionId,
+                PlanId = getPlan.Plan.PlanId,
+                PaymentMethod = "Bank Transfer",
+                Status = "Waiting",
+                Amount = getPlan.Plan.Price ?? 0m,
+                Fee = 0,
+                TransactionType = "Monthly Fee",
+                TransactionContext = "",
+            };
+            var createNewPlanTransaction = await CreateTransactionAsync(getNewPlanTransaction);
+            return await _unitOfWork.SaveChangesAsync();
+
         }
 
         //Nemo: Cho staff tạo cancelPlan
@@ -740,6 +749,119 @@ namespace VoltSwap.BusinessLayer.Services
         //Nemo: Confirm cancel
         //public async Task<ServiceResult> ConfirmCancelAsync()
 
+        public async Task<PaymentResponseModel> ProcessVnPayCallbackAsync(IQueryCollection queryCollection)
+        {
+            var response = _vnPayService.PaymentExecute(queryCollection);
 
+            // 1. Kiểm tra chữ ký + mã phản hồi
+            if (!response.Success || response.VnPayResponseCode != "00")
+            {
+                await UpdateTransactionStatusAsync(response.OrderId, "Failed");
+                response.Message = "Thanh toán thất bại";
+                return response;
+            }
+
+            // 2. Tìm giao dịch bằng TransactionId (là vnp_TxnRef)
+            var transaction = await _transRepo.GetAllQueryable()
+                .FirstOrDefaultAsync(t => t.TransactionId == response.OrderId);
+            
+
+            if (transaction == null)
+            {
+                response.Success = false;
+                response.Message = "Không tìm thấy giao dịch";
+                return response;
+            }
+
+            // 3. Cập nhật trạng thái
+            transaction.Status = "Success";
+
+            // 4. Xử lý nghiệp vụ theo loại
+            if (transaction.TransactionType == "Battery Deposit")
+            {
+                await HandleDepositSuccessAsync(transaction);
+                response.Message = "Đặt cọc thành công. Gói đã được kích hoạt.";
+            }
+            else if (transaction.TransactionType == "Monthly Fee")
+            {
+                await HandleMonthlyFeeSuccessAsync(transaction);
+                response.Message = "Thanh toán phí tháng thành công.";
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+            return response;
+        }
+
+
+        private async Task HandleDepositSuccessAsync(Transaction depositTrans)
+        {
+            // 1. Kích hoạt Subscription
+            // 1. Kích hoạt Subscription
+            var subscription = await _subRepo.GetAllQueryable()
+                .FirstOrDefaultAsync(s => s.SubscriptionId == depositTrans.SubscriptionId);
+
+            if (subscription == null)
+            {
+                // Không tìm thấy subscription, có thể log hoặc throw
+                return;
+            }
+
+            subscription.Status = "Active";
+            subscription.StartDate = DateOnly.FromDateTime(DateTime.Today);
+
+            // 2. Tạo giao dịch Monthly Fee (Status = Waiting)
+            var planId = subscription.PlanId; // tách ra trước
+            var plan = await _planRepo.GetAllQueryable()
+                .FirstOrDefaultAsync(p => p.PlanId == planId);
+
+            if (plan != null)
+            {
+                var monthlyTrans = new Transaction
+                {
+                    TransactionId = await GenerateTransactionId(), // bạn đã có
+                    SubscriptionId = depositTrans.SubscriptionId,
+                    UserDriverId = depositTrans.UserDriverId,
+                    TransactionType = "Monthly Fee",
+                    Amount = plan.Price ?? 0m,
+                    Fee = 0m,
+                    TotalAmount = plan.Price ?? 0m,
+                    Currency = "VND",
+                    PaymentMethod = "VnPay",
+                    Status = "Waiting", // ẨN VỚI USER
+                    TransactionDate = DateTime.UtcNow,
+                    TransactionContext = $"{depositTrans.SubscriptionId}-MonthlyFee",
+                    Note = "Phí tháng tự động"
+                };
+
+                await _transRepo.CreateAsync(monthlyTrans);
+            }
+        }
+
+        private async Task HandleMonthlyFeeSuccessAsync(Transaction monthlyTrans)
+        {
+            var subscription = await _subRepo.GetAllQueryable()
+                .Include(s => s.Plan)
+                .FirstOrDefaultAsync(s => s.SubscriptionId == monthlyTrans.SubscriptionId);
+
+            if (subscription != null)
+            {
+                subscription.EndDate = subscription.EndDate.AddMonths(1);
+                subscription.RemainingSwap += subscription.Plan?.SwapLimit ?? 0;
+            }
+        }
+
+        private async Task UpdateTransactionStatusAsync(string? transactionId, string status)
+        {
+            if (string.IsNullOrEmpty(transactionId)) return;
+
+            var trans = await _transRepo.GetAllQueryable()
+                .FirstOrDefaultAsync(t => t.TransactionId == transactionId);
+
+            if (trans != null)
+            {
+                trans.Status = status;
+                await _unitOfWork.SaveChangesAsync();
+            }
+        }
     }
 }

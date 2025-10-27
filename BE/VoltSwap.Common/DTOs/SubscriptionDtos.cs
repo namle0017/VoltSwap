@@ -58,4 +58,9 @@ namespace VoltSwap.Common.DTOs
         public UserRequest DriverId { get; set; }
         public string PlanId { get; set; }
     }
+
+    public class RequestNewPlanDto
+    {
+        public string TransactionId { get; set; }
+    }
 }

@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using System.Threading.Tasks;
 using VoltSwap.BusinessLayer.IServices;
+using VoltSwap.BusinessLayer.Services;
 using static VoltSwap.Common.DTOs.VnPayDtos;
 
 namespace VoltSwap.API.Controllers
@@ -13,11 +15,13 @@ namespace VoltSwap.API.Controllers
     {
         private readonly IVnPayService _vnPayService;
         private readonly ITransactionService _transService;
-        public PaymentController(IVnPayService vnPayService, ITransactionService transService)
+        private readonly IConfiguration _configuration;
+        public PaymentController(IVnPayService vnPayService, ITransactionService transService, IConfiguration configuration)
         {
 
             _vnPayService = vnPayService;
             _transService = transService;
+            _configuration = configuration;
         }
 
         [HttpPost("create")]
@@ -30,20 +34,25 @@ namespace VoltSwap.API.Controllers
         }
 
         [HttpGet("cPaymentCallbackVnpay")]
-        public IActionResult CallbackVnpay()
+        public async Task<IActionResult> VnPayReturn()
         {
-            // Log toàn bộ query để kiểm tra
-            var query = HttpContext.Request.Query.ToDictionary(k => k.Key, v => v.Value.ToString());
+            var response = await _transService.ProcessVnPayCallbackAsync(Request.Query);
 
-            // (Tùy bạn) Verify SecureHash ở đây rồi trả kết quả
-            return Ok(new
+            var redirectData = new Dictionary<string, string>
             {
-                message = "VNPAY return received",
-                query
-            });
+                ["success"] = response.Success ? "true" : "false",
+                ["txnRef"] = response.OrderId,
+                ["transNo"] = response.TransactionId
+            };
+
+            var queryString = string.Join("&", redirectData
+                .Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+
+            var frontendUrl = _configuration["Vnpay:FrontendReturnUrl"] + "?" + queryString;
+            return Redirect(frontendUrl);
         }
 
-  
+
         [HttpGet("cPaymentIpnVnpay")]
         public IActionResult IpnVnpay()
         {
@@ -57,8 +66,15 @@ namespace VoltSwap.API.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var url =await _transService.CreatePaymentUrlAsync(transactionId, HttpContext);
+            var url = await _transService.CreatePaymentUrlAsync(transactionId, HttpContext);
             return Ok(new { paymentUrl = url });
+        }
+
+        [HttpGet("vnpay/callback")]
+        public async Task<IActionResult> VnPayCallback()
+        {
+            var result = await _transService.ProcessVnPayCallbackAsync(Request.Query);
+            return Content($"responsecode={(result.VnPayResponseCode == "00" ? "00" : "99")}", "text/plain");
         }
     }
 }
