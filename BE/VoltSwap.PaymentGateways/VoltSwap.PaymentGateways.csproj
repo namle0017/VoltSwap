@@ -7,11 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VNPAY.NET" Version="8.5.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\VoltSwap.DAL\VoltSwap.DAL.csproj" />
+    <ProjectReference Include="..\VoltSwap.Common\VoltSwap.Common.csproj" />
   </ItemGroup>
 
 </Project>

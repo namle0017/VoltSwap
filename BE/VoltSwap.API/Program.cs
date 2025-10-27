@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using VNPAY.NET;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Scalar.AspNetCore;
 using VoltSwap.BusinessLayer.IServices;
@@ -35,6 +36,8 @@ builder.Services.AddCors(options =>
          .AllowCredentials();
     });
 });
+
+builder.Services.AddScoped<IVnPayService, VnPayService>();
 builder.Services.AddScoped<VehicleService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<SubscriptionService>();

@@ -14,6 +14,8 @@ namespace VoltSwap.DAL.IRepositories
         Task<int> UnlockSlotsByAppointmentIdAsync(string appointmentId);
         Task<List<PillarSlot>> GetUnavailableSlotsAtStationAsync(string stationId, int take);
         Task<PillarSlot> GetEmptySlot(int pillarslotId);
+        Task<PillarSlot> GetSlotsByPillarSlotIdAsync(int pillarSlotId);
+        Task<PillarSlot> GetSlotWithBattery(int PilarSlotId, string batteryId);
 
 
     }
