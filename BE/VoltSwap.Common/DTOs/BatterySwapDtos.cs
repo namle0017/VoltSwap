@@ -177,4 +177,10 @@ namespace VoltSwap.Common.DTOs
         public string AppointmentId { get; set; }
         public int SlotNumber { get; set; }
     }
+    public class StaffConfirmCancelRequest
+    {
+        public string AppointmentId { get; set; }
+        public string StaffId { get; set; }
+        public string SubcriptionId { get; set; }
+    }
 }

@@ -26,6 +26,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<PillarSlot> _slotRepo;
         private readonly IGenericRepositories<BatterySession> _batSessionRepo;
         private readonly IGenericRepositories<BatterySwapPillar> _pillarRepo;
+        private readonly IGenericRepositories<Appointment> _appointmentRepo;
         private readonly IGenericRepositories<Fee> _feeRepo;
         private readonly IBatteryService _batService;
         private readonly IUserService _userService;
@@ -44,6 +45,7 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<Battery> batRepo,
             IGenericRepositories<BatterySession> batSessionRepo,
             IGenericRepositories<BatterySwapPillar> pillarRepo,
+            IGenericRepositories<Appointment> apppointmentRepo,
             IGenericRepositories<Fee> feeRepo,
             IPillarSlotService slotService,
             IUserService userService,
@@ -54,6 +56,7 @@ namespace VoltSwap.BusinessLayer.Services
         {
             _batSwapRepo = batSwapRepo;
             _stationRepo = stationRepo;
+            _appointmentRepo = apppointmentRepo;
             _subRepo = subRepo;
             _slotRepo = slotRepo;
             _batSessionRepo = batSessionRepo;
@@ -125,6 +128,52 @@ namespace VoltSwap.BusinessLayer.Services
                     SlotEmpty = swapInList,
                 }
             };
+
+        }
+        //Bin: Hàm này để staff confirm cancel plan cho người dùng cùng với đó là mock dữ liệu pin trả về và tạo session mới và tạo transaction nếu có phí phát sinh hoặc hoàn phí
+        public async Task<ServiceResult> StaffConfirmCancelPlan(StaffConfirmCancelRequest requestDto)
+        {
+            var getbook = await _unitOfWork.Bookings.GetByIdAsync(requestDto.AppointmentId);
+            if (getbook == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Booking not found",
+                };
+            }
+            //Đổi status cho booking 
+            getbook.Status = "Done";
+            await _appointmentRepo.UpdateAsync(getbook);
+            await _unitOfWork.SaveChangesAsync();
+
+
+            var getSub = await _subRepo.GetByIdAsync(requestDto.SubcriptionId);
+
+            //lấy pin từ subId
+            var getBatteryInUsingAvailable = await GetBatteryInUsingAvailable(requestDto.SubcriptionId);
+            //tạo session mới
+            foreach( var item in getBatteryInUsingAvailable)
+            {
+                // TẠO SESSION
+                var getSessionList = await GenerateBatterySession(requestDto.SubcriptionId);
+                // Tính milleage base + RemainingSwap.
+                var getMilleageBase = await CalMilleageBase(getSessionList);
+                // Lưu session NGAY
+                await _unitOfWork.BatSession.BulkCreateAsync(getSessionList);
+
+                getSub.CurrentMileage = getMilleageBase.Sum(x => x.MilleageBase);                
+                await _subRepo.UpdateAsync(getSub);
+                await _unitOfWork.SaveChangesAsync();
+            }
+             
+            //Lấy transaction refund của người dùng
+            
+
+
+
+
+
 
         }
 

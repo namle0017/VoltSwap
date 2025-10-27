@@ -271,6 +271,8 @@ namespace VoltSwap.BusinessLayer.Services
 
                 bookingResponses.Add(new ViewBookingResponse
                 {
+                    BookingId =booking.AppointmentId,
+                    SubcriptionId = booking.SubscriptionId,
                     Date = booking.DateBooking,
                     DriverName = driver.UserName,
                     NumberBattery = requiredBatteries,
