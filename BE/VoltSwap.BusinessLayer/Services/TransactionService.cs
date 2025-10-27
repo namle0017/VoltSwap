@@ -328,15 +328,14 @@ namespace VoltSwap.BusinessLayer.Services
                 return new ServiceResult { Status = 404, Message = "Transaction not found." };
 
             transaction.Status = requestDto.NewStatus?.Trim();
-            transaction.ConfirmDate = DateTime.UtcNow.ToLocalTime(); // luôn lưu UTC
+            transaction.ConfirmDate = DateTime.UtcNow; // luôn lưu UTC
             await _transRepo.UpdateAsync(transaction);
             await _unitOfWork.SaveChangesAsync();
 
             if (string.Equals(requestDto.NewStatus, "Approved", StringComparison.OrdinalIgnoreCase))
             {
-                var type = (transaction.TransactionType ?? string.Empty).Trim().ToLowerInvariant();
-
-                if (type == "Register" || type == "Renew" || type == "Change")
+                var type = transaction.TransactionType .Trim().ToLowerInvariant();
+                switch (type)
                 {
                     var subscription = await _unitOfWork.Subscriptions
                         .GetAllQueryable()
@@ -349,24 +348,15 @@ namespace VoltSwap.BusinessLayer.Services
                         await _unitOfWork.SaveChangesAsync();
                     }
 
-                    return new ServiceResult
-                    {
-                        Status = 200,
-                        Message = "Transaction status updated successfully."
-                    };
-                }
-                else if (type == "Booking")
-                {
-                    try
-                    {
-                        // Rule: mỗi subscription chỉ có 1 booking đang mở (Pending)
-                        var appt = await _unitOfWork.Bookings
-                            .GetAllQueryable()
-                            .AsTracking()
-                            .Where(a => a.SubscriptionId == transaction.SubscriptionId && a.Status == "Not Done")
-                            .SingleOrDefaultAsync();
-
-                        if (appt == null)
+                    case "booking":
+                        var appoinmentPending = await _unitOfWork.Bookings
+                                                    .GetAllQueryable()
+                                                     .AsTracking() 
+                                                     .FirstOrDefaultAsync(a =>
+                                                         a.SubscriptionId == transaction.SubscriptionId &&
+                                                         a.Status == "Pending");
+                        if (appoinmentPending == null)
+                        {
                             return new ServiceResult { Status = 404, Message = "No pending appointment for this subscription." };
 
                         var locked = await _slotRepo.LockSlotsAsync(
