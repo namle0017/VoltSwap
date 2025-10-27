@@ -19,6 +19,8 @@ namespace VoltSwap.BusinessLayer.Services
 {
     public class BatterySwapService : BaseService, IBatterySwapService
     {
+        private readonly IGenericRepositories<Appointment> _appoinmentRepo;
+        private readonly IGenericRepositories<Transaction> _transRepo;
         private readonly IGenericRepositories<BatterySwap> _batSwapRepo;
         private readonly IGenericRepositories<BatterySwapStation> _stationRepo;
         private readonly IGenericRepositories<Battery> _batRepo;
@@ -40,6 +42,8 @@ namespace VoltSwap.BusinessLayer.Services
             IServiceProvider serviceProvider,
             IGenericRepositories<BatterySwap> batSwapRepo,
             IGenericRepositories<BatterySwapStation> stationRepo,
+            IGenericRepositories<Appointment> appointmentRepo,
+            IGenericRepositories<Transaction> transRepo,
             IGenericRepositories<PillarSlot> slotRepo,
             IGenericRepositories<Subscription> subRepo,
             IGenericRepositories<Battery> batRepo,
@@ -54,6 +58,8 @@ namespace VoltSwap.BusinessLayer.Services
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
         {
+            _appoinmentRepo = appointmentRepo;
+            _transRepo = transRepo;
             _batSwapRepo = batSwapRepo;
             _stationRepo = stationRepo;
             _appointmentRepo = apppointmentRepo;
@@ -126,52 +132,142 @@ namespace VoltSwap.BusinessLayer.Services
             };
 
         }
-        //Bin: Hàm này để staff confirm cancel plan cho người dùng cùng với đó là mock dữ liệu pin trả về và tạo session mới và tạo transaction nếu có phí phát sinh hoặc hoàn phí
-        public async Task<ServiceResult> StaffConfirmCancelPlan(StaffConfirmCancelRequest requestDto)
+        public async Task<string> GenerateTransactionId()
         {
-            var getbook = await _unitOfWork.Bookings.GetByIdAsync(requestDto.AppointmentId);
-            if (getbook == null)
+            string transactionId;
+            bool isDuplicated;
+            string dayOnly = DateTime.Today.Day.ToString("D2");
+            do
+            {
+                // Sinh 10 chữ số ngẫu nhiên
+                var random = new Random();
+                transactionId = $"TRANS-{dayOnly}-{string.Concat(Enumerable.Range(0, 10).Select(_ => random.Next(0, 10).ToString()))}";
+
+                // Kiểm tra xem có trùng không
+                isDuplicated = await _transRepo.AnyAsync(u => u.TransactionId == transactionId);
+
+            } while (isDuplicated);
+            return transactionId;
+        }
+        public async Task<string> GetPlanIdBySubId(string subId)
+        {
+            return await _unitOfWork.Subscriptions.GetAllQueryable()
+                            .Where(sub => sub.SubscriptionId == subId)
+                            .Select(sub => sub.PlanId)
+                            .FirstOrDefaultAsync();
+        }
+        //Nemo: Cho staff tạo cancelPlan
+        public async Task<ServiceResult> CancelPlanAsync(CheckCancelPlanRequest requestDto)
+        {
+            var generateTransId = await GenerateTransactionId();
+            var getPlanId = await GetPlanIdBySubId(requestDto.SubId);
+            var getFee = await _feeRepo.GetAllQueryable()
+                                    .FirstOrDefaultAsync(fee => fee.PlanId == getPlanId &&
+                                    fee.TypeOfFee == "Battery Deposit");
+            var booking = await _unitOfWork.Bookings.GetBookingCancelBySubId(requestDto.SubId);
+
+
+            //tìm các transaction của user chưa trả để tính vào 
+            var gettransactionNotPay = await _unitOfWork.Trans.TransactionListNotpayBySubId(requestDto.SubId);
+            decimal t = 0;
+            foreach (var transaction in gettransactionNotPay)
+            {
+                t += transaction.TotalAmount;
+            }
+
+            var getSessionList = await GenerateBatterySession(requestDto.SubId);
+            var getBatRequest = new BatterySwapRequest
+            {
+                SubId = requestDto.SubId,
+                MonthSwap = DateTime.UtcNow.ToLocalTime().Month,
+                YearSwap = DateTime.UtcNow.ToLocalTime().Year,
+            };
+            var calMilleageFee = await CalMilleageFee(getBatRequest, getSessionList);
+            string transactionContext = $"{booking.UserDriverId}-RENEW_PACKAGE-{generateTransId.Substring(6)}";
+            var createRefund = new Transaction
+            {
+                TransactionId = generateTransId,
+                SubscriptionId = requestDto.SubId,
+                UserDriverId = booking.UserDriverId,
+                TransactionType = "Refund",
+                Amount = -(getFee.Amount),
+                Currency = "VND",
+                TransactionDate = DateTime.UtcNow.ToLocalTime(),
+                PaymentMethod = "Cash",
+                Status = "Pending",
+                Fee = t + calMilleageFee,
+                TotalAmount = -(getFee.Amount) + t + calMilleageFee,
+                TransactionContext = transactionContext,
+                ConfirmDate = null,
+                CreatedBy = requestDto.StaffId,
+            };
+
+            await _transRepo.CreateAsync(createRefund);
+            await _unitOfWork.SaveChangesAsync();
+           
+            if (booking != null)
+            {
+                booking.TransactionId = generateTransId;
+                booking.Status = "Done";
+                await _appoinmentRepo.UpdateAsync(booking);
+                await _unitOfWork.SaveChangesAsync();
+            }
+
+            var result = await _unitOfWork.SaveChangesAsync();
+            if (result < 0)
             {
                 return new ServiceResult
                 {
-                    Status = 404,
-                    Message = "Booking not found",
+                    Status = 400,
+                    Message = "Something wrong, please contact to admin or waiting...",
                 };
             }
-            //Đổi status cho booking 
-            getbook.Status = "Done";
-            await _appointmentRepo.UpdateAsync(getbook);
-            await _unitOfWork.SaveChangesAsync();
 
 
-            var getSub = await _subRepo.GetByIdAsync(requestDto.SubcriptionId);
-
-            //lấy pin từ subId
-            var getBatteryInUsingAvailable = await GetBatteryInUsingAvailable(requestDto.SubcriptionId);
-            //tạo session mới
-            foreach( var item in getBatteryInUsingAvailable)
+            return new ServiceResult
             {
-                // TẠO SESSION
-                var getSessionList = await GenerateBatterySession(requestDto.SubcriptionId);
-                // Tính milleage base + RemainingSwap.
-                var getMilleageBase = await CalMilleageBase(getSessionList);
-                // Lưu session NGAY
-                await _unitOfWork.BatSession.BulkCreateAsync(getSessionList);
+                Status = 200,
+                Message = "Check confirm and refund for customer",
+                Data = createRefund
 
-                getSub.CurrentMileage = getMilleageBase.Sum(x => x.MilleageBase);                
-                await _subRepo.UpdateAsync(getSub);
-                await _unitOfWork.SaveChangesAsync();
+            };
+        }
+        //Bin:  hàm để bên staff xem lịch sử BW của trạm
+        public async Task<ServiceResult> BatterySwapList(UserRequest request)
+        {
+            var getstation = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.UserId);
+            var BatterySwapList = await _unitOfWork.BatterySwap.GetListBatterySwap(getstation.BatterySwapStationId);
+            var result = new List<BatterySwapListRespone>();
+            foreach (var batterySwap in BatterySwapList)
+            {
+            var getuser = await _unitOfWork.Subscriptions.GetUserBySubscriptionIdAsync(batterySwap.SubscriptionId);
+
+                result.Add(new BatterySwapListRespone
+                {
+                    StaffId = batterySwap.SubscriptionId,
+                    UserId = getuser.UserId,
+                    UserName = getuser.UserName,
+                    BatteryIdIn = string.IsNullOrWhiteSpace(batterySwap.BatteryInId) ? "null" : batterySwap.BatteryInId,
+                    BatteryIdOut = string.IsNullOrWhiteSpace(batterySwap.BatteryOutId) ? "null" : batterySwap.BatteryOutId,
+
+                    Status = batterySwap.Status,
+                    Time = TimeOnly.FromDateTime(batterySwap.CreateAt)
+                });
             }
-             
-            //Lấy transaction refund của người dùng
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Success",
+                Data = result
+
+            };
+
             
 
 
-
-
-
-
         }
+
+
 
         //Hàm này để check coi là cục pin đó có đúng theo gói không, chỗ hàm này sẽ là nơi để trả cho fe để cho fe giả lập lấy pin ra
         // Ở hàm này làm khá nhiều việc:
@@ -301,7 +397,14 @@ namespace VoltSwap.BusinessLayer.Services
             var getPillarSlotList = new List<PillarSlot>();
             if (checkbooking)
             {
-                getPillarSlotList = await _unitOfWork.Stations.GetBatteriesLockByPillarIdAsync(requestBatteryList.PillarId);
+                var getbooking = await _unitOfWork.Bookings.GetBookingBySubId(requestBatteryList.SubscriptionId);
+                getPillarSlotList = await _unitOfWork.Stations.GetBatteriesLockByPillarIdAsync(requestBatteryList.PillarId ,getbooking.AppointmentId );
+                getbooking.Status = "Done";
+                await _appoinmentRepo.UpdateAsync( getbooking );
+                await _unitOfWork.SaveChangesAsync();
+
+
+
             }
             else
             {
@@ -527,22 +630,17 @@ namespace VoltSwap.BusinessLayer.Services
         //Đây sẽ là bắt đầu cho phần transfer pin giữa các trạm hay giả lập cho staff, cái này có thể là khi user trả pin nhưng bị lỗi gì đó về trạm thì staff sẽ đi lấy pin đó từ User rồi đổi pin mới cho User và khi đó staff sẽ nhập batteryOutId, batteryInId cho batterySwap của user và nếu user đã trả pin rồi mà không lấy được pin ra thì staff cũng sẽ mang pin để đưa cho user nhưng khi này staff sẽ truyền vào mỗi batteryOutId thôi
         public async Task<ServiceResult> StaffTransferBattery(StaffBatteryRequest requestDto)
         {
-            if (string.IsNullOrEmpty(requestDto.StationId) || string.IsNullOrEmpty(requestDto.StaffId))
+
+            var getsation = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(requestDto.StaffId);
+            if (string.IsNullOrEmpty(getsation.BatterySwapStationId) || string.IsNullOrEmpty(requestDto.StaffId))
             {
                 return new ServiceResult { Status = 400, Message = "Invalid station or staff ID" };
             }
             // Xử lý Battery Out
             if (!string.IsNullOrEmpty(requestDto.BatteryOutId))
             {
-                var batteryOut = new Battery
-                {
-                    BatteryId = requestDto.BatteryOutId,
-                    BatterySwapStationId = null,
-                    BatteryStatus = "Using",
-                    Capacity = 100,
-                    Soc = 100.0m,
-                    Soh = 100.0m,
-                };
+                var batteryOut = await _unitOfWork.BatterySwap.GetBatteryInventoryInStaiion(getsation.BatterySwapStationId, requestDto.BatteryOutId);
+
                 if (batteryOut != null)
                 {
                     batteryOut.BatterySwapStationId = null;
@@ -552,7 +650,7 @@ namespace VoltSwap.BusinessLayer.Services
                     {
                         SwapHistoryId = await GenerateBatterySwapId(),
                         SubscriptionId = requestDto.SubId,
-                        BatterySwapStationId = requestDto.StationId,
+                        BatterySwapStationId = getsation.BatterySwapStationId,
                         BatteryOutId = requestDto.BatteryOutId,
                         BatteryInId = null,
                         SwapDate = DateOnly.FromDateTime(DateTime.Today),
@@ -561,10 +659,7 @@ namespace VoltSwap.BusinessLayer.Services
                         CreateAt = DateTime.UtcNow.ToLocalTime(),
                     };
                     await _batSwapRepo.CreateAsync(swapOut);
-                }
-                else
-                {
-                    return new ServiceResult { Status = 404, Message = "Battery to transfer out not found" };
+                    await _unitOfWork.SaveChangesAsync();
                 }
             }
 
@@ -574,14 +669,14 @@ namespace VoltSwap.BusinessLayer.Services
                 var batteryIn = await _batRepo.GetByIdAsync(b => b.BatteryId == requestDto.BatteryInId);
                 if (batteryIn != null)
                 {
-                    batteryIn.BatterySwapStationId = requestDto.StationId;
+                    batteryIn.BatterySwapStationId = getsation.BatterySwapStationId;
                     batteryIn.BatteryStatus = "Maintenance";
                     await _batRepo.UpdateAsync(batteryIn);
                     var swapIn = new BatterySwap
                     {
                         SwapHistoryId = await GenerateBatterySwapId(),
                         SubscriptionId = requestDto.SubId,
-                        BatterySwapStationId = requestDto.StationId,
+                        BatterySwapStationId = getsation.BatterySwapStationId,
                         BatteryOutId = null,
                         BatteryInId = requestDto.BatteryInId,
                         SwapDate = DateOnly.FromDateTime(DateTime.Today),
@@ -589,12 +684,10 @@ namespace VoltSwap.BusinessLayer.Services
                         Status = "Returned",
                         CreateAt = DateTime.UtcNow.ToLocalTime(),
                     };
-                    await _batSwapRepo.UpdateAsync(swapIn);
+                    await _batSwapRepo.CreateAsync(swapIn);
+                    await _unitOfWork.SaveChangesAsync();
                 }
-                else
-                {
-                    return new ServiceResult { Status = 404, Message = "Battery to transfer out not found" };
-                }
+
             }
 
             return new ServiceResult

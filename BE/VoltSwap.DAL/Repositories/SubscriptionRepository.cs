@@ -28,6 +28,13 @@ namespace VoltSwap.DAL.Repositories
                 .ToListAsync();
             return getSub;
         }
+        public async Task<User> GetUserBySubscriptionIdAsync(string subId)
+        {
+            var getuser = await _context.Subscriptions.Where(sub => sub.SubscriptionId == subId)
+                                                     .Select (u => u.UserDriver)
+                                                     .FirstOrDefaultAsync();
+            return getuser;
+        }
 
         public async Task<bool> IsPlanHoldingBatteryAsync(string subId)
         {

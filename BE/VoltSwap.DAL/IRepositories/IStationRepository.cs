@@ -20,6 +20,6 @@ namespace VoltSwap.DAL.IRepositories
         Task<BatterySwapStation> GetStationByIdAsync(String stationId);
 
         Task<bool> CheckSubscriptionHasBookingAsync(string subscriptionId);
-        Task<List<PillarSlot>> GetBatteriesLockByPillarIdAsync(string pillarId);
+        Task<List<PillarSlot>> GetBatteriesLockByPillarIdAsync(string pillarId, string bookingId);
     }
 }

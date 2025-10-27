@@ -77,14 +77,15 @@ namespace VoltSwap.API.Controllers
 
         //Kiệt
         //Hàm này để staff hỗ trợ khách hàng đổi pin
-        [HttpGet("staff-help-customer")]
-        public async Task<IActionResult> StaffHelpAsync([FromQuery] StaffBatteryRequest requestDto)
+        [HttpPost("staff-help-customer")]
+        public async Task<IActionResult> StaffHelpAsync([FromBody] StaffBatteryRequest requestDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
             var result = await _batSwapService.StaffTransferBattery(requestDto);
+
             return StatusCode(result.Status, new { message = result.Message });
         }
 
@@ -135,6 +136,40 @@ namespace VoltSwap.API.Controllers
             }
             var result = await _batSwapService.TranferBatBetweenStation(requestDto);
             return StatusCode(result.Status, new { message = result.Message });
+        }
+
+
+        [HttpPost("create-cancel-plan")]
+        public async Task<IActionResult> CreateCancelPlan(CheckCancelPlanRequest requestDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _batSwapService.CancelPlanAsync(requestDto);
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+                data = result.Data
+            });
+
+
+        }
+
+        //Bin: staff xem lich su swap cua tram
+        [HttpGet("staff-view-battery-swap")]
+        public async Task<IActionResult> ViewBatterySwap([FromQuery] UserRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _batSwapService.BatterySwapList(request);
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+                data = result.Data
+            });
         }
     }
 }
