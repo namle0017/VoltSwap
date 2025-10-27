@@ -167,9 +167,19 @@ namespace VoltSwap.BusinessLayer.Services
                     b.Status == "Using",
                 asNoTracking: false
             );
-            var getSessionList = await GenerateBatterySession(requestBatteryList.SubscriptionId);
 
-            //var calMilleageFee = await CalMilleageFee(requestBatteryList, getSessionList);
+            var getTransaction = await _unitOfWork.Trans.GetAllQueryable().FirstOrDefaultAsync(x => x.SubscriptionId == requestBatteryList.SubscriptionId && x.Status == "Waiting");
+            var getSessionList = await GenerateBatterySession(requestBatteryList.SubscriptionId);
+            var getBatRequest = new BatterySwapRequest
+            {
+                SubId = requestBatteryList.SubscriptionId,
+                MonthSwap = DateTime.UtcNow.ToLocalTime().Month,
+                YearSwap = DateTime.UtcNow.ToLocalTime().Year,
+            };
+            var calMilleageFee = await CalMilleageFee(getBatRequest, getSessionList);
+            getTransaction.Fee += calMilleageFee;
+            await _unitOfWork.Trans.UpdateAsync(getTransaction);
+            await _unitOfWork.SaveChangesAsync();
             // Tạo dictionary để tra cứu nhanh
             var swapHistoryDict = swapOutHistories.ToDictionary(x => x.BatteryOutId, x => x);
 

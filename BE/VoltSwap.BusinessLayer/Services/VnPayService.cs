@@ -40,15 +40,16 @@ public string CreatePaymentUrl(PaymentInformationModel model, HttpContext contex
         string amountField = (amountVnd * 100).ToString(CultureInfo.InvariantCulture);
 
         // TxnRef duy nhất, gọn và hợp lệ (A–Z a–z 0–9 _ -)
-        string txnRef = $"ORD{now:yyyyMMddHHmmssfff}{Random.Shared.Next(100, 999)}";
+        string txnRef = model.TransId;
 
-        // OrderInfo không rỗng
-        string orderInfo = string.IsNullOrWhiteSpace(model.OrderDescription)
-            ? $"Thanh toan don hang {txnRef}"
-            : $"{model.Name?.Trim()} {model.OrderDescription.Trim()} {amountVnd} VND".Trim();
+            // OrderInfo không rỗng
+            string orderInfo = string.IsNullOrWhiteSpace(model.OrderDescription)
+        ? "Thanh toan don hang"
+        : model.OrderDescription.Trim();
 
-        // OrderType mặc định "other" nếu FE chưa gửi
-        string orderType = string.IsNullOrWhiteSpace(model.OrderType) ? "other" : model.OrderType.Trim();
+
+            // OrderType mặc định "other" nếu FE chưa gửi
+            string orderType = string.IsNullOrWhiteSpace(model.OrderType) ? "other" : model.OrderType.Trim();
 
         pay.AddRequestData("vnp_Version", _configuration["Vnpay:Version"]);
         pay.AddRequestData("vnp_Command", _configuration["Vnpay:Command"]);     // "pay"

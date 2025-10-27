@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 using VoltSwap.BusinessLayer.IServices;
 using static VoltSwap.Common.DTOs.VnPayDtos;
 
@@ -11,10 +12,12 @@ namespace VoltSwap.API.Controllers
     public class PaymentController : ControllerBase
     {
         private readonly IVnPayService _vnPayService;
-        public PaymentController(IVnPayService vnPayService)
+        private readonly ITransactionService _transService;
+        public PaymentController(IVnPayService vnPayService, ITransactionService transService)
         {
 
             _vnPayService = vnPayService;
+            _transService = transService;
         }
 
         [HttpPost("create")]
@@ -49,6 +52,13 @@ namespace VoltSwap.API.Controllers
         }
 
 
+        [HttpPost("create-payment")]
+        public async Task<IActionResult> CreatePaymentUrlVnPay(string transactionId)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
+            var url =await _transService.CreatePaymentUrlAsync(transactionId, HttpContext);
+            return Ok(new { paymentUrl = url });
+        }
     }
 }

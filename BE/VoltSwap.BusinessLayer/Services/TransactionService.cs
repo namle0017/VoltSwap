@@ -1,4 +1,5 @@
 ﻿using Azure.Core;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -15,6 +16,7 @@ using VoltSwap.DAL.Base;
 using VoltSwap.DAL.IRepositories;
 using VoltSwap.DAL.Models;
 using VoltSwap.DAL.UnitOfWork;
+using static VoltSwap.Common.DTOs.VnPayDtos;
 
 namespace VoltSwap.BusinessLayer.Services
 {
@@ -29,6 +31,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<Fee> _feeRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
+        private readonly IVnPayService _vnPayService;
         private readonly IPlanService _planService;
         private static readonly TimeZoneInfo VN_TZ =
     System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)
@@ -42,7 +45,8 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<Appointment> appointmentRepo,
             IGenericRepositories<Fee> feeRepo,
             IGenericRepositories<Plan> planRepo,
-            IPillarSlotRepository slotRepo,
+        IVnPayService vnPayService,
+        IPillarSlotRepository slotRepo,
             IPlanService plansService,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
@@ -52,6 +56,8 @@ namespace VoltSwap.BusinessLayer.Services
             _driverRepo = driverRepo;
             _subRepo = subRepo;
             _planService = plansService;
+            _vnPayService = vnPayService;
+
             _planRepo = planRepo;
             _feeRepo = feeRepo;
             _slotRepo = slotRepo;
@@ -325,87 +331,6 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
-        public async Task<ServiceResult> UpdateTransactionStatusAsync_V2(ApproveTransactionRequest requestDto)
-        {
-            var transaction = await _transRepo.GetByIdAsync(t => t.TransactionId == requestDto.RequestTransactionId);
-            if (transaction == null)
-                return new ServiceResult { Status = 404, Message = "Transaction not found." };
-
-            transaction.Status = requestDto.NewStatus?.Trim();
-            transaction.ConfirmDate = DateTime.UtcNow; // luôn lưu UTC
-            await _transRepo.UpdateAsync(transaction);
-            await _unitOfWork.SaveChangesAsync();
-
-            if (string.Equals(requestDto.NewStatus, "Approved", StringComparison.OrdinalIgnoreCase))
-            {
-                var type = transaction.TransactionType .Trim().ToLowerInvariant();
-                switch (type)
-                {
-                    var subscription = await _unitOfWork.Subscriptions
-                        .GetAllQueryable()
-                        .FirstOrDefaultAsync(s => s.SubscriptionId == transaction.SubscriptionId);
-
-                    if (subscription != null)
-                    {
-                        subscription.Status = "Active";
-                        await _unitOfWork.Subscriptions.UpdateAsync(subscription);
-                        await _unitOfWork.SaveChangesAsync();
-                    }
-
-                    case "booking":
-                        var appoinmentPending = await _unitOfWork.Bookings
-                                                    .GetAllQueryable()
-                                                     .AsTracking() 
-                                                     .FirstOrDefaultAsync(a =>
-                                                         a.SubscriptionId == transaction.SubscriptionId &&
-                                                         a.Status == "Pending");
-                        if (appoinmentPending == null)
-                        {
-                            return new ServiceResult { Status = 404, Message = "No pending appointment for this subscription." };
-
-                        var locked = await _slotRepo.LockSlotsAsync(
-                            appt.BatterySwapStationId,
-                            appt.SubscriptionId,
-                            appt.AppointmentId);
-
-                        var secondsRemaining = CalculateCancelCountdownSeconds(appt, addExtraHour: true);
-
-                        appt.Status = "Not Done";
-                        await _unitOfWork.Bookings.UpdateAsync(appt);
-                        await _unitOfWork.SaveChangesAsync(); // lưu trước khi return
-
-                        return new ServiceResult
-                        {
-                            Status = 200,
-                            Message = "Transaction approved; appointment moved to Not Done.",
-                            Data = new
-                            {
-                                appointmentId = appt.AppointmentId,
-                                newStatus = appt.Status,
-                                secondsRemaining,
-                                locked
-                            }
-                        };
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        // Xảy ra khi có >1 bản ghi Pending cho cùng subscription (vi phạm rule)
-                        return new ServiceResult
-                        {
-                            Status = 409,
-                            Message = "Data conflict: multiple pending appointments found for this subscription. Please resolve duplicates."
-                        };
-                    }
-                }
-            }
-
-            return new ServiceResult
-            {
-                Status = 200,
-                Message = "Transaction status updated successfully."
-            };
-        }
-
         private static DateTime ToUtcFromVn(DateTime vnLocal)
         {
             var unspecified = DateTime.SpecifyKind(vnLocal, DateTimeKind.Unspecified);
@@ -616,23 +541,6 @@ namespace VoltSwap.BusinessLayer.Services
                 item.TransactionContext = await GenerateTransactionConext(createTransactionConext);
                 await _transRepo.UpdateAsync(item);
                 await _unitOfWork.SaveChangesAsync();
-                var getPlanId = await GetPlanIdBySubId(item.SubscriptionId);
-                if (checkSubUnactive == false)
-                {
-                    var createTransaction = new TransactionRequest
-                    {
-                        DriverId = item.UserDriverId,
-                        SubId = item.SubscriptionId,
-                        PlanId = getPlanId,
-                        PaymentMethod = item.PaymentMethod,
-                        Amount = await _planService.GetPriceByPlanId(getPlanId),
-                        Fee = 0,
-                        Status = "Waiting",
-                        TransactionType = "Monthly fee",
-                        TransactionContext = null,
-                    };
-                    await CreateTransactionAsync(createTransaction);
-                }
             }
             return new ServiceResult
             {
@@ -803,17 +711,35 @@ namespace VoltSwap.BusinessLayer.Services
         //Nemo: Update Transaction
         public async Task<int> UpdateTransactionAsync(UpdateTransactionRequest requestDto)
         {
-            var getTrans = await _unitOfWork.Trans.GetAllQueryable().Where(x => x.SubscriptionId == requestDto.SubId && x.Status =="Waiting").FirstOrDefaultAsync();
+            var getTrans = await _unitOfWork.Trans.GetAllQueryable().Where(x => x.SubscriptionId == requestDto.SubId && x.Status == "Waiting").FirstOrDefaultAsync();
 
             getTrans.Fee += requestDto.Fee;
             await _unitOfWork.Trans.UpdateAsync(getTrans);
             return await _unitOfWork.SaveChangesAsync();
         }
 
+        public async Task<string> CreatePaymentUrlAsync(string transId, HttpContext context)
+        {
+            var getTrans = await _unitOfWork.Trans.GetByIdAsync(trans => trans.TransactionId == transId);
+            var createPayment = new PaymentInformationModel
+            {
+                TransId = getTrans.TransactionId,
+                OrderType = "other",
+                Amount = (double)getTrans.TotalAmount,
+                OrderDescription = getTrans.TransactionContext,
+                Name = "",
+            };
+
+            var paymentUrl = _vnPayService.CreatePaymentUrl(createPayment, context);
+
+            // 4. Trả URL về cho controller (để FE redirect sang VNPay)
+            return paymentUrl;
+        }
+
 
         //Nemo: Confirm cancel
         //public async Task<ServiceResult> ConfirmCancelAsync()
 
-        
+
     }
 }

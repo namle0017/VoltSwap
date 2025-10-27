@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Http;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,6 +7,7 @@ using System.Threading.Tasks;
 using VoltSwap.BusinessLayer.Base;
 using VoltSwap.Common.DTOs;
 using VoltSwap.DAL.Models;
+using static VoltSwap.Common.DTOs.VnPayDtos;
 namespace VoltSwap.BusinessLayer.IServices
 {
     public interface ITransactionService
@@ -34,5 +36,7 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<ServiceResult> CancelPlanAsync(CancelPlanRequest requestDto);
 
         Task<int> UpdateTransactionAsync(UpdateTransactionRequest requestDto);
+
+        Task<string> CreatePaymentUrlAsync(string transId, HttpContext context);
     }
 }
