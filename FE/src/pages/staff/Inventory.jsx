@@ -91,6 +91,7 @@ export default function Inventory() {
         status: it.status || "Warehouse",
         updatedAt: new Date().toISOString(), // BE chưa trả time cập nhật
         stationId: it.stationId,
+        stationName: it.stationName,
     });
 
     // Lấy tối đa 20 pin, gán tuần tự vào 20 ô; phần còn lại để trống
