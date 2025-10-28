@@ -86,7 +86,6 @@ export default function Service() {
             await api.post("/Booking/booking-cancel-plan", payload, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-
             alert("✅ Subscription canceled successfully!");
             setShowCancelModal(false);
             navigate("/user/transaction");
@@ -156,7 +155,7 @@ export default function Service() {
                 <div
                     className="p-6 rounded-2xl shadow-lg text-gray-800"
                     style={{
-                        background: "linear-gradient(135deg, #a5f3fc 0%, #c084fc 100%)",
+                        background: "linear-gradient(135deg, #01e6ffff 0%, #78fc92ff 100%)",
                     }}
                 >
                     <h3 className="text-lg text-gray-700 mb-1">Current subscription</h3>
@@ -204,19 +203,19 @@ export default function Service() {
                     </div>
 
                     <div className="flex flex-col gap-2">
-                        <button
-                            onClick={() => navigate("/user/service/change")}
-                            className="w-full bg-black text-white rounded-lg py-2 hover:bg-gray-900 transition mb-1 flex items-center justify-center gap-2"
-                        >
-                            <span>🔁</span> Change Plan →
-                        </button>
+                        {/* <button
+              onClick={() => navigate("/user/service/change")}
+              className="w-full bg-black text-white rounded-lg py-2 hover:bg-gray-900 transition mb-1 flex items-center justify-center gap-2"
+            >
+              <span>🔁</span> Change Plan →
+            </button>
 
-                        <button
-                            onClick={() => setShowRenewModal(true)}
-                            className="w-full bg-blue-600 text-white rounded-lg py-2 hover:bg-blue-700 transition flex items-center justify-center gap-2"
-                        >
-                            <span>♻️</span> Renew Plan
-                        </button>
+            <button
+              onClick={() => setShowRenewModal(true)}
+              className="w-full bg-blue-600 text-white rounded-lg py-2 hover:bg-blue-700 transition flex items-center justify-center gap-2"
+            >
+              <span>♻️</span> Renew Plan
+            </button> */}
                         <button
                             onClick={() => {
                                 setShowCancelModal(true);
@@ -243,15 +242,21 @@ export default function Service() {
 
                     <div className="space-y-4">
                         <div className="p-4 rounded-xl bg-blue-50 text-center">
-                            <p className="text-3xl font-bold text-blue-600">28</p>
-                            <p className="text-gray-600 text-sm">Swaps this month</p>
+                            <p className="text-3xl font-bold text-blue-600">
+                                {current.remaining_swap}
+                            </p>
+                            <p className="text-gray-600 text-sm">Swaps remaining</p>
                         </div>
                         <div className="p-4 rounded-xl bg-green-50 text-center">
-                            <p className="text-3xl font-bold text-green-600">1,250 km</p>
+                            <p className="text-3xl font-bold text-green-600">
+                                {current.current_miligate} km
+                            </p>
                             <p className="text-gray-600 text-sm">Distance traveled</p>
                         </div>
                         <div className="p-4 rounded-xl bg-purple-50 text-center">
-                            <p className="text-3xl font-bold text-purple-600">80,000₫</p>
+                            <p className="text-3xl font-bold text-purple-600">
+                                {Number(current.subFee).toLocaleString("vi-VN")}VND
+                            </p>
                             <p className="text-gray-600 text-sm">Total Charge</p>
                         </div>
                     </div>

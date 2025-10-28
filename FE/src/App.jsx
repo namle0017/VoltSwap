@@ -40,9 +40,9 @@ import BatterySwap from "@/pages/staff/BatterySwap";
 import Booking from "@/pages/staff/Booking";
 import AdminRequest from "@/pages/staff/AdminRequest";
 import CustomerSupport from "@/pages/staff/CustomerSupport";
-import DockConsole from "@/pages/staff/DockConsole";
 import Ping from "@/pages/staff/Ping";
 import APITest from "@/pages/staff/APITest";
+import BatteryManager from "@/pages/staff/BatteryManager";
 
 /** User pages */
 import Service from "@/pages/user/Service";
@@ -101,13 +101,15 @@ const router = createBrowserRouter([
           { path: "overview", element: <Overview /> },
           { path: "inventory", element: <Inventory /> },
           { path: "assist", element: <ManualAssist /> },
-          { path: "dock", element: <DockConsole /> },
           { path: "swap", element: <BatterySwap /> },
           { path: "booking", element: <Booking /> },
           { path: "admin-request", element: <AdminRequest /> },
           { path: "support", element: <CustomerSupport /> },
           { path: "ping", element: <Ping /> },
           { path: "api-test", element: <APITest /> },
+
+          /* NEW: Battery Manager */
+          { path: "battery-mgmt", element: <BatteryManager /> },
         ],
       },
     ],
