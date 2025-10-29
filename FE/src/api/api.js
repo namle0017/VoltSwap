@@ -1,23 +1,21 @@
 import axios from "axios";
 
-const API_BASE_URL = "/api";
+const base = import.meta.env.VITE_API_BASE_URL; // https://xxxx.ngrok-free.app
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  baseURL: `${base}/api`,
+  headers: { "Content-Type": "application/json" },
 });
+
 api.interceptors.request.use((config) => {
+  config.headers["ngrok-skip-browser-warning"] = "true";
   const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  console.log("📡 Outgoing Request:", config.url, config.data);
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
 export default api;
+
 // import axios from "axios";
 // import MockAdapter from "axios-mock-adapter";
 // // ⚙️ Tạo axios instance

@@ -125,7 +125,15 @@ export default function PaymentInfo() {
                         disabled={refreshing || creatingAll}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
                     >
-                        {refreshing ? "Đang tải..." : "🔄 Refresh"}
+                        {refreshing ? (
+                            "Đang tải..."
+                        ) : (
+                            <>
+                                <i className="bi bi-arrow-repeat animate-spin me-1" aria-hidden="true"></i>
+                                Refresh
+                            </>
+                        )}
+
                     </button>
                     <button
                         onClick={handleCreateAllInvoices}
@@ -133,7 +141,12 @@ export default function PaymentInfo() {
                         className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-60"
                         title="Tạo hóa đơn cho tất cả giao dịch đủ điều kiện"
                     >
-                        {creatingAll ? "Đang tạo..." : "🧾 Create"}
+                        {creatingAll ? ("Đang tạo...") : (
+                            <>
+                                <i className="bi bi-receipt me-1" aria-hidden="true"></i>
+                                Create
+                            </>
+                        )}
                     </button>
                 </div>
             </div>
@@ -181,12 +194,12 @@ export default function PaymentInfo() {
                                             <td className="px-4 py-3">
                                                 <span
                                                     className={`px-3 py-1 text-sm font-medium rounded-full ${status === "approved"
-                                                            ? "bg-green-100 text-green-700"
-                                                            : status === "waiting"
-                                                                ? "bg-yellow-100 text-yellow-700"
-                                                                : status === "denied"
-                                                                    ? "bg-red-100 text-red-700"
-                                                                    : "bg-gray-100 text-gray-700"
+                                                        ? "bg-green-100 text-green-700"
+                                                        : status === "waiting"
+                                                            ? "bg-yellow-100 text-yellow-700"
+                                                            : status === "denied"
+                                                                ? "bg-red-100 text-red-700"
+                                                                : "bg-gray-100 text-gray-700"
                                                         }`}
                                                 >
                                                     {p.paymentStatus}

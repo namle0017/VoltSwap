@@ -100,7 +100,7 @@ export default function AdminPage() {
     {
       title: "Total Customers",
       value: formatNumber(numberOfDriver),
-      icon: "👥",
+      icon: <i className="bi bi-people-fill"></i>,
       color: "bg-blue-500",
       change: "",
       changeColor: "text-green-600",
@@ -108,7 +108,7 @@ export default function AdminPage() {
     {
       title: "Monthly Revenue",
       value: formatCurrencyVND(monthlyRevenueVal),
-      icon: "💰",
+      icon: <i className="bi bi-coin"></i>,
       color: "bg-green-500",
       change: "",
       changeColor: "text-green-600",
@@ -116,7 +116,7 @@ export default function AdminPage() {
     {
       title: "Swaps Today",
       value: formatNumber(totalSwapToday),
-      icon: "⚡",
+      icon: <i className="bi bi-lightning-charge-fill"></i>,
       color: "bg-yellow-500",
       change: "",
       changeColor: "text-green-600",
@@ -124,7 +124,7 @@ export default function AdminPage() {
     {
       title: "Active Stations",
       value: `${formatNumber(activeStation)}/${formatNumber(totalStation)}`,
-      icon: "📍",
+      icon: <i className="bi bi-geo-fill"></i>,
       color: "bg-purple-500",
       change: totalStation
         ? `${Math.round((activeStation / totalStation) * 100)}%`

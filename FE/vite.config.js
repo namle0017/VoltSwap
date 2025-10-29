@@ -1,29 +1,30 @@
-import { defineConfig } from "vite";
+/* eslint-disable no-undef */
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  server: {
-    proxy: {
-      "/api": {
-        target: "https://a5b22ee459cb.ngrok-free.app", // 🔗 thay bằng URL ngrok hiện tại của bạn
-        changeOrigin: true, // cho phép Vite đóng vai trò proxy hợp lệ
-        secure: false, // bỏ kiểmtra SSL (vì ngrok free có thể cảnh báo)
-        rewrite: (path) => path.replace(/^\/api/, "/api"), // giữ nguyên cấu trúc /api
-        configure: (proxy) => {
-          proxy.on("proxyReq", (proxyReq) => {
-            // thêm header để ngrok bỏ qua trang cảnh báo
-            proxyReq.setHeader("ngrok-skip-browser-warning", "true");
-          });
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const target = env.VITE_API_BASE_URL; // đọc từ .env
+
+  return {
+    plugins: [react(), tailwindcss()],
+    server: {
+      proxy: {
+        "/api": {
+          target, // https://xxxx.ngrok-free.app
+          changeOrigin: true,
+          secure: false,
+          rewrite: (p) => p, // giữ nguyên /api/*
+          configure: (proxy) => {
+            proxy.on("proxyReq", (proxyReq) => {
+              proxyReq.setHeader("ngrok-skip-browser-warning", "true");
+            });
+          },
         },
       },
     },
-  },
-  resolve: {
-    // eslint-disable-next-line no-undef
-    alias: { "@": path.resolve(__dirname, "src") },
-  },
+    resolve: { alias: { "@": path.resolve(__dirname, "src") } },
+  };
 });
