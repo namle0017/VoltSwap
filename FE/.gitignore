@@ -40,3 +40,10 @@ Thumbs.db
 coverage/
 # package-lock.json
 # yarn.lock
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
