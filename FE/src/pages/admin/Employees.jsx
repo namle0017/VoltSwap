@@ -361,8 +361,8 @@ export default function StaffManagement() {
                                                     <button
                                                         onClick={() => deleteStaff(s)}
                                                         className={`p-2 rounded-lg ${deletingId === s.staffId
-                                                            ? "text-gray-400 cursor-not-allowed"
-                                                            : "text-red-600 hover:bg-red-50"
+                                                                ? "text-gray-400 cursor-not-allowed"
+                                                                : "text-red-600 hover:bg-red-50"
                                                             }`}
                                                         disabled={deletingId === s.staffId}
                                                         title="Delete staff"

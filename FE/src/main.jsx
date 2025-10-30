@@ -7,6 +7,7 @@ import ToastHost from "./components/Toast.jsx";
 import './styles/ui.css'
 import "bootstrap-icons/font/bootstrap-icons.css";
 
+
 createRoot(document.getElementById("root")).render(
   //<StrictMode>
   <>

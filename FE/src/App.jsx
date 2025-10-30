@@ -1,4 +1,9 @@
-import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
+// src/App.jsx
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Navigate,
+} from "react-router-dom";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 /** Layouts */
@@ -27,7 +32,6 @@ import Employees from "@/pages/admin/Employees";
 import Stations from "@/pages/admin/Stations";
 import Subscription from "@/pages/admin/Subscription";
 import PaymentInfo from "@/pages/admin/PaymentInfo";
-
 /** Staff pages */
 import Overview from "@/pages/staff/Overview";
 import Inventory from "@/pages/staff/Inventory";
@@ -36,7 +40,6 @@ import BatterySwap from "@/pages/staff/BatterySwap";
 import Booking from "@/pages/staff/Booking";
 import AdminRequest from "@/pages/staff/AdminRequest";
 import CustomerSupport from "@/pages/staff/CustomerSupport";
-import DockConsole from "@/pages/staff/DockConsole";
 import Ping from "@/pages/staff/Ping";
 import APITest from "@/pages/staff/APITest";
 import BatteryManager from "@/pages/staff/BatteryManager";
@@ -47,10 +50,11 @@ import RegisterService from "@/pages/user/RegisterService";
 import ChangeService from "@/pages/user/ChangeService";
 import Station from "@/pages/user/Station";
 import Transaction from "@/pages/user/Transaction";
-import Payment from "@/pages/user/Payment";
 import Vehicle from "@/pages/user/Vehicle";
 import Support from "@/pages/user/Support";
 import Profile from "@/pages/user/Profile";
+import SuggestService from "@/pages/user/SuggestService";
+import "leaflet/dist/leaflet.css";
 
 const router = createBrowserRouter([
   /** Public site */
@@ -63,10 +67,8 @@ const router = createBrowserRouter([
       { path: "services", element: <ServicesPage /> },
       { path: "benefits", element: <BenefitsPage /> },
       { path: "contact", element: <ContactPage /> },
-
     ],
   },
-
   { path: "stations", element: <StationSwap /> },
 
   /** User app (after login as Driver/Customer) */
@@ -81,9 +83,9 @@ const router = createBrowserRouter([
       { path: "vehicle", element: <Vehicle /> },
       { path: "station", element: <Station /> },
       { path: "transaction", element: <Transaction /> },
-      { path: "paynow/:id", element: <Payment /> },
       { path: "support", element: <Support /> },
       { path: "profile", element: <Profile /> },
+      { path: "service/suggest", element: <SuggestService /> },
     ],
   },
 
@@ -99,7 +101,6 @@ const router = createBrowserRouter([
           { path: "overview", element: <Overview /> },
           { path: "inventory", element: <Inventory /> },
           { path: "assist", element: <ManualAssist /> },
-          { path: "dock", element: <DockConsole /> },
           { path: "swap", element: <BatterySwap /> },
           { path: "booking", element: <Booking /> },
           { path: "admin-request", element: <AdminRequest /> },

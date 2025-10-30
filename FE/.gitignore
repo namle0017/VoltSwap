@@ -40,6 +40,3 @@ Thumbs.db
 coverage/
 # package-lock.json
 # yarn.lock
-
-# Ignore backend
-/BE
