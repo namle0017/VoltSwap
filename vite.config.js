@@ -9,7 +9,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://c5f4c7e90a71.ngrok-free.app", // 🔗 thay bằng URL ngrok hiện tại của bạn
+        target: "https://2bd06246bec3.ngrok-free.app", // 🔗 thay bằng URL ngrok hiện tại của bạn
         changeOrigin: true, // cho phép Vite đóng vai trò proxy hợp lệ
         secure: false, // bỏ kiểmtra SSL (vì ngrok free có thể cảnh báo)
         rewrite: (path) => path.replace(/^\/api/, "/api"), // giữ nguyên cấu trúc /api

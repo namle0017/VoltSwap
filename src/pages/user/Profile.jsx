@@ -54,7 +54,7 @@ export default function Profile() {
         driverEmail: form.driverEmail,
         driverAddress: form.driverAddress,
         driverTele: form.driverTele,
-        password: form.password, // chỉ gửi nếu user đổi password
+        // password: form.password,
       };
 
       console.log("📤 Sending payload:", payload);
