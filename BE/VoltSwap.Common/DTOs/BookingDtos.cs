@@ -54,9 +54,13 @@ namespace VoltSwap.Common.DTOs
 
     public class ViewBookingResponse
     {
+        public string BookingId { get; set; }
+        public string DriverId { get; set; }
+        public string SubcriptionId { get; set; }
         public DateOnly Date { get; set; }
         public string DriverName { get; set; }
         public int NumberBattery { get; set; }
+        public string Note { get; set; }
         public  string DriverTele { get; set; }
         public TimeOnly TimeBooking { get; set; }
         public string Status { get; set; }

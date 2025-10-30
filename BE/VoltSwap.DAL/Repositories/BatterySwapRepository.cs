@@ -44,5 +44,21 @@ namespace VoltSwap.DAL.Repositories
         .ToListAsync();
         }
 
+        public async Task<Battery> GetBatteryInventoryInStaiion (string stationId ,string batteryId)
+        {
+            return await _context.Batteries
+                            .Where(b => b.BatteryId == batteryId
+                                    && b.BatterySwapStationId == stationId 
+                                    && b.BatteryStatus == "Warehouse")
+                            .FirstOrDefaultAsync();
+        }
+
+        public async Task<List<BatterySwap>> GetListBatterySwap (string stationId)
+        {
+            return await _context.BatterySwaps
+                           .Where(bw => bw.BatterySwapStationId == stationId)
+                           .ToListAsync();
+        }
+
     }
 }

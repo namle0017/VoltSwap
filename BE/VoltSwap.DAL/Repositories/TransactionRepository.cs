@@ -65,5 +65,12 @@ namespace VoltSwap.DAL.Repositories
                 .SumAsync(x => (double)x.Amount);
             return result;
         }
+
+        public async Task<List<Transaction>> TransactionListNotpayBySubId (string subId)
+        {
+            return  await _context.Transactions
+                .Where( t => t.SubscriptionId == subId
+                        && (t.Status == "Waiting" || t.Status == "Processing")).ToListAsync();
+        }
     }
 }

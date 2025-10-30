@@ -121,6 +121,12 @@ namespace VoltSwap.Common.DTOs
         public TimeOnly TimeBooking { get; set; }
         public string StaffId { get; set; }
     }
+    public class CheckCancelPlanRequest
+    {
+        public string SubId { get; set; }
+        public string BookingId { get; set; }
+        public string StaffId { get; set; }
+    }
 
     public class CancelPlanResponse
     {
@@ -135,5 +141,9 @@ namespace VoltSwap.Common.DTOs
     {
         public string SubId { get; set; }
         public decimal Fee { get; set; }
+    }
+    public class ConfirmTransactionRequest
+    {
+        public string TransactionId { get; set; }
     }
 }

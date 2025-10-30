@@ -25,7 +25,7 @@ namespace VoltSwap.Common.DTOs
         public decimal? MilleageBaseUsed { get; set; }
         public int? SwapLimit { get; set; }
         public decimal? Price { get; set; }
-        public DateOnly CratedAt { get; set; }
+        public DateOnly CreatedAt { get; set; }
 }
     public class PlanSuggestRequest
     {

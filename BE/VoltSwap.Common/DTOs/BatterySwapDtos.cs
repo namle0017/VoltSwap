@@ -84,7 +84,6 @@ namespace VoltSwap.Common.DTOs
     //Đây sẽ là bắt đầu cho phần transfer pin giữa các trạm hay giả lập cho staff
     public class StaffBatteryRequest
     {
-        public String StationId { get; set; }
         public string StaffId { get; set; }
         public String? BatteryOutId { get; set; }
         public String? BatteryInId { get; set; }
@@ -177,4 +176,34 @@ namespace VoltSwap.Common.DTOs
         public string AppointmentId { get; set; }
         public int SlotNumber { get; set; }
     }
+    public class StaffConfirmCancelRequest
+    {
+        public string AppointmentId { get; set; }
+        public string StaffId { get; set; }
+        public string SubcriptionId { get; set; }
+    }
+    public class SwapBatteryByStaffRequest
+    {
+        public string StaffId;
+        public string SubcriptionId { get; set; }
+        public AccessRequest AccessRequest { get; set; }
+        public List<BatteryDto> BatteryReturnId { get; set; }
+        public List<BatteryDto>  BatteryOutId { get; set; }
+    }
+
+    public class BatterySwapListRespone 
+    { 
+        public string StaffId { get; set; }
+        public string UserId { get; set; }
+       
+        public string UserName { get; set; }
+        public string? BatteryIdIn { get; set; }
+        public string? BatteryIdOut { get; set; }
+        public string Status {  get; set; }
+        public TimeOnly Time {  get; set; }
+
+
+    }
+
+
 }

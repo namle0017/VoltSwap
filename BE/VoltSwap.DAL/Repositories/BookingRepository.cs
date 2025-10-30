@@ -53,6 +53,13 @@ namespace VoltSwap.DAL.Repositories
             return "AP-" + Random.Shared.Next(0, 10_000_000).ToString("0000000");
         }
 
+        public async Task<Appointment> GetBookingCancelBySubId(string subId)
+        {
+            return await _context.Appointments
+                .Where(s => s.SubscriptionId == subId && s.Note == "Cancel Plan")
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<List<PillarSlot>> GetBatteriesAvailableByStationAsync(string pillarId, int topNumber)
         {
             return await _context.PillarSlots
@@ -62,6 +69,14 @@ namespace VoltSwap.DAL.Repositories
             .OrderByDescending(ps => ps.Battery.Soc)
             .Take(topNumber)
             .ToListAsync();
+        }
+
+        public async Task<Appointment> GetBookingBySubId(string subId)
+        {
+            return await _context.Appointments
+                                .Where(a => a.SubscriptionId == subId
+                                 && a.Note == "Swap Battery")
+                                .FirstOrDefaultAsync();
         }
     }
 }

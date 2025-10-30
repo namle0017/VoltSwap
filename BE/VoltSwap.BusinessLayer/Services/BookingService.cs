@@ -109,18 +109,11 @@ namespace VoltSwap.BusinessLayer.Services
             };
             await _unitOfWork.Trans.CreateAsync(newTransaction);
             await _unitOfWork.SaveChangesAsync();
-            // 1 sub chỉ có 1 booking chưa hoàn thành
-            //var hasActive = await _unitOfWork.Bookings
-            //                                 .GetAllQueryable()
-            //                                 .AnyAsync(a => a.SubscriptionId == request.SubscriptionId &&
-            //                                             ( a.Status == "Not done"));
 
-            //if (hasActive)
-            //    return new ServiceResult(409, "This subscription already has an unfinished booking.");
 
             string bookingId = await GenerateBookingId();
 
-            //var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
+            var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
 
 
 
@@ -195,14 +188,7 @@ namespace VoltSwap.BusinessLayer.Services
             };
             await _unitOfWork.Trans.CreateAsync(newTransaction);
             await _unitOfWork.SaveChangesAsync();
-            // 1 sub chỉ có 1 booking chưa hoàn thành
-            //var hasActive = await _unitOfWork.Bookings
-            //                                 .GetAllQueryable()
-            //                                 .AnyAsync(a => a.SubscriptionId == request.SubscriptionId &&
-            //                                             ( a.Status == "Not done"));
 
-            //if (hasActive)
-            //    return new ServiceResult(409, "This subscription already has an unfinished booking.");
 
             string bookingId = await GenerateBookingId();
 
@@ -251,7 +237,7 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
-        //Bin: Staff xem danh sách booking của trạm mình theo tháng
+        //Bin: Staff xem danh sách booking của trạm mình
         public async Task<ServiceResult> GetBookingsByStationAndMonthAsync(ViewBookingRequest request)
         {
             var today = DateTime.UtcNow.ToLocalTime();
@@ -271,9 +257,13 @@ namespace VoltSwap.BusinessLayer.Services
 
                 bookingResponses.Add(new ViewBookingResponse
                 {
+                    BookingId =booking.AppointmentId,
+                    SubcriptionId = booking.SubscriptionId,
+                    DriverId = booking.UserDriverId,
                     Date = booking.DateBooking,
                     DriverName = driver.UserName,
                     NumberBattery = requiredBatteries,
+                    Note = booking.Note,
                     DriverTele = driver.UserTele,
                     TimeBooking = booking.TimeBooking,
                     Status = booking.Status,
@@ -429,6 +419,46 @@ namespace VoltSwap.BusinessLayer.Services
 
             return await _unitOfWork.SaveChangesAsync();
         }
+        //Bin: Hàm này để staff confirm cancel plan cho người dùng cùng với đó là mock dữ liệu pin trả về và tạo session mới và tạo transaction nếu có phí phát sinh hoặc hoàn phí
+        //public async Task<ServiceResult> StaffConfirmCancelPlan(StaffConfirmCancelRequest requestDto)
+        //{
+        //    var getbook = await _unitOfWork.Bookings.GetByIdAsync(requestDto.AppointmentId);
+        //    if (getbook == null)
+        //    {
+        //        return new ServiceResult
+        //        {
+        //            Status = 404,
+        //            Message = "Booking not found",
+        //        };
+        //    }
+        //    //Đổi status cho booking 
+        //    getbook.Status = "Done";
+        //    await _appointmentRepo.UpdateAsync(getbook);
+        //    await _unitOfWork.SaveChangesAsync();
+
+
+        //    var getSub = await _subRepo.GetByIdAsync(requestDto.SubcriptionId);
+
+        //    //lấy pin từ subId
+        //    var getBatteryInUsingAvailable = await GetBatteryInUsingAvailable(requestDto.SubcriptionId);
+        //    //tạo session mới
+        //    foreach (var item in getBatteryInUsingAvailable)
+        //    {
+        //        // TẠO SESSION
+        //        var getSessionList = await GenerateBatterySession(requestDto.SubcriptionId);
+        //        // Tính milleage base + RemainingSwap.
+        //        var getMilleageBase = await CalMilleageBase(getSessionList);
+        //        // Lưu session NGAY
+        //        await _unitOfWork.BatSession.BulkCreateAsync(getSessionList);
+
+        //        getSub.CurrentMileage = getMilleageBase.Sum(x => x.MilleageBase);
+        //        await _subRepo.UpdateAsync(getSub);
+        //        await _unitOfWork.SaveChangesAsync();
+        //    }
+
+        //    //Lấy transaction refund của người dùng
+
+        //}
 
         //Nemo: Taoj booking cho cancel
         public async Task<ServiceResult> BookingCancelPlanAsync(CreateBookingRequest requestDto)
