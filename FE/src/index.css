@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url("https://fonts.googleapis.com/css2?family=Lobster&display=swap");
+@import "tailwindcss";
 
 /* Theme config (thay cho tailwind.config.js) */
 @theme {

@@ -76,14 +76,58 @@ const Hero = () => {
               </div>
 
               {/* Right side image */}
-              <div className="relative flex justify-center animate-fade-in">
-                <div className="absolute -inset-16 bg-gradient-to-r from-blue-400/25 via-green-300/25 to-transparent rounded-[4rem] blur-[140px]"></div>
-                <img
-                  src={hero}
-                  alt="EV Battery Swap Station"
-                  className="relative z-10 w-[120%] max-w-2xl rounded-[2rem] shadow-2xl object-cover transition-transform duration-700 hover:scale-[1.05]"
-                  decoding="async"
-                />
+              {/* Right side visual (UPGRADED) */}
+              <div className="relative flex justify-center items-center">
+                {/* soft gradient blob behind */}
+                <div className="absolute -inset-24 rounded-[4rem] bg-gradient-to-tr from-blue-300/30 via-cyan-200/25 to-emerald-200/25 blur-[120px]" />
+
+                {/* presentation frame */}
+                <div className="group relative w-full max-w-[560px]">
+                  {/* glowing ring */}
+                  <div className="absolute -inset-1 rounded-[2rem] bg-gradient-to-r from-blue-500/30 via-cyan-400/30 to-emerald-400/30 blur opacity-70 group-hover:opacity-100 transition" />
+
+                  {/* glass card */}
+                  <div className="relative rounded-[2rem] bg-white/80 backdrop-blur-md ring-1 ring-black/5 shadow-2xl overflow-hidden
+                    transform-gpu transition duration-500 group-hover:-translate-y-1 group-hover:rotate-[0.5deg]">
+                    {/* image with overlay */}
+                    <div className="relative aspect-[16/10]">
+                      <picture>
+                        {/* Đặt file webp chất lượng cao vào /assets/hero.webp nếu có */}
+                        <source srcSet={hero.replace(/\.png|\.jpg/i, ".webp")} type="image/webp" />
+                        <img
+                          src={hero}
+                          alt="EV Battery Swap Station"
+                          className="h-full w-full object-cover"
+                          loading="eager"
+                          decoding="async"
+                        />
+                      </picture>
+                      {/* subtle gradient overlay để màu ảnh đồng bộ brand */}
+                      <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/10 via-transparent to-emerald-500/10" />
+                    </div>
+
+                    {/* caption / micro badges */}
+                    <div className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <i className="bi bi-shield-check text-primary" />
+                        <span>ISO-ready operations</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <i className="bi bi-graph-up-arrow text-secondary" />
+                        <span>99.9% uptime</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* floating trust badge */}
+                  <div className="absolute -right-2 -top-2">
+                    <div className="rounded-full bg-white shadow-lg ring-1 ring-black/5 px-3 py-1 text-sm font-medium text-gray-700
+                      animate-[float_6s_ease-in-out_infinite]">
+                      <i className="bi bi-patch-check-fill text-primary me-1" />
+                      Trusted by 500+ stations
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

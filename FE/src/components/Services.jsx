@@ -25,16 +25,16 @@ const Services = () => {
         "Comprehensive reporting tools with detailed analytics for operational insights and optimization.",
     },
     {
-      icon: <i className="bi bi-lightning-charge"></i>,
+      icon: <i className="bi bi-lightning-charge-fill"></i>,
       title: "Smart Charging",
       description:
         "Intelligent charging algorithms that optimize battery life and reduce energy consumption.",
     },
     {
-      icon: <i className="bi bi-phone"></i>,
-      title: "Mobile App Integration",
+      icon: <i className="bi bi-credit-card-2-front-fill"></i>,
+      title: "Pricing & Subscription Management",
       description:
-        "User-friendly mobile application for seamless station location, booking, and payment processing.",
+        "Configure GU/G1/G2 plans, per-swap pricing, promotions, invoices, and receipts.",
     },
     {
       icon: <i className="bi bi-wrench"></i>,
