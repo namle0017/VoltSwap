@@ -66,7 +66,7 @@ export default function ManualAssist() {
         setPickErr("");
         try {
             if (!staffId.trim()) {
-                setPickErr("Vui lòng cung cấp staffId.");
+                setPickErr("Please provide staffId.");
                 setBatteries([]);
                 return;
             }
@@ -84,7 +84,7 @@ export default function ManualAssist() {
             setBatteries(mapped);
         } catch (e) {
             console.error(e);
-            setPickErr(e?.response?.data?.message || e.message || "Không thể tải kho pin.");
+            setPickErr(e?.response?.data?.message || e.message || "Failed to load battery warehouse.");
             setBatteries([]);
         } finally {
             setPickLoading(false);
@@ -107,21 +107,21 @@ export default function ManualAssist() {
 
             {/* Wizard */}
             <div className="card" style={{ marginTop: 12 }}>
-                <h3 style={{ marginTop: 0 }}>Chọn loại xử lý</h3>
+                <h3 style={{ marginTop: 0 }}>Select Action Type</h3>
                 <div style={grid2}>
                     <label>
-                        Subscription Id
+                        Subscription ID
                         <input
                             className="input"
                             value={subscriptionId}
                             onChange={(e) => setSubscriptionId(e.target.value)}
-                            placeholder="VD: SUB-123"
+                            placeholder="e.g. SUB-123"
                         />
                     </label>
 
                     <div>
                         <div className="small muted" style={{ marginBottom: 6 }}>
-                            * Gửi ngầm: Staff <b>{staffId || "—"}</b>
+                            * Hidden param: Staff <b>{staffId || "—"}</b>
                         </div>
                         <div style={{ display: "flex", gap: 16 }}>
                             <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -132,7 +132,7 @@ export default function ManualAssist() {
                                     checked={errorType === "pinIn"}
                                     onChange={() => { setErrorType("pinIn"); setOutBatteryId(""); }}
                                 />
-                                Pin In (pin KH đưa vào bị lỗi)
+                                Pin In (customer returns faulty battery)
                             </label>
                             <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <input
@@ -142,7 +142,7 @@ export default function ManualAssist() {
                                     checked={errorType === "pinOut"}
                                     onChange={() => { setErrorType("pinOut"); setOutBatteryId(""); }}
                                 />
-                                Pin Out (máy không nhả pin)
+                                Pin Out (machine didn’t release battery)
                             </label>
                         </div>
                     </div>
@@ -154,20 +154,20 @@ export default function ManualAssist() {
                     {errorType === "pinIn" && (
                         <div style={grid2}>
                             <div className="card">
-                                <h3 style={{ marginTop: 0 }}>Nhận pin khách (Pin In)</h3>
+                                <h3 style={{ marginTop: 0 }}>Receive Customer Battery (Pin In)</h3>
                                 <label>
-                                    Battery Id (pin KH)
+                                    Customer Battery ID
                                     <input
                                         className="input"
                                         value={inBatteryId}
                                         onChange={(e) => setInBatteryId(e.target.value)}
-                                        placeholder="VD: BAT-ERR-001"
+                                        placeholder="e.g. BAT-ERR-001"
                                     />
                                 </label>
                             </div>
 
                             <div className="card">
-                                <h3 style={{ marginTop: 0 }}>Xuất pin cho khách</h3>
+                                <h3 style={{ marginTop: 0 }}>Give Battery to Customer</h3>
                                 <label>
                                     Out Battery ID
                                     <div style={{ display: "flex", gap: 8 }}>
@@ -175,7 +175,7 @@ export default function ManualAssist() {
                                             className="input"
                                             value={outBatteryId}
                                             onChange={(e) => setOutBatteryId(e.target.value)}
-                                            placeholder="Chọn từ kho…"
+                                            placeholder="Select from warehouse…"
                                             aria-label="Out Battery ID"
                                         />
                                         <button
@@ -183,14 +183,14 @@ export default function ManualAssist() {
                                             type="button"
                                             onClick={() => { setOpenPicker(true); loadWarehouse(); }}
                                             disabled={!staffId.trim()}
-                                            title={!staffId.trim() ? "Thiếu staffId" : ""}
+                                            title={!staffId.trim() ? "Missing staffId" : ""}
                                         >
-                                            Chọn từ kho
+                                            Select from warehouse
                                         </button>
                                     </div>
                                 </label>
                                 <p className="small muted" style={{ marginTop: 6 }}>
-                                    * Chỉ hiển thị pin có trạng thái <b>warehouse</b>.
+                                    * Only batteries with status <b>warehouse</b> are shown.
                                 </p>
                             </div>
                         </div>
@@ -198,7 +198,7 @@ export default function ManualAssist() {
 
                     {errorType === "pinOut" && (
                         <div className="card" style={{ marginTop: 16 }}>
-                            <h3 style={{ marginTop: 0 }}>Xuất pin cho khách</h3>
+                            <h3 style={{ marginTop: 0 }}>Give Battery to Customer</h3>
                             <label>
                                 Out Battery ID
                                 <div style={{ display: "flex", gap: 8 }}>
@@ -206,7 +206,7 @@ export default function ManualAssist() {
                                         className="input"
                                         value={outBatteryId}
                                         onChange={(e) => setOutBatteryId(e.target.value)}
-                                        placeholder="Chọn từ kho…"
+                                        placeholder="Select from warehouse…"
                                         aria-label="Out Battery ID"
                                     />
                                     <button
@@ -214,27 +214,40 @@ export default function ManualAssist() {
                                         type="button"
                                         onClick={() => { setOpenPicker(true); loadWarehouse(); }}
                                         disabled={!staffId.trim()}
-                                        title={!staffId.trim() ? "Thiếu staffId" : ""}
+                                        title={!staffId.trim() ? "Missing staffId" : ""}
                                     >
-                                        Chọn từ kho
+                                        Select from warehouse
                                     </button>
                                 </div>
                             </label>
                             <p className="small muted" style={{ marginTop: 6 }}>
-                                * Chỉ hiển thị pin có trạng thái <b>warehouse</b>.
+                                * Only batteries with status <b>warehouse</b> are shown.
                             </p>
                         </div>
                     )}
 
                     <div style={{ marginTop: 12 }}>
-                        <button className="btn btn-primary" onClick={onConfirm} disabled={!canConfirm || submitting}>
-                            {submitting ? "Processing…" : "Xác nhận & gửi Manual Assist"}
+                        <button
+                            className="btn btn-primary"
+                            onClick={onConfirm}
+                            disabled={!canConfirm || submitting}
+                        >
+                            {submitting ? "Processing…" : "Confirm & Send Manual Assist"}
                         </button>
                     </div>
 
                     {err && (
-                        <div className="card mt-3" style={{ borderColor: "#ef4444", background: "#fef2f2" }}>
-                            <div style={{ color: "#dc2626", fontWeight: 700, whiteSpace: "pre-wrap" }}>
+                        <div
+                            className="card mt-3"
+                            style={{ borderColor: "#ef4444", background: "#fef2f2" }}
+                        >
+                            <div
+                                style={{
+                                    color: "#dc2626",
+                                    fontWeight: 700,
+                                    whiteSpace: "pre-wrap",
+                                }}
+                            >
                                 ❌ {err}
                             </div>
                         </div>
@@ -242,7 +255,9 @@ export default function ManualAssist() {
 
                     {resp && (
                         <div className="card mt-3">
-                            <div style={{ fontWeight: 700, marginBottom: 6 }}>✅ BE trả về</div>
+                            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                                ✅ Response from BE
+                            </div>
                             <pre style={pre}>{JSON.stringify(resp, null, 2)}</pre>
                         </div>
                     )}
@@ -252,60 +267,165 @@ export default function ManualAssist() {
             {/* ===== Modal “sổ kho” ===== */}
             {openPicker && (
                 <div className="overlay" onClick={() => setOpenPicker(false)}>
-                    <aside className="drawer" onClick={(e) => e.stopPropagation()}>
+                    <aside
+                        className="drawer"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <header className="drawer-head">
-                            <h4 className="m-0">Chọn pin từ kho</h4>
-                            <button className="btn-close" onClick={() => setOpenPicker(false)} aria-label="Đóng">×</button>
+                            <h4 className="m-0">Select Battery from Warehouse</h4>
+                            <button
+                                className="btn-close"
+                                onClick={() => setOpenPicker(false)}
+                                aria-label="Close"
+                            >
+                                ×
+                            </button>
                         </header>
 
-                        <div className="drawer-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div
+                            className="drawer-body"
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 12,
+                            }}
+                        >
                             <div className="row-between">
-                                <div className="small muted">Staff: <b>{staffId || "—"}</b></div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <label className="small muted">Lọc SOC tối thiểu</label>
+                                <div className="small muted">
+                                    Staff: <b>{staffId || "—"}</b>
+                                </div>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                    }}
+                                >
+                                    <label className="small muted">
+                                        Min SOC filter
+                                    </label>
                                     <input
                                         type="number"
                                         min={0}
                                         max={100}
                                         value={minSoc}
-                                        onChange={(e) => setMinSoc(clamp01(e.target.value))}
+                                        onChange={(e) =>
+                                            setMinSoc(clamp01(e.target.value))
+                                        }
                                         style={{ width: 72 }}
-                                        aria-label="Lọc SOC tối thiểu"
+                                        aria-label="Min SOC filter"
                                     />
                                 </div>
                             </div>
 
                             {pickErr && (
-                                <div className="card" style={{ color: "#991b1b", background: "#fee2e2", border: "1px solid #fecaca" }}>
+                                <div
+                                    className="card"
+                                    style={{
+                                        color: "#991b1b",
+                                        background: "#fee2e2",
+                                        border: "1px solid #fecaca",
+                                    }}
+                                >
                                     {pickErr}
                                 </div>
                             )}
 
-                            <div className="slots-grid" role="list" aria-label="Danh sách pin trong kho">
+                            <div
+                                className="slots-grid"
+                                role="list"
+                                aria-label="Warehouse battery list"
+                            >
                                 {pickLoading
-                                    ? Array.from({ length: 8 }).map((_, i) => <div key={i} className="slot-card skeleton" />)
+                                    ? Array.from({ length: 8 }).map((_, i) => (
+                                        <div
+                                            key={i}
+                                            className="slot-card skeleton"
+                                        />
+                                    ))
                                     : filteredBatteries.length === 0
-                                        ? <div className="muted small">Không có pin phù hợp (chỉ hiển thị trạng thái warehouse).</div>
+                                        ? (
+                                            <div className="muted small">
+                                                No matching batteries (only status
+                                                warehouse is shown).
+                                            </div>
+                                        )
                                         : filteredBatteries.map((b) => {
                                             const tone = statusTone(b.status);
                                             return (
-                                                <div key={b.id} className="slot-card" role="listitem" style={{ borderColor: tone.br, background: "#fff" }}>
+                                                <div
+                                                    key={b.id}
+                                                    className="slot-card"
+                                                    role="listitem"
+                                                    style={{
+                                                        borderColor: tone.br,
+                                                        background: "#fff",
+                                                    }}
+                                                >
                                                     <div className="slot-head">
-                                                        <span className="status-badge" style={{ background: tone.bg, color: tone.fg, borderColor: tone.br }}>
+                                                        <span
+                                                            className="status-badge"
+                                                            style={{
+                                                                background:
+                                                                    tone.bg,
+                                                                color: tone.fg,
+                                                                borderColor:
+                                                                    tone.br,
+                                                            }}
+                                                        >
                                                             {tone.label}
                                                         </span>
                                                     </div>
                                                     <div className="slot-body">
-                                                        <div className="slot-id">{b.id}</div>
-                                                        <div className="kv"><span>SOH</span><b>{clamp01(b.soh)}%</b></div>
-                                                        <div className="kv"><span>SOC</span><b>{clamp01(b.soc)}%</b></div>
+                                                        <div className="slot-id">
+                                                            {b.id}
+                                                        </div>
+                                                        <div className="kv">
+                                                            <span>SOH</span>
+                                                            <b>
+                                                                {clamp01(b.soh)}%
+                                                            </b>
+                                                        </div>
+                                                        <div className="kv">
+                                                            <span>SOC</span>
+                                                            <b>
+                                                                {clamp01(b.soc)}%
+                                                            </b>
+                                                        </div>
                                                         <div className="socbar">
-                                                            <span className="socbar-fill" style={{ width: `${clamp01(b.soc)}%`, background: tone.br }} />
+                                                            <span
+                                                                className="socbar-fill"
+                                                                style={{
+                                                                    width: `${clamp01(
+                                                                        b.soc
+                                                                    )}%`,
+                                                                    background:
+                                                                        tone.br,
+                                                                }}
+                                                            />
                                                         </div>
                                                     </div>
-                                                    <div className="slot-foot" style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
-                                                        <button className="btn" onClick={() => { setOutBatteryId(b.id); setOpenPicker(false); }}>
-                                                            Chọn
+                                                    <div
+                                                        className="slot-foot"
+                                                        style={{
+                                                            marginTop: 8,
+                                                            display: "flex",
+                                                            justifyContent:
+                                                                "flex-end",
+                                                        }}
+                                                    >
+                                                        <button
+                                                            className="btn"
+                                                            onClick={() => {
+                                                                setOutBatteryId(
+                                                                    b.id
+                                                                );
+                                                                setOpenPicker(
+                                                                    false
+                                                                );
+                                                            }}
+                                                        >
+                                                            Select
                                                         </button>
                                                     </div>
                                                 </div>
@@ -315,7 +435,12 @@ export default function ManualAssist() {
                         </div>
 
                         <footer className="drawer-foot">
-                            <button className="btn ghost" onClick={() => setOpenPicker(false)}>Đóng</button>
+                            <button
+                                className="btn ghost"
+                                onClick={() => setOpenPicker(false)}
+                            >
+                                Close
+                            </button>
                         </footer>
                     </aside>
                 </div>
@@ -360,7 +485,13 @@ export default function ManualAssist() {
 
 /* ===== Helpers ===== */
 const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 };
-const pre = { background: "#0f172a", color: "#e5e7eb", padding: 12, borderRadius: 8, overflowX: "auto" };
+const pre = {
+    background: "#0f172a",
+    color: "#e5e7eb",
+    padding: 12,
+    borderRadius: 8,
+    overflowX: "auto",
+};
 
 function clamp01(n) {
     const x = Number(n);
@@ -376,7 +507,17 @@ function isWarehouse(status) {
 function statusTone(status) {
     const s = (status || "").toLowerCase();
     if (s === "warehouse") {
-        return { bg: "rgba(16,185,129,.10)", fg: "#065f46", br: "#10b981", label: "Warehouse" };
+        return {
+            bg: "rgba(16,185,129,.10)",
+            fg: "#065f46",
+            br: "#10b981",
+            label: "Warehouse",
+        };
     }
-    return { bg: "rgba(148,163,184,.12)", fg: "#334155", br: "#94a3b8", label: "Other" };
+    return {
+        bg: "rgba(148,163,184,.12)",
+        fg: "#334155",
+        br: "#94a3b8",
+        label: "Other",
+    };
 }
