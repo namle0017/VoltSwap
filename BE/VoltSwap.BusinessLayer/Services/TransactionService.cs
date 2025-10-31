@@ -239,10 +239,13 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm này để admin có thể xem các transaction mà user mới tạo, để check coi là approve hay deny nếu approve thì trong transaction sẽ được cập nhật status thành Active và trong subscription sẽ được cập nhật status thành active nếu mà transactionType là Buy plan hoặc là Renew plan
         public async Task<ServiceResult> GetTransactionsByAdminAsync()
         {
-            //1. Tìm tất cả các transaction có expired và pending và cả waiting
+            //1. Update Status của các Transaction quá hạn
+            var updateStatusTrans = await UpdateStatusExpiredTransaction();
+            //2. Tìm tất cả các transaction có expired và pending và cả waiting
             var transactions = await _transRepo.GetAllAsync(t => t.Status == "Pending"
                                         && t.Status == "Waiting"
-                                        && t.Status == "Expired");
+                                        && t.Status == "Expired"
+                                        && t.Status == "Failed");
             if (transactions == null || !transactions.Any())
             {
                 return new ServiceResult
@@ -251,6 +254,8 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "No pending transactions found."
                 };
             }
+
+
             var pendingTransactions = transactions.Select(t => new TransactionListForAdminResponse
             {
                 TransactionId = t.TransactionId,
@@ -266,6 +271,23 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "Waiting transactions retrieved successfully.",
                 Data = pendingTransactions
             };
+        }
+
+        //Nemo: Update Status Expired For Transaction
+        private async Task<int> UpdateStatusExpiredTransaction()
+        {
+            var currentDate = DateTime.UtcNow.ToLocalTime();
+            var transactions = await _transRepo.GetAllAsync(t => t.Status =="Pending");
+            foreach (var trans in transactions)
+            {
+                var getTransDate = trans.CreateAt.Value.Date;
+                if (getTransDate >= currentDate.Date.AddDays(4))
+                {
+                    trans.Status = "Expired";
+                    await _transRepo.UpdateAsync(trans);
+                }
+            }
+            return await _unitOfWork.SaveChangesAsync();
         }
 
         //Bin: admin bấm nút Create All để hiển thị transaction bên người dùng
