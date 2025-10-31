@@ -39,8 +39,7 @@ function statusPillClass(text) {
         return "pill successful";
     return "pill pending"; // "Processing"/"Not done"
 }
-const isCancelNote = (note) =>
-    String(note || "").toLowerCase().includes("cancel");
+const isCancelNote = (note) => String(note || "").toLowerCase().includes("cancel");
 
 /* ========== Normalizer ========== */
 function normalizeBooking(b, idx) {
@@ -72,10 +71,7 @@ export default function Booking() {
     const [txByBooking, setTxByBooking] = React.useState({});
 
     const staffId = React.useMemo(
-        () =>
-            localStorage.getItem("staffId") ||
-            localStorage.getItem("userId") ||
-            "",
+        () => localStorage.getItem("staffId") || localStorage.getItem("userId") || "",
         []
     );
 
@@ -84,16 +80,12 @@ export default function Booking() {
         setError("");
         try {
             if (!staffId) {
-                setError(
-                    "Missing StaffId in localStorage. Please sign in again."
-                );
+                setError("Thiếu StaffId trong localStorage. Vui lòng đăng nhập lại.");
                 setRows([]);
                 setLoading(false);
                 return;
             }
-            const res = await api.get(LIST_ENDPOINT, {
-                params: { StaffId: staffId },
-            });
+            const res = await api.get(LIST_ENDPOINT, { params: { StaffId: staffId } });
             const list = Array.isArray(res?.data?.data)
                 ? res.data.data
                 : Array.isArray(res?.data)
@@ -101,17 +93,10 @@ export default function Booking() {
                     : [];
             const mapped = list
                 .map(normalizeBooking)
-                .sort(
-                    (a, b) =>
-                        (a.when?.getTime?.() ?? 0) -
-                        (b.when?.getTime?.() ?? 0)
-                );
+                .sort((a, b) => (a.when?.getTime?.() ?? 0) - (b.when?.getTime?.() ?? 0));
             setRows(mapped);
         } catch (e) {
-            const msg =
-                e?.response?.data?.message ||
-                e?.message ||
-                "Failed to load booking list.";
+            const msg = e?.response?.data?.message || e?.message || "Không thể tải danh sách booking.";
             setError(msg);
             setRows([]);
         } finally {
@@ -127,7 +112,7 @@ export default function Booking() {
     // Create Transaction: { subId, bookingId, staffId }
     const handleCreateTransaction = async (bk) => {
         if (!bk?.subcriptionId || !bk?.bookingId || !staffId) {
-            alert("Missing data (subId / bookingId / staffId).");
+            alert("Thiếu dữ liệu (subId/bookingId/staffId).");
             return;
         }
         if (creatingIds.has(bk.bookingId)) return; // chống double click
@@ -144,17 +129,10 @@ export default function Booking() {
                 res?.data?.transactionId ||
                 res?.data?.data?.transactionId ||
                 "";
-            if (txId)
-                setTxByBooking((prev) => ({
-                    ...prev,
-                    [bk.bookingId]: txId,
-                }));
-            alert("Transaction created successfully.");
+            if (txId) setTxByBooking((prev) => ({ ...prev, [bk.bookingId]: txId }));
+            alert("Tạo transaction thành công.");
         } catch (e) {
-            const msg =
-                e?.response?.data?.message ||
-                e?.message ||
-                "Failed to create transaction.";
+            const msg = e?.response?.data?.message || e?.message || "Tạo transaction thất bại.";
             alert(msg);
         } finally {
             setCreatingIds((prev) => {
@@ -169,21 +147,16 @@ export default function Booking() {
     const handleConfirmTransaction = async (bk) => {
         const txId = txByBooking[bk.bookingId];
         if (!txId) {
-            alert(
-                "No transactionId yet. Please click 'Create Transaction' first."
-            );
+            alert("Chưa có transactionId. Vui lòng bấm 'Create Transaction' trước.");
             return;
         }
         if (confirmingIds.has(bk.bookingId)) return; // chống double click
         setConfirmingIds((prev) => new Set(prev).add(bk.bookingId));
         try {
             await api.post(CONFIRM_TX_EP, { transactionId: txId });
-            alert("Transaction confirmed successfully.");
+            alert("Xác nhận transaction thành công.");
         } catch (e) {
-            const msg =
-                e?.response?.data?.message ||
-                e?.message ||
-                "Failed to confirm transaction.";
+            const msg = e?.response?.data?.message || e?.message || "Xác nhận transaction thất bại.";
             alert(msg);
         } finally {
             setConfirmingIds((prev) => {
@@ -200,15 +173,9 @@ export default function Booking() {
             <div className="row-between">
                 <div>
                     <h2 className="h1">Booking</h2>
-                    <p className="muted">
-                        Manage customer bookings and schedules.
-                    </p>
+                    <p className="muted">Manage customer bookings and schedules.</p>
                 </div>
-                <button
-                    className="btn"
-                    onClick={fetchBookings}
-                    disabled={loading}
-                >
+                <button className="btn" onClick={fetchBookings} disabled={loading}>
                     ↻ Refresh
                 </button>
             </div>
@@ -217,11 +184,7 @@ export default function Booking() {
             {error && (
                 <div
                     className="card card-padded mt-3"
-                    style={{
-                        border: "1px solid #fecaca",
-                        background: "#fee2e2",
-                        color: "#991b1b",
-                    }}
+                    style={{ border: "1px solid #fecaca", background: "#fee2e2", color: "#991b1b" }}
                 >
                     {error}
                 </div>
@@ -229,13 +192,9 @@ export default function Booking() {
             {loading && (
                 <div
                     className="card card-padded mt-3"
-                    style={{
-                        border: "1px solid #c7d2fe",
-                        background: "#eef2ff",
-                        color: "#3730a3",
-                    }}
+                    style={{ border: "1px solid #c7d2fe", background: "#eef2ff", color: "#3730a3" }}
                 >
-                    Loading bookings…
+                    Đang tải bookings…
                 </div>
             )}
 
@@ -258,27 +217,16 @@ export default function Booking() {
                     <tbody>
                         {rows.length === 0 && !loading ? (
                             <tr>
-                                <td
-                                    colSpan={8}
-                                    className="muted"
-                                    style={{
-                                        textAlign: "center",
-                                        padding: "16px",
-                                    }}
-                                >
-                                    No bookings.
+                                <td colSpan={8} className="muted" style={{ textAlign: "center", padding: "16px" }}>
+                                    Không có lịch đặt nào.
                                 </td>
                             </tr>
                         ) : (
                             rows.map((bk) => {
                                 const showCancelFlow = isCancelNote(bk.note);
-                                const creating =
-                                    creatingIds.has(bk.bookingId);
-                                const confirming =
-                                    confirmingIds.has(bk.bookingId);
-                                const hasTxId = Boolean(
-                                    txByBooking[bk.bookingId]
-                                );
+                                const creating = creatingIds.has(bk.bookingId);
+                                const confirming = confirmingIds.has(bk.bookingId);
+                                const hasTxId = Boolean(txByBooking[bk.bookingId]);
 
                                 return (
                                     <tr key={bk.id}>
@@ -288,58 +236,28 @@ export default function Booking() {
                                         <td>{bk.phone}</td>
                                         <td>{fmtTimeAMPM(bk.when)}</td>
                                         <td>
-                                            <span
-                                                className={statusPillClass(
-                                                    bk.status
-                                                )}
-                                            >
-                                                {bk.status}
-                                            </span>
+                                            <span className={statusPillClass(bk.status)}>{bk.status}</span>
                                         </td>
                                         <td>{bk.note || "—"}</td>
-                                        <td
-                                            style={{
-                                                display: "flex",
-                                                gap: 8,
-                                            }}
-                                        >
+                                        <td style={{ display: "flex", gap: 8 }}>
                                             {showCancelFlow ? (
                                                 <>
                                                     <button
                                                         className="btn btn-create"
                                                         disabled={creating}
-                                                        onClick={() =>
-                                                            handleCreateTransaction(
-                                                                bk
-                                                            )
-                                                        }
-                                                        title="Create refund transaction"
+                                                        onClick={() => handleCreateTransaction(bk)}
+                                                        title="Tạo giao dịch hoàn tiền"
                                                     >
-                                                        {creating
-                                                            ? "Creating…"
-                                                            : "Create Transaction"}
+                                                        {creating ? "Creating…" : "Create Transaction"}
                                                     </button>
 
                                                     <button
                                                         className="btn btn-confirm"
-                                                        disabled={
-                                                            !hasTxId ||
-                                                            confirming
-                                                        }
-                                                        onClick={() =>
-                                                            handleConfirmTransaction(
-                                                                bk
-                                                            )
-                                                        }
-                                                        title={
-                                                            hasTxId
-                                                                ? "Confirm transaction"
-                                                                : "Please create transaction first"
-                                                        }
+                                                        disabled={!hasTxId || confirming}
+                                                        onClick={() => handleConfirmTransaction(bk)}
+                                                        title={hasTxId ? "Xác nhận transaction" : "Create transaction trước"}
                                                     >
-                                                        {confirming
-                                                            ? "Confirming…"
-                                                            : "Confirm"}
+                                                        {confirming ? "Confirming…" : "Confirm"}
                                                     </button>
                                                 </>
                                             ) : (
