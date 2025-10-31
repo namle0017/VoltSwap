@@ -66,7 +66,7 @@ namespace VoltSwap.Common.DTOs
     public class StationStaffResponse
     {
         public string StationId { get; set; }
-        public string StationName { get; set; }
+
         public TimeOnly ShiftStart { get; set; }
         public TimeOnly ShiftEnd { get; set; }
     }

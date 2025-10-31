@@ -14,5 +14,6 @@ namespace VoltSwap.Common.DTOs
         public decimal Soh { get; set; }
         public decimal Capacity { get; set; }
         public String StationId { get; set; }
+        public String StationName { get; set; }
     }
 }

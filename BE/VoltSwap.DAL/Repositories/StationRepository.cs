@@ -74,7 +74,7 @@ namespace VoltSwap.DAL.Repositories
             return await _context.PillarSlots
             .Where(ps => ps.BatterySwapPillarId == pillarId
                          && ps.Battery != null
-                         && ps.AppointmentId != bookingId)
+                         && ps.AppointmentId == bookingId)
             .OrderByDescending(ps => ps.Battery.Soc)
             .ToListAsync();
         }

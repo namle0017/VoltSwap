@@ -135,7 +135,7 @@ namespace VoltSwap.BusinessLayer.Services
                     StationStaff = new StationStaffResponse
                     {
                         StationId = staffStations.BatterySwapStationId,
-                        StationName = getStation.BatterySwapStationName,
+                       
                         ShiftStart = staffStations.ShiftStart,
                         ShiftEnd = staffStations.ShiftEnd
                     }
@@ -371,7 +371,7 @@ namespace VoltSwap.BusinessLayer.Services
                 string role = "Staff";
                 string password = "VoltSwapProjectSwp";
                 var supervisorId = await GetAdminId();
-                var userId = await GenerateStaffId();
+                var userId =  await GenerateStaffId();
                 var newUser = new User()
                 {
                     UserId = userId,
@@ -388,6 +388,11 @@ namespace VoltSwap.BusinessLayer.Services
 
                 await _userRepo.CreateAsync(newUser);
                 await _unitOfWork.SaveChangesAsync();
+                //var station = new StationStaff()
+                //{
+
+                //}
+
 
                 return new ServiceResult
                 {

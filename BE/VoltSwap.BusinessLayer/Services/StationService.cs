@@ -161,10 +161,13 @@ namespace VoltSwap.BusinessLayer.Services
             }
             var getstaion = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(staffRequest.StaffId);
             var batteryInventory = await _unitOfWork.Batteries.GetBatteriesInventoryByStationId(getstaion.BatterySwapStationId);
+            var station = await _stationRepo.GetByIdAsync(getstaion.BatterySwapStationId);
             var batteryInventoryDto = batteryInventory.Select(bat => new BatResponse
             {
+                
                 BatteryId = bat.BatteryId,
                 StationId = bat.BatterySwapStationId,
+                StationName = station.BatterySwapStationName,
                 Soc = bat.Soc,
                 Soh = bat.Soh,
                 Capacity = bat.Capacity,
