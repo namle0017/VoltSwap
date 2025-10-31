@@ -1,19 +1,21 @@
 // src/pages/Vehicle.jsx
 import React, { useEffect, useState } from "react";
 import api from "@/api/api";
-
+import { useNavigate } from "react-router-dom";
 export default function Vehicle() {
     const [vehicles, setVehicles] = useState([]);
     const [driverId, setDriverId] = useState("");
     const [showModal, setShowModal] = useState(false);
     const [loading, setLoading] = useState(false);
     const [pendingRecs, setPendingRecs] = useState([]); // VIN đang đợi recommend
+    // eslint-disable-next-line no-unused-vars
+    const [apiMessage, setApiMessage] = useState("");
     const [newVehicle, setNewVehicle] = useState({
         vin: "",
         model: "",
         batteryCount: "",
     });
-
+    const navigate = useNavigate();
     // ---- helper: map dữ liệu BE -> shape FE
     const mapVehicle = (x, i = 0) => ({
         id: x?.id ?? x?.vehicleId ?? x?.vin ?? `v-${i}`,
@@ -57,8 +59,15 @@ export default function Vehicle() {
             setVehicles(raw.map(mapVehicle));
         } catch (err) {
             console.error("❌ Error loading vehicles:", err);
-            alert("❌ Failed to load vehicles. Check BE endpoint or UserDriverId param.");
-            setVehicles([]);
+            const apiMessage = err?.response?.data?.message;
+
+            if (apiMessage) {
+                setVehicles([]);
+                setApiMessage(apiMessage);
+                alert(apiMessage);
+            } else {
+                alert("⚠️ Could not load vehicles.");
+            }
         } finally {
             setLoading(false);
         }
@@ -74,7 +83,7 @@ export default function Vehicle() {
         const VIN = (vin || "").trim().toLowerCase();
         setPendingRecs((prev) => (prev.includes(VIN) ? prev : [...prev, VIN]));
 
-        const MAX_TRIES = 8;      // ~10s nếu interval 1200ms
+        const MAX_TRIES = 8; // ~10s nếu interval 1200ms
         const INTERVAL_MS = 1200; // chỉnh nếu cần
 
         for (let i = 0; i < MAX_TRIES; i++) {
@@ -93,7 +102,11 @@ export default function Vehicle() {
                 const found = mapped.find(
                     (v) => (v.vin || "").trim().toLowerCase() === VIN
                 );
-                if (found && Array.isArray(found.recommendPlan) && found.recommendPlan.length > 0) {
+                if (
+                    found &&
+                    Array.isArray(found.recommendPlan) &&
+                    found.recommendPlan.length > 0
+                ) {
                     // có recommend rồi → bỏ khỏi pending
                     setPendingRecs((prev) => prev.filter((x) => x !== VIN));
                     return true;
@@ -123,10 +136,10 @@ export default function Vehicle() {
 
         const vinInput = newVehicle.vin.trim();
         const body = {
-            driverId,                              // lấy từ localStorage('userId')
+            driverId, // lấy từ localStorage('userId')
             vin: vinInput,
             vehicleModel: newVehicle.model.trim(), // đúng key BE
-            numberOfBat,                           // đúng key BE
+            numberOfBat, // đúng key BE
         };
 
         try {
@@ -154,7 +167,8 @@ export default function Vehicle() {
 
     // ✅ DELETE đúng theo BE: /Vehicle/delete-vehicle + query
     const handleDeleteVehicle = async (vin) => {
-        if (!window.confirm("🗑️ Are you sure you want to delete this vehicle?")) return;
+        if (!window.confirm("🗑️ Are you sure you want to delete this vehicle?"))
+            return;
 
         const VIN = (vin || "").trim();
         const VIN_LC = VIN.toLowerCase();
@@ -216,7 +230,9 @@ export default function Vehicle() {
                     (typeof lastErr?.response?.data === "string"
                         ? lastErr.response.data
                         : "") ||
-                    (lastErr ? JSON.stringify(lastErr?.response?.data || {}) : "Server error");
+                    (lastErr
+                        ? JSON.stringify(lastErr?.response?.data || {})
+                        : "Server error");
                 alert(
                     "❌ Failed to delete on server.\n" +
                     (apiMsg ||
@@ -227,7 +243,6 @@ export default function Vehicle() {
             }
         }
     };
-
 
     return (
         <div className="min-h-screen bg-gray-50 p-6">
@@ -310,7 +325,9 @@ export default function Vehicle() {
                 <div className="grid md:grid-cols-2 gap-6">
                     {vehicles.map((v) => {
                         const VIN = (v.vin || "").trim().toLowerCase();
-                        const waiting = pendingRecs.includes(VIN) && (!v.recommendPlan || v.recommendPlan.length === 0);
+                        const waiting =
+                            pendingRecs.includes(VIN) &&
+                            (!v.recommendPlan || v.recommendPlan.length === 0);
 
                         return (
                             <div
@@ -344,6 +361,18 @@ export default function Vehicle() {
                                                 : "--"}
                                         </span>
                                     )}
+                                    <button
+                                        onClick={() =>
+                                            navigate(
+                                                `/user/service/suggest?planList=${encodeURIComponent(
+                                                    v.recommendPlan.join(",")
+                                                )}`
+                                            )
+                                        }
+                                        className="text-blue-600 hover:underline text-sm font-medium"
+                                    >
+                                        🔍 Recommend Plan
+                                    </button>
 
                                     <button
                                         onClick={() => handleDeleteVehicle(v.vin)}

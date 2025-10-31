@@ -41,5 +41,9 @@ coverage/
 # package-lock.json
 # yarn.lock
 
-# Ignore backend
-/BE
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

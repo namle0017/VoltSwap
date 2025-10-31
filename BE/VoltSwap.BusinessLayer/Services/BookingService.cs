@@ -113,8 +113,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             string bookingId = await GenerateBookingId();
 
-            var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
-
+            
 
 
             var appointmentDB = new Appointment
@@ -125,7 +124,7 @@ namespace VoltSwap.BusinessLayer.Services
                 BatterySwapStationId = request.StationId,
                 Note = request.Note,
                 SubscriptionId = request.SubscriptionId,
-                Status = "Pending",
+                Status = "Processing",
                 DateBooking = request.DateBooking,
                 TimeBooking = request.TimeBooking,
                 CreateBookingAt = DateTime.UtcNow.ToLocalTime()
@@ -134,6 +133,7 @@ namespace VoltSwap.BusinessLayer.Services
             };
             await _bookingRepo.CreateAsync(appointmentDB);
             await _unitOfWork.SaveChangesAsync();
+            var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
 
 
             var appointment = new BookingResponse

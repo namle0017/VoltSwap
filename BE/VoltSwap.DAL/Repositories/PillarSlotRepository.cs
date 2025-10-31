@@ -28,6 +28,7 @@ namespace VoltSwap.DAL.Repositories
 
             var slotsToLock = await _context.PillarSlots
                 .Include(ps => ps.BatterySwapPillar)
+                .Include(b => b.Battery)
                 .Where(ps => ps.BatterySwapPillar.BatterySwapStationId == stationId
           && ps.PillarStatus == "Unavailable")
                 .OrderByDescending(ps => ps.BatterySwapPillarId)
@@ -81,7 +82,7 @@ namespace VoltSwap.DAL.Repositories
                 .ToListAsync();
         }
 
-        public async Task<PillarSlot> GetEmptySlot (int  pillarslotId)
+        public async Task<PillarSlot> GetEmptySlot(int pillarslotId)
         {
             return await _context.PillarSlots
                 .Where(ps => ps.SlotId == pillarslotId
@@ -89,7 +90,7 @@ namespace VoltSwap.DAL.Repositories
                     && ps.PillarStatus == "Available")
                 .FirstOrDefaultAsync();
         }
-        public async Task<PillarSlot> GetSlotWithBattery( int PilarSlotId, string batteryId)
+        public async Task<PillarSlot> GetSlotWithBattery(int PilarSlotId, string batteryId)
         {
             return await _context.PillarSlots
                 .Where(ps => ps.SlotId == PilarSlotId
