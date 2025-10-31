@@ -42,5 +42,7 @@ namespace VoltSwap.BusinessLayer.IServices
 
         Task<ServiceResult> RecreateTransaction(string transactionId);
 
+        Task<bool> CheckPaidMonthly(string subId);
+
     }
 }
