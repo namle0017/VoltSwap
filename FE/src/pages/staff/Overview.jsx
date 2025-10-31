@@ -40,7 +40,7 @@ export default function Overview() {
     const fetchOverview = async () => {
         try {
             if (!userId) {
-                setErr("Thiếu userId trong localStorage. Vui lòng đăng nhập lại.");
+                setErr("Missing userId in localStorage. Please sign in again.");
                 setData(null);
                 setLoading(false);
                 return;
@@ -52,7 +52,11 @@ export default function Overview() {
             const res = await api.get(ROUTE, { params: { userId } });
             setData(res?.data?.data || null);
         } catch (e) {
-            setErr(e?.response?.data?.message || e?.message || "Tải overview thất bại");
+            setErr(
+                e?.response?.data?.message ||
+                e?.message ||
+                "Failed to load overview"
+            );
             setData(null);
         } finally {
             setLoading(false);
@@ -93,7 +97,9 @@ export default function Overview() {
             <header className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <h1 className="text-xl font-bold m-0">Overview</h1>
-                    <p className="text-slate-500 text-sm">Tổng quan trạm & hoạt động trong ngày</p>
+                    <p className="text-slate-500 text-sm">
+                        Station summary & daily activity
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -101,7 +107,7 @@ export default function Overview() {
                         className="px-3 py-2 rounded-lg border text-sm"
                         onClick={fetchOverview}
                         disabled={loading}
-                        title="Làm mới dữ liệu"
+                        title="Refresh data"
                     >
                         ↻ {loading ? "Loading..." : "Refresh"}
                     </button>
@@ -128,13 +134,13 @@ export default function Overview() {
             <div className="rounded-2xl border bg-white shadow-sm">
                 <div className="px-4 py-3 border-b flex items-center gap-2">
                     <span>⚠️</span>
-                    <span className="font-semibold">Sự cố / Ticket</span>
+                    <span className="font-semibold">Issue / Ticket</span>
                 </div>
 
                 {loading ? (
-                    <div className="p-4 text-sm text-slate-500">Đang tải…</div>
+                    <div className="p-4 text-sm text-slate-500">Loading…</div>
                 ) : !tickets.length ? (
-                    <div className="p-4 text-sm text-slate-500">Không có ticket.</div>
+                    <div className="p-4 text-sm text-slate-500">No tickets.</div>
                 ) : (
                     <div className="divide-y">
                         {tickets.map((t) => (
@@ -146,7 +152,11 @@ export default function Overview() {
                                     <div className="text-slate-500 text-sm">{t.who}</div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-0.5 rounded text-xs border ${badgeTone(t.status)}`}>
+                                    <span
+                                        className={`px-2 py-0.5 rounded text-xs border ${badgeTone(
+                                            t.status
+                                        )}`}
+                                    >
                                         {t.status}
                                     </span>
                                     <span className="text-slate-500 text-xs">{t.time}</span>
@@ -159,4 +169,3 @@ export default function Overview() {
         </section>
     );
 }
-

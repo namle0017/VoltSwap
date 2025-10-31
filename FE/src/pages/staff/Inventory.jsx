@@ -114,7 +114,7 @@ export default function Inventory() {
     const fetchInventory = React.useCallback(async () => {
         try {
             if (!staffId) {
-                setError("Thiếu staffId trong localStorage. Vui lòng đăng nhập lại.");
+                setError("Missing staffId in localStorage. Please sign in again.");
                 setSlots(buildEmptyGrid());
                 setLoading(false);
                 return;
@@ -137,7 +137,11 @@ export default function Inventory() {
             setLastUpdated(new Date().toISOString());
         } catch (e) {
             console.error("Fetch station inventory failed:", e);
-            setError(e?.response?.data?.message || e?.message || "Không thể tải kho pin.");
+            setError(
+                e?.response?.data?.message ||
+                e?.message ||
+                "Failed to load station inventory."
+            );
             setSlots(buildEmptyGrid());
         } finally {
             setLoading(false);
@@ -154,10 +158,10 @@ export default function Inventory() {
             {/* Header */}
             <header className="row-between">
                 <div className="header-left">
-                    <span className="kho-chip">Kho trạm</span>
+                    <span className="kho-chip">Station Inventory</span>
                     <h2 className="h1 m-0">{stationName}</h2>
                     <div className="muted small">
-                        {lastUpdated ? `Cập nhật: ${fmtTime(lastUpdated)}` : ""}
+                        {lastUpdated ? `Updated: ${fmtTime(lastUpdated)}` : ""}
                     </div>
                 </div>
                 <div className="actions">
@@ -177,80 +181,112 @@ export default function Inventory() {
             {/* Grid 20 ô (KHÔNG hiển thị vị trí) */}
             <section className="card card-padded mt-4">
                 <div className="row-between">
-                    <h3 className="h4 m-0">Kho Pin</h3>
+                    <h3 className="h4 m-0">Battery Warehouse</h3>
                     <div className="legend">
-                        <span className="legend-dot full" /> Warehouse/Full
+                        <span className="legend-dot full" /> Warehouse / Full
                         <span className="legend-dot maint" /> Maintenance
-                        <span className="legend-dot empty" /> Khác / Empty
+                        <span className="legend-dot empty" /> Other / Empty
                     </div>
                 </div>
 
-                <div className="slots-grid mt-3" role="grid" aria-label="Danh sách Pin trong kho">
-                    {(loading && slots.length === 0 ? buildEmptyGrid() : slots).map(({ slot, battery }) => {
-                        const tone = statusTone(battery?.status);
-                        const pct = battery ? clamp01(battery.soc) : 0;
+                <div
+                    className="slots-grid mt-3"
+                    role="grid"
+                    aria-label="Battery list in warehouse"
+                >
+                    {(loading && slots.length === 0 ? buildEmptyGrid() : slots).map(
+                        ({ slot, battery }) => {
+                            const tone = statusTone(battery?.status);
+                            const pct = battery ? clamp01(battery.soc) : 0;
 
-                        return (
-                            <button
-                                key={slot}
-                                role="gridcell"
-                                className={`slot-card ${loading && !battery ? "skeleton" : ""}`}
-                                style={{
-                                    borderColor: tone.br,
-                                    background: battery ? "#fff" : "linear-gradient(#f8fafc,#f1f5f9)",
-                                }}
-                                onClick={() => setOpenSlot({ slot, battery })}
-                                disabled={loading && slots.length === 0}
-                                aria-label={battery ? `Pin ${battery.id}, SOC ${pct}%` : "Ô trống"}
-                                type="button"
-                            >
-                                <div className="slot-head">
-                                    {/* ĐÃ BỎ nhãn vị trí (A1..E4) */}
-                                    <span
-                                        className="status-badge"
-                                        style={{ background: tone.bg, color: tone.fg, borderColor: tone.br }}
-                                    >
-                                        {battery ? (tone.label || "—") : ""}
-                                    </span>
-                                </div>
+                            return (
+                                <button
+                                    key={slot}
+                                    role="gridcell"
+                                    className={`slot-card ${loading && !battery ? "skeleton" : ""
+                                        }`}
+                                    style={{
+                                        borderColor: tone.br,
+                                        background: battery
+                                            ? "#fff"
+                                            : "linear-gradient(#f8fafc,#f1f5f9)",
+                                    }}
+                                    onClick={() => setOpenSlot({ slot, battery })}
+                                    disabled={loading && slots.length === 0}
+                                    aria-label={
+                                        battery
+                                            ? `Battery ${battery.id}, SOC ${pct}%`
+                                            : "Empty slot"
+                                    }
+                                    type="button"
+                                >
+                                    <div className="slot-head">
+                                        {/* ĐÃ BỎ nhãn vị trí (A1..E4) */}
+                                        <span
+                                            className="status-badge"
+                                            style={{
+                                                background: tone.bg,
+                                                color: tone.fg,
+                                                borderColor: tone.br,
+                                            }}
+                                        >
+                                            {battery ? tone.label || "—" : ""}
+                                        </span>
+                                    </div>
 
-                                <div className="slot-body">
-                                    <div className="slot-id">{battery?.id || "—"}</div>
+                                    <div className="slot-body">
+                                        <div className="slot-id">
+                                            {battery?.id || "—"}
+                                        </div>
 
-                                    {battery ? (
-                                        <>
-                                            <div className="kv">
-                                                <span>SOH</span>
-                                                <b>{clamp01(battery.soh)}%</b>
+                                        {battery ? (
+                                            <>
+                                                <div className="kv">
+                                                    <span>SOH</span>
+                                                    <b>{clamp01(battery.soh)}%</b>
+                                                </div>
+                                                <div className="kv">
+                                                    <span>SOC</span>
+                                                    <b>{pct}%</b>
+                                                </div>
+                                                <div className="socbar">
+                                                    <span
+                                                        className="socbar-fill"
+                                                        style={{
+                                                            width: `${pct}%`,
+                                                            background: tone.br,
+                                                        }}
+                                                    />
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="muted small">
+                                                No Battery
                                             </div>
-                                            <div className="kv">
-                                                <span>SOC</span>
-                                                <b>{pct}%</b>
-                                            </div>
-                                            <div className="socbar">
-                                                <span
-                                                    className="socbar-fill"
-                                                    style={{ width: `${pct}%`, background: tone.br }}
-                                                />
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="muted small">Chưa có Pin</div>
-                                    )}
-                                </div>
-                            </button>
-                        );
-                    })}
+                                        )}
+                                    </div>
+                                </button>
+                            );
+                        }
+                    )}
                 </div>
             </section>
 
             {/* Drawer detail (KHÔNG hiển thị vị trí) */}
             {openSlot && (
                 <div className="overlay" onClick={() => setOpenSlot(null)}>
-                    <aside className="drawer" onClick={(e) => e.stopPropagation()}>
+                    <aside
+                        className="drawer"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <header className="drawer-head">
-                            <h4 className="m-0">Chi tiết Pin</h4>
-                            <button className="btn-close" onClick={() => setOpenSlot(null)} aria-label="Đóng" type="button">
+                            <h4 className="m-0">Battery Detail</h4>
+                            <button
+                                className="btn-close"
+                                onClick={() => setOpenSlot(null)}
+                                aria-label="Close"
+                                type="button"
+                            >
                                 ×
                             </button>
                         </header>
@@ -258,19 +294,27 @@ export default function Inventory() {
                         <div className="drawer-body">
                             <dl className="details">
                                 <div className="detail">
-                                    <dt>Mã Pin</dt>
+                                    <dt>Battery ID</dt>
                                     <dd>{openSlot.battery?.id || "—"}</dd>
                                 </div>
                                 <div className="detail">
                                     <dt>SOH</dt>
                                     <dd>
-                                        {openSlot.battery?.soh != null ? `${clamp01(openSlot.battery.soh)}%` : "—"}
+                                        {openSlot.battery?.soh != null
+                                            ? `${clamp01(
+                                                openSlot.battery.soh
+                                            )}%`
+                                            : "—"}
                                     </dd>
                                 </div>
                                 <div className="detail">
                                     <dt>SOC</dt>
                                     <dd>
-                                        {openSlot.battery?.soc != null ? `${clamp01(openSlot.battery.soc)}%` : "—"}
+                                        {openSlot.battery?.soc != null
+                                            ? `${clamp01(
+                                                openSlot.battery.soc
+                                            )}%`
+                                            : "—"}
                                     </dd>
                                 </div>
                                 <div className="detail">
@@ -282,15 +326,21 @@ export default function Inventory() {
                                     </dd>
                                 </div>
                                 <div className="detail">
-                                    <dt>Trạng thái</dt>
+                                    <dt>Status</dt>
                                     <dd>
                                         {openSlot.battery ? (
                                             (() => {
-                                                const t = statusTone(openSlot.battery.status);
+                                                const t = statusTone(
+                                                    openSlot.battery.status
+                                                );
                                                 return (
                                                     <span
                                                         className="status-badge"
-                                                        style={{ background: t.bg, color: t.fg, borderColor: t.br }}
+                                                        style={{
+                                                            background: t.bg,
+                                                            color: t.fg,
+                                                            borderColor: t.br,
+                                                        }}
                                                     >
                                                         {t.label || "—"}
                                                     </span>
@@ -303,18 +353,29 @@ export default function Inventory() {
                                 </div>
                                 <div className="detail">
                                     <dt>Station</dt>
-                                    <dd>{openSlot.battery?.stationId || stationName}</dd>
+                                    <dd>
+                                        {openSlot.battery?.stationId ||
+                                            stationName}
+                                    </dd>
                                 </div>
                                 <div className="detail">
                                     <dt>Updated</dt>
-                                    <dd>{fmtTime(openSlot.battery?.updatedAt)}</dd>
+                                    <dd>
+                                        {fmtTime(
+                                            openSlot.battery?.updatedAt
+                                        )}
+                                    </dd>
                                 </div>
                             </dl>
                         </div>
 
                         <footer className="drawer-foot">
-                            <button className="btn ghost" onClick={() => setOpenSlot(null)} type="button">
-                                Đóng
+                            <button
+                                className="btn ghost"
+                                onClick={() => setOpenSlot(null)}
+                                type="button"
+                            >
+                                Close
                             </button>
                         </footer>
                     </aside>
@@ -409,4 +470,3 @@ export default function Inventory() {
         </section>
     );
 }
-
