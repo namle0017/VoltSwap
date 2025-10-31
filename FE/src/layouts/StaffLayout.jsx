@@ -26,12 +26,28 @@ function ConfirmDialog({ open, title, message, onCancel, onConfirm }) {
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-desc"
-            onKeyDown={(e) => e.key === "Escape" && onCancel()}>
+        <div
+            className="fixed inset-0 z-[100]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dlg-title"
+            aria-describedby="dlg-desc"
+            onKeyDown={(e) => e.key === "Escape" && onCancel()}
+        >
             <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
             <div className="absolute inset-x-0 top-[20%] mx-auto max-w-md rounded-2xl border bg-white shadow-xl">
-                <div className="px-5 py-4 border-b font-semibold" id="dlg-title">{title}</div>
-                <div className="p-5 text-sm text-slate-600" id="dlg-desc">{message}</div>
+                <div
+                    className="px-5 py-4 border-b font-semibold"
+                    id="dlg-title"
+                >
+                    {title}
+                </div>
+                <div
+                    className="p-5 text-sm text-slate-600"
+                    id="dlg-desc"
+                >
+                    {message}
+                </div>
                 <div className="px-5 py-4 border-t flex justify-end gap-2">
                     <button
                         type="button"
@@ -86,7 +102,9 @@ export default function StaffLayout() {
                         <NavLink
                             key={s.to}
                             to={s.to}
-                            className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+                            className={({ isActive }) =>
+                                `nav-item ${isActive ? "active" : ""}`
+                            }
                         >
                             <span>{s.icon}</span>
                             <span>{s.label}</span>
@@ -94,9 +112,10 @@ export default function StaffLayout() {
                     ))}
                 </nav>
 
+                {/* Nút Sign out ở sidebar - CUSTOM STYLE chữ đen, nền trắng */}
                 <button
                     type="button"
-                    className="btn mt-4 w-100"
+                    className="mt-4 w-full px-3 py-2 rounded-xl bg-white text-black font-medium shadow"
                     onClick={() => setConfirmOpen(true)}
                     title="Đăng xuất"
                 >
