@@ -12,5 +12,7 @@ namespace VoltSwap.BusinessLayer.IServices
     {
         Task<IServiceResult> StaffOverviewAsync(UserRequest requestDto);
         Task<IServiceResult> AdminOverviewAsync();
+
+        Task<ServiceResult> GetUserSubscriptionsAsync(CheckSubRequest request);
     }
 }

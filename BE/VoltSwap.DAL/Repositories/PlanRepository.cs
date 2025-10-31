@@ -50,7 +50,7 @@ namespace VoltSwap.DAL.Repositories
         //Bin: Đếm tổng người dùng đang sử dụng plan đó
         public async Task<int> CountUsersByPlanIdAsync(string planId, int month, int year)
         {
-            return await _context.Subscriptions.Where(sub => sub.PlanId == planId 
+            return await _context.Subscriptions.Where(sub => sub.PlanId == planId
               && sub.Status == "Active"
               && sub.StartDate.Month == month
               && sub.StartDate.Year == year).CountAsync();
@@ -59,7 +59,7 @@ namespace VoltSwap.DAL.Repositories
         public async Task<int> CountUsersCurrentMonthByPlanIdAsync(string planId)
         {
             var today = DateTime.UtcNow.ToLocalTime();
-            return await _context.Subscriptions.Where(sub => sub.PlanId == planId 
+            return await _context.Subscriptions.Where(sub => sub.PlanId == planId
               && sub.Status == "Active"
               && sub.StartDate.Month == today.Month
               && sub.StartDate.Year == today.Year).CountAsync();
@@ -72,10 +72,10 @@ namespace VoltSwap.DAL.Repositories
             var totalRevenue = await _context.Transactions
                 .Where(trans => trans.Subscription.PlanId == planId
                     && trans.Status == "Success"
-                    && trans.ConfirmDate.HasValue
-                    && trans.ConfirmDate.Value.Month == month
-                    && trans.ConfirmDate.Value.Year == year)
-                .SumAsync(trans=> trans.TotalAmount);
+                    && trans.CreateAt.HasValue
+                    && trans.CreateAt.Value.Month == month
+                    && trans.CreateAt.Value.Year == year)
+                .SumAsync(trans => trans.TotalAmount);
             return totalRevenue;
         }
         public async Task<decimal> GetRevenueCurrentMonthByPlanIdAsync(string planId)
@@ -84,10 +84,10 @@ namespace VoltSwap.DAL.Repositories
             var totalRevenue = await _context.Transactions
                 .Where(trans => trans.Subscription.PlanId == planId
                     && trans.Status == "Success"
-                    && trans.ConfirmDate.HasValue
-                    && trans.ConfirmDate.Value.Month == today.Month
-                    && trans.ConfirmDate.Value.Year == today.Year)
-                .SumAsync(trans=> trans.TotalAmount);
+                    && trans.CreateAt.HasValue
+                    && trans.CreateAt.Value.Month == today.Month
+                    && trans.CreateAt.Value.Year == today.Year)
+                .SumAsync(trans => trans.TotalAmount);
             return totalRevenue;
         }
     }

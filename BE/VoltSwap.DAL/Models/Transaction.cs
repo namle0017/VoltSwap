@@ -33,7 +33,7 @@ public partial class Transaction
 
     public string TransactionContext { get; set; }
 
-    public DateTime? ConfirmDate { get; set; }
+    public DateTime? CreateAt { get; set; }
 
     public string CreatedBy { get; set; }
 

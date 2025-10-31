@@ -231,7 +231,7 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Nemo: Lấy plan summary cho admin
-        public async Task<ReportSummaryResponse> GetPlanSummaryAsync(int month, int year)
+        public async Task<PlanSummary> GetPlanSummaryAsync(int month, int year)
         {
             var planList = await _planRepo.GetAllAsync();
             var planSummaries = new List<PlanListResponse>();
@@ -264,7 +264,11 @@ namespace VoltSwap.BusinessLayer.Services
                 SwapTimes = TotalSwap,
                 ActiveCustomer = TotalActiveUsers
             };
-            return summary;
+            return new PlanSummary
+            {
+                PlanMonthSummary = planSummaries,
+                ReportSummary = summary,
+            };
         }
 
         //Bin: Lấy List PLan detail

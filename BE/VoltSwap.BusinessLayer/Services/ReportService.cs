@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -51,7 +52,7 @@ namespace VoltSwap.BusinessLayer.Services
                 UserAdminId = await GetAdminId(),
                 UserStaffId = requestDto.StaffId,
                 UserDriverId = requestDto.DriverId,
-                ReportType = requestDto.ReportType,
+                ReportId = requestDto.ReportTypeId,
                 Note = requestDto.ReportNote,
                 CreateAt = DateTime.UtcNow.ToLocalTime(),
                 Status = "Processing",
@@ -64,6 +65,25 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 Status = 201,
                 Message = "Report created successfully",
+            };
+        }
+
+
+        //Nemo: Lấy các thông tin về report cho Fe
+        public async Task<IServiceResult> ReportTypeList()
+        {
+            var getReportType = await _unitOfWork.ReportType.GetAllQueryable()
+                                    .Where(re => re.Status == "active")
+                                    .Select(re => new ReportTypeDto
+                                    {
+                                        ReportTypeId = re.ReportTypeId,
+                                        ReportType = re.ReportTypeName,
+                                    }).ToListAsync();
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Get report type successfull",
+                Data = getReportType,
             };
         }
 
@@ -151,7 +171,7 @@ namespace VoltSwap.BusinessLayer.Services
                     StaffId = item.UserStaffId,
                     DriverId = item.UserDriverId,
                     DriverName = getUserName,
-                    ReportType = item.ReportType,
+                    ReportType = item.ReportType.ReportTypeName,
                     ReportNote = item.Note,
                     CreateAt = item.CreateAt,
                     ReportStatus = item.Status,
@@ -181,7 +201,7 @@ namespace VoltSwap.BusinessLayer.Services
                     StaffId = item.UserStaffId,
                     DriverId = item.UserDriverId,
                     DriverName = getUserName,
-                    ReportType = item.ReportType,
+                    ReportType = item.ReportType.ReportTypeName,
                     ReportNote = item.Note,
                     CreateAt = item.CreateAt,
                     ReportStatus = item.Status,

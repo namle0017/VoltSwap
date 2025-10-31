@@ -86,7 +86,7 @@ namespace VoltSwap.BusinessLayer.Services
                 return new ServiceResult { Status = 404, Message = "Subscription not found" };
             }
 
-            var getFee = await _unitOfWork.Fees.GetByIdAsync(f => f.PlanId == subscription.PlanId && f.TypeOfFee =="Booking");
+            var getFee = await _unitOfWork.Fees.GetByIdAsync(f => f.PlanId == subscription.PlanId && f.TypeOfFee == "Booking");
 
             //tạo transaction cho booking
             var newTransId = await GenerateTransactionId();
@@ -154,7 +154,7 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 Status = 201,
                 Message = "Booking created successfully",
-                Data =  appointment 
+                Data = appointment
             };
         }
         public async Task<ServiceResult> CreateBookingAsync_HC(CreateBookingRequest request)
@@ -165,7 +165,7 @@ namespace VoltSwap.BusinessLayer.Services
                 return new ServiceResult { Status = 404, Message = "Subscription not found" };
             }
 
-            var getFee = await _unitOfWork.Fees.GetByIdAsync(f => f.PlanId == subscription.PlanId && f.TypeOfFee =="Booking");
+            var getFee = await _unitOfWork.Fees.GetByIdAsync(f => f.PlanId == subscription.PlanId && f.TypeOfFee == "Booking");
 
             //tạo transaction cho booking
             var newTransId = await GenerateTransactionId();
@@ -180,7 +180,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Currency = "VND",
                 TransactionDate = DateTime.UtcNow.ToLocalTime(),
                 PaymentMethod = "Bank transfer",
-                Status = "Processing ",
+                Status = "Pending",
                 Fee = getFee.Amount,
                 TotalAmount = 30000,
                 Note = $"Note for booking {subscription.SubscriptionId}",
@@ -192,7 +192,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             string bookingId = await GenerateBookingId();
 
-            var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
+           
 
 
 
@@ -204,7 +204,7 @@ namespace VoltSwap.BusinessLayer.Services
                 BatterySwapStationId = request.StationId,
                 Note = request.Note,
                 SubscriptionId = request.SubscriptionId,
-                Status = "Success",
+                Status = "Pending",
                 DateBooking = request.DateBooking,
                 TimeBooking = request.TimeBooking,
                 CreateBookingAt = DateTime.UtcNow.ToLocalTime()
@@ -214,7 +214,7 @@ namespace VoltSwap.BusinessLayer.Services
             await _bookingRepo.CreateAsync(appointmentDB);
             await _unitOfWork.SaveChangesAsync();
 
-
+            var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
             var appointment = new BookingResponse
             {
                 TransactionId = newTransId,
@@ -233,7 +233,7 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 Status = 201,
                 Message = "Booking created successfully",
-                Data =  appointment 
+                Data = appointment
             };
         }
 
@@ -243,7 +243,7 @@ namespace VoltSwap.BusinessLayer.Services
             var today = DateTime.UtcNow.ToLocalTime();
             var stationId = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.StaffId);
             var bookingList = await _bookingRepo.GetAllQueryable()
-                .Where(b => b.BatterySwapStationId == stationId.BatterySwapStationId 
+                .Where(b => b.BatterySwapStationId == stationId.BatterySwapStationId
                 //&& b.CreateBookingAt == today
                 )
 

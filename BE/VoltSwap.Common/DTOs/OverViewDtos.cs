@@ -14,7 +14,7 @@ namespace VoltSwap.Common.DTOs
         public DateTime ExpiredDate { get; set; }
         public double PlanPrice { get; set; }
         public int SwapInMonth { get; set; }
-        public double DistanceTravel {  get; set; }
+        public double DistanceTravel { get; set; }
         public double ChargeTravel { get; set; }
     }
 
@@ -32,7 +32,7 @@ namespace VoltSwap.Common.DTOs
         public MonthlyRevenueResponse MonthlyRevenue { get; set; }
         public BatterySwapInDayResponse NumberOfSwapDailyForAdmin { get; set; }
         public StationOverviewResponse StationOverview { get; set; }
-        public ReportSummaryResponse PlanSummary { get; set; }
-        public List<BatterySwapMonthlyResponse> BatterySwapMonthly { get; set; }
+        public PlanSummary PlanSummary { get; set; }
+        public BatterySwapMonthlyResponse BatterySwapMonthly { get; set; }
     }
 }

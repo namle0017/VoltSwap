@@ -83,29 +83,45 @@ export default function SuggestService() {
 
   // 📌 Đăng ký gói thuê
   const register = async () => {
-    if (!selected) return alert("⚠️ Please choose a plan first!");
+    if (!selected) return alert("Please choose a plan first!");
 
     const token = localStorage.getItem("token");
-    const driverId = localStorage.getItem("userId");
+    const userId = localStorage.getItem("userId");
+
+    if (!token || !userId) {
+      alert("⚠️ Please log in again!");
+      navigate("/login");
+      return;
+    }
+    const payload = { driverId: { userId }, planId: selected.planId };
 
     try {
-      await api.post(
-        "/Transaction/transaction-user-list",
-        {
-          driverId,
-          planId: selected.planId,
-          amount: selected.price,
-          fee: 0,
-          transactionType: "Register",
+      const res = await api.post("/Transaction/transaction-register", payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      });
 
+      // BE hiện chỉ trả message thành công
       alert(`✅ Registered for ${selected.planName} successfully!`);
       navigate("/user/transaction");
     } catch (err) {
-      console.error("❌ Registration error:", err.response?.data || err);
-      alert("❌ Registration failed!");
+      const v = err?.response?.data;
+      // Gom lỗi validation (nếu có)
+      let msg =
+        (v?.title && `${v.title}`) ||
+        v?.message ||
+        err?.message ||
+        "Registration failed!";
+      if (v?.errors && typeof v.errors === "object") {
+        const details = Object.entries(v.errors)
+          .map(([k, arr]) => `${k}: ${(arr || []).join(", ")}`)
+          .join("\n");
+        msg += `\n${details}`;
+      }
+      console.error("❌ Registration error:", err?.response?.data || err);
+      alert(`❌ ${msg}`);
     }
   };
 

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.Common.DTOs;
 
@@ -12,9 +13,11 @@ namespace VoltSwap.API.Controllers
     public class SubscriptionController : ControllerBase
     {
         private readonly SubscriptionService _subService;
-        public SubscriptionController(SubscriptionService subService)
+        private readonly OverviewService _overviewService;
+        public SubscriptionController(SubscriptionService subService, OverviewService overviewService)
         {
             _subService = subService;
+            _overviewService = overviewService;
         }
 
 
@@ -24,7 +27,7 @@ namespace VoltSwap.API.Controllers
             if (string.IsNullOrWhiteSpace(req.DriverId))
                 return BadRequest(new { message = "userId is required" });
 
-            var result = await _subService.GetUserSubscriptionsAsync(req);
+            var result = await _overviewService.GetUserSubscriptionsAsync(req);
             return StatusCode(result.Status, result);
         }
         //[HttpPost("create")]

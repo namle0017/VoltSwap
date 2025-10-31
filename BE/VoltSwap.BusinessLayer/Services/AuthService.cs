@@ -43,7 +43,16 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<ServiceResult> LoginAsync(LoginRequest requestDto)
         {
             var user = await _unitOfWork.Users.GetByEmailAsync(requestDto.Email);
-            if (user == null || !VerifyPasswords(requestDto.Password, user.UserPasswordHash))
+            if(user == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "This user was not found.",
+                    Data = new UserInfo(),
+                };
+            }
+            if (!VerifyPasswords(requestDto.Password, user.UserPasswordHash))
             {
                 return new ServiceResult
                 {

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using VoltSwap.API.Libraries;
@@ -21,63 +22,92 @@ namespace VoltSwap.BusinessLayer.Services
             _configuration = configuration;
         }
 
-public string CreatePaymentUrl(PaymentInformationModel model, HttpContext context)
-    {
-        var tz = TimeZoneInfo.FindSystemTimeZoneById(_configuration["TimeZoneId"]);
-        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        public string CreatePaymentUrl(PaymentInformationModel model, HttpContext context)
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById(_configuration["TimeZoneId"]);
+            var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
 
-        var pay = new VnPayLibrary();
+            var vnp_Params = new SortedDictionary<string, string>();
 
-        // Đọc cấu hình đúng key trong section "Vnpay"
-        var baseUrl = _configuration["Vnpay:BaseUrl"];
-        var hashSecret = _configuration["Vnpay:HashSecret"];
-        var returnUrl = _configuration["Vnpay:ReturnUrl"];      
-        var locale = _configuration["Vnpay:Locale"] ?? "vn";
+            // Lấy config
+            var tmnCode = _configuration["Vnpay:TmnCode"];
+            var hashSecret = _configuration["Vnpay:HashSecret"];
+            var baseUrl = _configuration["Vnpay:BaseUrl"];
+            var returnUrl = _configuration["Vnpay:ReturnUrl"];
+            var locale = _configuration["Vnpay:Locale"] ?? "vn";
 
-        // Chuẩn hóa amount: tối thiểu 10,000 VND để test, nhân 100 và dùng InvariantCulture
-        long amountVnd = (long)Math.Round(model.Amount);
-        if (amountVnd < 10000) amountVnd = 10000;
-        string amountField = (amountVnd * 100).ToString(CultureInfo.InvariantCulture);
+            // Amount: nhân 100, không làm tròn
+            long amountVnd = (long)model.Amount;
+            if (amountVnd < 10000) amountVnd = 10000;
+            string amountField = (amountVnd * 100).ToString();
 
-        // TxnRef duy nhất, gọn và hợp lệ (A–Z a–z 0–9 _ -)
-        string txnRef = model.TransId;
-
-            // OrderInfo không rỗng
+            string txnRef = model.TransId;
             string orderInfo = string.IsNullOrWhiteSpace(model.OrderDescription)
-        ? "Thanh toan don hang"
-        : model.OrderDescription.Trim();
+                ? "Thanh toan don hang"
+                : model.OrderDescription.Trim();
 
-
-            // OrderType mặc định "other" nếu FE chưa gửi
             string orderType = string.IsNullOrWhiteSpace(model.OrderType) ? "other" : model.OrderType.Trim();
 
-        pay.AddRequestData("vnp_Version", _configuration["Vnpay:Version"]);
-        pay.AddRequestData("vnp_Command", _configuration["Vnpay:Command"]);     // "pay"
-        pay.AddRequestData("vnp_TmnCode", _configuration["Vnpay:TmnCode"]);
-        pay.AddRequestData("vnp_Amount", amountField);
-        pay.AddRequestData("vnp_CurrCode", _configuration["Vnpay:CurrCode"]);    // "VND"
-        pay.AddRequestData("vnp_TxnRef", txnRef);
-        pay.AddRequestData("vnp_OrderInfo", orderInfo);
-        pay.AddRequestData("vnp_OrderType", orderType);                           // "other" nếu chưa có mã ngành
-        pay.AddRequestData("vnp_Locale", locale);                              // "vn" hoặc "en"
-        pay.AddRequestData("vnp_ReturnUrl", returnUrl);                           // MUST: không được null
-        pay.AddRequestData("vnp_IpAddr", pay.GetIpAddress(context));
-        pay.AddRequestData("vnp_CreateDate", now.ToString("yyyyMMddHHmmss"));
-        pay.AddRequestData("vnp_ExpireDate", now.AddMinutes(15).ToString("yyyyMMddHHmmss"));
+            // Thêm các tham số bắt buộc
+            vnp_Params.Add("vnp_Version", _configuration["Vnpay:Version"]);
+            vnp_Params.Add("vnp_Command", _configuration["Vnpay:Command"]);
+            vnp_Params.Add("vnp_TmnCode", tmnCode);
+            vnp_Params.Add("vnp_Amount", amountField);
+            vnp_Params.Add("vnp_CurrCode", _configuration["Vnpay:CurrCode"]);
+            vnp_Params.Add("vnp_TxnRef", txnRef);
+            vnp_Params.Add("vnp_OrderInfo", orderInfo);
+            vnp_Params.Add("vnp_OrderType", orderType);
+            vnp_Params.Add("vnp_Locale", locale);
+            vnp_Params.Add("vnp_ReturnUrl", returnUrl);
+            vnp_Params.Add("vnp_IpAddr", GetIpAddress(context));
+            vnp_Params.Add("vnp_CreateDate", now.ToString("yyyyMMddHHmmss"));
+            vnp_Params.Add("vnp_ExpireDate", now.AddMinutes(1).ToString("yyyyMMddHHmmss"));
 
-        // VnPayLibrary.CreateRequestUrl phải: sort key asc -> build rawData (KHÔNG encode) -> HMAC SHA512 -> append vnp_SecureHash -> encode value khi ghép query
-        var paymentUrl = pay.CreateRequestUrl(baseUrl, hashSecret);
-        return paymentUrl;
-    }
+            // Tạo chuỗi dữ liệu để hash (raw, chưa encode)
+            var signData = string.Join("&",
+                vnp_Params.Select(kvp => $"{kvp.Key}={UrlEncodeUpper(kvp.Value)}"));
+
+            // Tạo chữ ký
+            var secureHash = HmacSHA512(hashSecret, signData);
+            vnp_Params.Add("vnp_SecureHash", secureHash);
+
+            // Tạo URL cuối cùng
+            var paymentUrl = baseUrl + "?" + string.Join("&",
+                vnp_Params.Select(kvp => $"{kvp.Key}={UrlEncodeUpper(kvp.Value)}"));
+
+            return paymentUrl;
+        }
 
 
 
-    public PaymentResponseModel PaymentExecute(IQueryCollection collections)
+        public PaymentResponseModel PaymentExecute(IQueryCollection collections)
         {
             var pay = new VnPayLibrary();
             var response = pay.GetFullResponseData(collections, _configuration["Vnpay:HashSecret"]);
 
             return response;
+        }
+
+        private string GetIpAddress(HttpContext context)
+        {
+            var ip = context.Connection.RemoteIpAddress?.ToString();
+            return ip == "::1" ? "127.0.0.1" : ip ?? "127.0.0.1";
+        }
+
+        private string UrlEncodeUpper(string str)
+        {
+            return System.Web.HttpUtility.UrlEncode(str, Encoding.UTF8)?.Replace("%2b", "+").ToUpper();
+        }
+
+        private string HmacSHA512(string key, string input)
+        {
+            var keyBytes = Encoding.UTF8.GetBytes(key);
+            var inputBytes = Encoding.UTF8.GetBytes(input);
+            using (var hmac = new HMACSHA512(keyBytes))
+            {
+                var hashBytes = hmac.ComputeHash(inputBytes);
+                return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+            }
         }
 
 

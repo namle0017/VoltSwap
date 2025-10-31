@@ -147,6 +147,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = newList
             };
         }
+
         //Bin: Lấy số lượng batttery inventory của trạm
         public async Task<IServiceResult> GetBatteryInventoryByStationId(StaffRequest staffRequest)
         {
@@ -164,7 +165,6 @@ namespace VoltSwap.BusinessLayer.Services
             var station = await _stationRepo.GetByIdAsync(getstaion.BatterySwapStationId);
             var batteryInventoryDto = batteryInventory.Select(bat => new BatResponse
             {
-                
                 BatteryId = bat.BatteryId,
                 StationId = bat.BatterySwapStationId,
                 StationName = station.BatterySwapStationName,

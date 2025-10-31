@@ -18,7 +18,7 @@ namespace VoltSwap.Common.DTOs
     }
     public class PlanRespone
     {
-        public string PlanId {  get; set; }
+        public string PlanId { get; set; }
         public string PlanName { get; set; }
         public int? NumberBattery { get; set; }
         public int? DurationDays { get; set; }
@@ -26,14 +26,14 @@ namespace VoltSwap.Common.DTOs
         public int? SwapLimit { get; set; }
         public decimal? Price { get; set; }
         public DateOnly CreatedAt { get; set; }
-}
+    }
     public class PlanSuggestRequest
     {
         public string PlanName { get; set; }
     }
     public class PlanSuggestRespone
     {
-        public string PlanId {  get; set; }
+        public string PlanId { get; set; }
         public string PlanName { get; set; }
         public int? NumberBattery { get; set; }
         public int? DurationDays { get; set; }
@@ -117,11 +117,17 @@ namespace VoltSwap.Common.DTOs
         public decimal TotalRevenue { get; set; }
         public int TotalUsers { get; set; }
     }
+
+    public class PlanSummary
+    {
+        public List<PlanListResponse> PlanMonthSummary { get; set; }
+        public ReportSummaryResponse ReportSummary { get; set; }
+    }
     public class ReportSummaryResponse
     {
-        public decimal TotalMonthlyRevenue { get; set; }   
-        public int SwapTimes { get; set; }                
-        public int ActiveCustomer { get; set; }            
+        public decimal TotalMonthlyRevenue { get; set; }
+        public int SwapTimes { get; set; }
+        public int ActiveCustomer { get; set; }
     }
 
     public class FindPlanBySubId
@@ -183,7 +189,7 @@ namespace VoltSwap.Common.DTOs
     public class SimpleFee
     {
         public decimal Amount { get; set; }
-        public string Unit { get; set; } 
+        public string Unit { get; set; }
         public string TypeOfFee { get; set; }
     }
 
