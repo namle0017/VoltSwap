@@ -1,8 +1,8 @@
 import axios from "axios";
+const base = import.meta.env.VITE_API_BASE_URL;
 
-// Base URL cho module Auth
 const AUTH_API = axios.create({
-  baseURL: "https://5c5515e4ee19.ngrok-free.app/api/Auth", // thay bằng URL ngrok hiện tại của bạn
+  baseURL: `${base}/api/Auth`,
   headers: { "Content-Type": "application/json" },
 });
 

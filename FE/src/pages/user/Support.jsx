@@ -6,6 +6,7 @@ export default function Support() {
     const [issueType, setIssueType] = useState("");
     const [issueDetail, setIssueDetail] = useState("");
     const [loading, setLoading] = useState(true);
+    // eslint-disable-next-line no-unused-vars
     const [message, setMessage] = useState("");
 
     useEffect(() => {
@@ -55,7 +56,7 @@ export default function Support() {
                     Ask for Assistance <span className="text-gray-400">❓</span>
                 </h2>
 
-                {message && (
+                {/* {message && (
                     <div
                         className={`text-center mb-3 p-3 rounded-lg font-medium ${message.startsWith("✅")
                                 ? "bg-green-100 text-green-700"
@@ -64,7 +65,7 @@ export default function Support() {
                     >
                         {message}
                     </div>
-                )}
+                )} */}
 
                 <label className="font-medium block mb-1">Type of Issue</label>
                 <select
