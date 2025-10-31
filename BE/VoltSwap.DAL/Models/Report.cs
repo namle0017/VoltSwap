@@ -15,7 +15,7 @@ public partial class Report
 
     public string UserDriverId { get; set; }
 
-    public string ReportType { get; set; }
+    public int ReportTypeId { get; set; }
 
     public string Note { get; set; }
 
@@ -24,6 +24,8 @@ public partial class Report
     public DateTime CreateAt { get; set; }
 
     public DateTime ProcessesAt { get; set; }
+
+    public virtual ReportType ReportType { get; set; }
 
     public virtual User UserAdmin { get; set; }
 

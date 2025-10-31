@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics.Arm;
 using System.Text;
@@ -139,15 +140,18 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm này để hiển thị lên transaction mà user cần trả thông qua TransactionReponse
         public async Task<ServiceResult> GetTransactionDetailAsync(string transactionId)
         {
-            var transaction = await _transRepo.GetByIdAsync(t => t.TransactionId == transactionId && t.Status == "Pending");
+            var transaction = await _transRepo.GetByIdAsync(t => t.TransactionId == transactionId);
             if (transaction == null)
             {
                 return new ServiceResult
                 {
                     Status = 404,
-                    Message = "Transaction has been pending."
+                    Message = "Can't find this transaction."
                 };
             }
+
+
+
             var transactionResponse = new TransactionReponse
             {
                 TransactionId = transaction.TransactionId,
@@ -236,7 +240,7 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm này để admin có thể xem các transaction mà user mới tạo, để check coi là approve hay deny nếu approve thì trong transaction sẽ được cập nhật status thành Active và trong subscription sẽ được cập nhật status thành active nếu mà transactionType là Buy plan hoặc là Renew plan
         public async Task<ServiceResult> GetTransactionsByAdminAsync()
         {
-            var transactions = await _transRepo.GetAllAsync(t => t.Status == "Waiting");
+            var transactions = await _transRepo.GetAllAsync(t => t.Status == "Pending" && t.Status == "Waiting" && t.Status == "Expired");
             if (transactions == null || !transactions.Any())
             {
                 return new ServiceResult
@@ -309,7 +313,7 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "Transaction not found."
                 };
             }
-            transaction.ConfirmDate = DateTime.UtcNow.ToLocalTime();
+            transaction.CreateAt = DateTime.UtcNow.ToLocalTime();
             transaction.Status = requestDto.NewStatus;
             _transRepo.UpdateAsync(transaction);
             await _unitOfWork.SaveChangesAsync();
@@ -357,7 +361,7 @@ namespace VoltSwap.BusinessLayer.Services
                 throw new ArgumentException("Invalid driver ID provided.", nameof(driverId)); // Throw exception cho error
             }
 
-            var transactions = await _transRepo.GetAllAsync(t => t.UserDriverId == driverId);
+            var transactions = await _transRepo.GetAllAsync(t => t.UserDriverId == driverId && t.Status != "Waiting");
 
             if (transactions == null || !transactions.Any())
             {
@@ -519,6 +523,10 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<ServiceResult> CreateTransactionChain()
         {
             var currentYear = DateTime.UtcNow.ToLocalTime().Year;
+            if (currentYear == 1)
+            {
+                currentYear = DateTime.UtcNow.AddYears(-1).ToLocalTime().Year;
+            }
             var prevMonth = DateTime.UtcNow.AddMonths(-1).ToLocalTime().Month;
             var getTransactionHiding = await _unitOfWork.Trans.GetAllAsync(
                     predicate: trans => trans.Status == "Waiting"
@@ -651,43 +659,43 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Nemo: Cho staff tạo cancelPlan
-        public async Task<ServiceResult> CancelPlanAsync(CancelPlanRequest requestDto)
-        {
-            var generateTransId = await GenerateTransactionId();
-            var getPlanId = await GetPlanIdBySubId(requestDto.SubId);
-            var getFee = await _feeRepo.GetAllQueryable()
-                                    .FirstOrDefaultAsync(fee => fee.PlanId == getPlanId &&
-                                    fee.TypeOfFee == "Battery Deposit");
-            DateOnly date = requestDto.DateBooking;
-            TimeOnly time = requestDto.TimeBooking;
-            var createRefund = new Transaction
-            {
-                TransactionId = generateTransId,
-                SubscriptionId = requestDto.SubId,
-                UserDriverId = requestDto.DriverId,
-                TransactionType = "Refund",
-                Amount = -(getFee.Amount),
-                Currency = "VND",
-                TransactionDate = date.ToDateTime(time),
-                PaymentMethod = "Cash",
-                Status = "Pending",
-                Fee = 0,
-                TotalAmount = -(getFee.Amount),
-                TransactionContext = null,
-                ConfirmDate = null,
-                CreatedBy = requestDto.StaffId,
-            };
-            await _transRepo.CreateAsync(createRefund);
-            var result = await _unitOfWork.SaveChangesAsync();
-            if (result < 0)
-            {
-                return new ServiceResult
-                {
-                    Status = 400,
-                    Message = "Something wrong, please contact to admin or waiting...",
-                };
-            }
-        }
+        //public async Task<ServiceResult> CancelPlanAsync(CancelPlanRequest requestDto)
+        //{
+        //    var generateTransId = await GenerateTransactionId();
+        //    var getPlanId = await GetPlanIdBySubId(requestDto.SubId);
+        //    var getFee = await _feeRepo.GetAllQueryable()
+        //                            .FirstOrDefaultAsync(fee => fee.PlanId == getPlanId &&
+        //                            fee.TypeOfFee == "Battery Deposit");
+        //    DateOnly date = requestDto.DateBooking;
+        //    TimeOnly time = requestDto.TimeBooking;
+        //    var createRefund = new Transaction
+        //    {
+        //        TransactionId = generateTransId,
+        //        SubscriptionId = requestDto.SubId,
+        //        UserDriverId = requestDto.DriverId,
+        //        TransactionType = "Refund",
+        //        Amount = -(getFee.Amount),
+        //        Currency = "VND",
+        //        TransactionDate = date.ToDateTime(time),
+        //        PaymentMethod = "Cash",
+        //        Status = "Pending",
+        //        Fee = 0,
+        //        TotalAmount = -(getFee.Amount),
+        //        TransactionContext = null,
+        //        ConfirmDate = null,
+        //        CreatedBy = requestDto.StaffId,
+        //    };
+        //    await _transRepo.CreateAsync(createRefund);
+        //    var result = await _unitOfWork.SaveChangesAsync();
+        //    if (result < 0)
+        //    {
+        //        return new ServiceResult
+        //        {
+        //            Status = 400,
+        //            Message = "Something wrong, please contact to admin or waiting...",
+        //        };
+        //    }
+        //}
 
 
 
@@ -729,7 +737,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             mess = "Confirm Success.";
             gettrans.Status = "Success";
-            gettrans.ConfirmDate = DateTime.Now.ToLocalTime();
+            gettrans.CreateAt = DateTime.Now.ToLocalTime();
             getsub.Status = "Inactive";
             await _subRepo.UpdateAsync(getsub);
             await _transRepo.UpdateAsync(gettrans);
@@ -752,7 +760,7 @@ namespace VoltSwap.BusinessLayer.Services
             if (!response.Success || response.VnPayResponseCode != "00")
             {
                 await UpdateTransactionStatusAsync(response.OrderId, "Failed");
-                response.Message = "Thanh toán thất bại";
+                response.Message = "Payment failed";
                 return response;
             }
 
@@ -764,7 +772,7 @@ namespace VoltSwap.BusinessLayer.Services
             if (transaction == null)
             {
                 response.Success = false;
-                response.Message = "Không tìm thấy giao dịch";
+                response.Message = "No transaction found";
                 return response;
             }
 
@@ -775,12 +783,12 @@ namespace VoltSwap.BusinessLayer.Services
             if (transaction.TransactionType == "Battery Deposit")
             {
                 await HandleDepositSuccessAsync(transaction);
-                response.Message = "Đặt cọc thành công. Gói đã được kích hoạt.";
+                response.Message = "Deposit successful. Package activated.";
             }
             else if (transaction.TransactionType == "Monthly Fee")
             {
                 await HandleMonthlyFeeSuccessAsync(transaction);
-                response.Message = "Thanh toán phí tháng thành công.";
+                response.Message = "Monthly fee payment successful.";
             }
 
             await _unitOfWork.SaveChangesAsync();
@@ -790,7 +798,6 @@ namespace VoltSwap.BusinessLayer.Services
 
         private async Task HandleDepositSuccessAsync(Transaction depositTrans)
         {
-            // 1. Kích hoạt Subscription
             // 1. Kích hoạt Subscription
             var subscription = await _subRepo.GetAllQueryable()
                 .FirstOrDefaultAsync(s => s.SubscriptionId == depositTrans.SubscriptionId);
@@ -823,9 +830,9 @@ namespace VoltSwap.BusinessLayer.Services
                     Currency = "VND",
                     PaymentMethod = "VnPay",
                     Status = "Waiting", // ẨN VỚI USER
-                    TransactionDate = DateTime.UtcNow,
+                    TransactionDate = DateTime.UtcNow.ToLocalTime(),
                     TransactionContext = $"{depositTrans.SubscriptionId}-MonthlyFee",
-                    Note = "Phí tháng tự động"
+                    Note = "Monthly Fee"
                 };
 
                 await _transRepo.CreateAsync(monthlyTrans);
@@ -840,8 +847,24 @@ namespace VoltSwap.BusinessLayer.Services
 
             if (subscription != null)
             {
-                subscription.EndDate = subscription.EndDate.AddMonths(1);
-                subscription.RemainingSwap += subscription.Plan?.SwapLimit ?? 0;
+                var monthlyFeeTrans = new Transaction
+                {
+                    TransactionId = await GenerateTransactionId(), // bạn đã có
+                    SubscriptionId = subscription.SubscriptionId,
+                    UserDriverId = subscription.UserDriverId,
+                    TransactionType = "Monthly Fee",
+                    Amount = subscription.Plan.Price ?? 0m,
+                    Fee = 0m,
+                    TotalAmount = subscription.Plan.Price ?? 0m,
+                    Currency = "VND",
+                    PaymentMethod = "VnPay",
+                    Status = "Waiting", // ẨN VỚI USER
+                    TransactionDate = DateTime.UtcNow.ToLocalTime(),
+                    TransactionContext = $"{subscription.SubscriptionId}-MonthlyFee",
+                    Note = "Monthly Fee"
+                };
+
+                await _transRepo.CreateAsync(monthlyFeeTrans);
             }
         }
 
@@ -857,6 +880,24 @@ namespace VoltSwap.BusinessLayer.Services
                 trans.Status = status;
                 await _unitOfWork.SaveChangesAsync();
             }
+        }
+
+        public async Task<ServiceResult> RecreateTransaction(string transactionId)
+        {
+            var getTrans = await _unitOfWork.Trans.GetByIdAsync(transactionId);
+            if (getTrans == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = $"This transactionId {transactionId} was not found.",
+                };
+            }
+
+            getTrans.TransactionId = await GenerateTransactionId();
+            getTrans.Status = "Pending";
+            getTrans.CreateAt = DateTime.UtcNow.ToLocalTime();
+            throw new NotImplementedException();
         }
     }
 }

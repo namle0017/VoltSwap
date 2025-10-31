@@ -39,5 +39,8 @@ namespace VoltSwap.BusinessLayer.IServices
 
         Task<string> CreatePaymentUrlAsync(string transId, HttpContext context);
         Task<PaymentResponseModel> ProcessVnPayCallbackAsync(IQueryCollection queryCollection);
+
+        Task<ServiceResult> RecreateTransaction(string transactionId);
+
     }
 }

@@ -38,7 +38,9 @@ namespace VoltSwap.Common.DTOs
         public int? SwapLimit { get; set; }
         public int? Remaining_swap { get; set; }
         public decimal? Current_miligate { get; set; }
+        public double SubFee { get; set; }
         public DateOnly EndDate { get; set; }
+        public List<BatteryDto> BatteryDtos { get; set; }
     }
 
     public class CurrentSubscriptionResquest

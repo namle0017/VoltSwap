@@ -10,12 +10,12 @@ namespace VoltSwap.Common.DTOs
     {
         public string StaffId { get; set; }
         public String DriverId { get; set; }
-        public string ReportType { get; set; }
+        public int ReportTypeId { get; set; }
         public string ReportNote { get; set; }
         public DateTime CreateAt { get; set; }
     }
 
-    public class  StaffAssignedRequest
+    public class StaffAssignedRequest
     {
         public int ReportId { get; set; }
         public string StaffId { get; set; }
@@ -31,5 +31,11 @@ namespace VoltSwap.Common.DTOs
         public string ReportNote { get; set; }
         public DateTime CreateAt { get; set; }
         public string ReportStatus { get; set; }
+    }
+
+    public class ReportTypeDto
+    {
+        public int ReportTypeId { get; set; }
+        public string ReportType { get; set; }
     }
 }

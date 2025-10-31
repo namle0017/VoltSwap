@@ -29,7 +29,7 @@ namespace VoltSwap.DAL.Repositories
             var slotsToLock = await _context.PillarSlots
                 .Include(ps => ps.BatterySwapPillar)
                 .Where(ps => ps.BatterySwapPillar.BatterySwapStationId == stationId
-          && ps.PillarStatus == "Use")
+          && ps.PillarStatus == "Unavailable")
                 .OrderByDescending(ps => ps.BatterySwapPillarId)
                 .ThenByDescending(ps => ps.SlotNumber)
                 .Take(requiredBatteries.Value)

@@ -22,7 +22,7 @@ namespace VoltSwap.DAL.Repositories
 
         public async Task<User?> GetByEmailAsync(string email)
         {
-            return await _context.Users.FirstOrDefaultAsync(x => x.UserEmail == email);
+            return await _context.Users.FirstOrDefaultAsync(x => x.UserEmail == email && x.Status == "Active");
         }
 
         public async Task<User?> GetAdminAsync()

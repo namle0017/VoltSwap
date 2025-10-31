@@ -180,7 +180,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Currency = "VND",
                 TransactionDate = DateTime.UtcNow.ToLocalTime(),
                 PaymentMethod = "Bank transfer",
-                Status = "Processing",
+                Status = "Pending",
                 Fee = getFee.Amount,
                 TotalAmount = 30000,
                 Note = $"Note for booking {subscription.SubscriptionId}",
@@ -192,7 +192,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             string bookingId = await GenerateBookingId();
 
-            var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
+           
 
 
 
@@ -214,7 +214,7 @@ namespace VoltSwap.BusinessLayer.Services
             await _bookingRepo.CreateAsync(appointmentDB);
             await _unitOfWork.SaveChangesAsync();
 
-
+            var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
             var appointment = new BookingResponse
             {
                 TransactionId = newTransId,

@@ -28,6 +28,7 @@ namespace VoltSwap.DAL.Repositories
         public async Task<List<Report>> GetReportForStaff(string staffId)
         {
             return await _context.Reports.Where(x => x.UserStaffId == staffId)
+                            .Include(x => x.ReportType)
                             .OrderByDescending(x => x.CreateAt)
                             .ToListAsync();
         }

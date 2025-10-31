@@ -148,6 +148,7 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
         //Bin: Lấy số lượng batttery inventory của trạm
+        //Bin: Lấy số lượng batttery inventory của trạm
         public async Task<IServiceResult> GetBatteryInventoryByStationId(StaffRequest staffRequest)
         {
             var checkExist = await _unitOfWork.Users.AnyAsync(ss => ss.UserId == staffRequest.StaffId && ss.Status == "Active");
@@ -161,10 +162,13 @@ namespace VoltSwap.BusinessLayer.Services
             }
             var getstaion = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(staffRequest.StaffId);
             var batteryInventory = await _unitOfWork.Batteries.GetBatteriesInventoryByStationId(getstaion.BatterySwapStationId);
+            var station = await _stationRepo.GetByIdAsync(getstaion.BatterySwapStationId);
             var batteryInventoryDto = batteryInventory.Select(bat => new BatResponse
             {
+
                 BatteryId = bat.BatteryId,
                 StationId = bat.BatterySwapStationId,
+                StationName = station.BatterySwapStationName,
                 Soc = bat.Soc,
                 Soh = bat.Soh,
                 Capacity = bat.Capacity,

@@ -147,7 +147,7 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<IServiceResult> UpdateStaffInformationAsync(StaffUpdate requestDto)
         {
             var getUser = await _unitOfWork.Users.GetAllQueryable()
-                            .Where(us=>us.UserId == requestDto.StaffId && us.Status =="Active").FirstOrDefaultAsync();
+                            .Where(us => us.UserId == requestDto.StaffId && us.Status == "Active").FirstOrDefaultAsync();
             if (getUser == null)
             {
                 return new ServiceResult
@@ -208,7 +208,7 @@ namespace VoltSwap.BusinessLayer.Services
                 var currentPlans = await _unitOfWork.Plans.GetCurrentSubscriptionByUserIdAsync(driver.UserId);
                 var numberOfVehicle = await _unitOfWork.Vehicles.CountVehiclesByDriverIdAsync(driver.UserId);
                 var totalSwap = await _unitOfWork.Subscriptions.GetTotalSwapsUsedByDriverIdAsync(driver.UserId);
-                result.Add( new DriverListResponse
+                result.Add(new DriverListResponse
                 {
                     DriverId = driver.UserId,
                     DriverName = driver.UserName,
@@ -243,9 +243,10 @@ namespace VoltSwap.BusinessLayer.Services
             var registrationDate = getDriver.CreatedAt.Date;
             var currentPackages = await _unitOfWork.Plans.GetCurrentWithSwapSubscriptionByUserIdAsync(getDriver.UserId);
 
-            var current =  new List<PlanDetail>();
-            foreach (var currentPackage in currentPackages) {
-                var sub  = await _unitOfWork.Subscriptions.GetByIdAsync(currentPackage.SubscriptionId);
+            var current = new List<PlanDetail>();
+            foreach (var currentPackage in currentPackages)
+            {
+                var sub = await _unitOfWork.Subscriptions.GetByIdAsync(currentPackage.SubscriptionId);
                 if (sub != null)
                 {
                     current.Add(new PlanDetail
@@ -263,7 +264,7 @@ namespace VoltSwap.BusinessLayer.Services
                 DriverEmail = getDriver.UserEmail,
                 DriverTele = getDriver.UserTele,
                 Registation = DateOnly.FromDateTime(registrationDate),
-                CurrentPackage =current,
+                CurrentPackage = current,
                 TotalSwaps = totalSwaps,
                 driverVehicles = driverVehicles
             };
@@ -295,9 +296,9 @@ namespace VoltSwap.BusinessLayer.Services
                         StaffTele = staff.UserTele,
                         StaffStatus = staff.Status,
                         StationName = "No Station Assigned",
-                        ShiftStart = new TimeOnly(0,0),
-                        ShiftEnd = new TimeOnly(0,0),
-                        
+                        ShiftStart = new TimeOnly(0, 0),
+                        ShiftEnd = new TimeOnly(0, 0),
+
                     });
                     continue;
                 }
@@ -312,18 +313,18 @@ namespace VoltSwap.BusinessLayer.Services
                     };
                 }
 
-                staffListDto.Add( new staffListRespone
-            {
-                StaffId = staff.UserId,
-                StaffName = staff.UserName,
-                StaffEmail = staff.UserEmail,
-                StaffTele = staff.UserTele,
-                StaffAddress = staff.UserAddress,
-                StaffStatus = staff.Status,
-                StationName = station.BatterySwapStationName,
-                ShiftStart = stationStaff.ShiftStart,
-                ShiftEnd = stationStaff.ShiftEnd,
-             });
+                staffListDto.Add(new staffListRespone
+                {
+                    StaffId = staff.UserId,
+                    StaffName = staff.UserName,
+                    StaffEmail = staff.UserEmail,
+                    StaffTele = staff.UserTele,
+                    StaffAddress = staff.UserAddress,
+                    StaffStatus = staff.Status,
+                    StationName = station.BatterySwapStationName,
+                    ShiftStart = stationStaff.ShiftStart,
+                    ShiftEnd = stationStaff.ShiftEnd,
+                });
             }
             return new ServiceResult
             {
