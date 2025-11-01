@@ -73,7 +73,7 @@ namespace VoltSwap.BusinessLayer.Services
                 {
                     slot.PillarStatus = "Unavailable";
                     slot.AppointmentId = null;
-                    await _unitOfWork.PillarSlots.UpdateAsync(slot); 
+                    await _unitOfWork.PillarSlots.UpdateAsync(slot);
                 }
             }
 
@@ -299,8 +299,8 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = $"Locked {lockedSlot.Count} batteries at pillar {pillars}.",
                 Data = new
                 {
-                 Booking = appointment,
-                 Time = calculatetime
+                    Booking = appointment,
+                    Time = calculatetime
                 }
             };
         }
@@ -338,7 +338,7 @@ namespace VoltSwap.BusinessLayer.Services
 
                 bookingResponses.Add(new ViewBookingResponse
                 {
-                    BookingId =booking.AppointmentId,
+                    BookingId = booking.AppointmentId,
                     SubcriptionId = booking.SubscriptionId,
                     DriverId = booking.UserDriverId,
                     Date = booking.DateBooking,
@@ -429,9 +429,9 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Nemo: Dùng để check coi là cái sub đó có booking được hoàn thiện chưa
-        private async Task<bool> CheckBookingExist(string subId)
+        public async Task<bool> CheckBookingExist(string subId)
         {
-            return await _bookingRepo.GetAllQueryable().AnyAsync(book => book.Status == "Processing" && book.Status == "Pending" && book.SubscriptionId == subId);
+            return await _bookingRepo.GetAllQueryable().AnyAsync(book => book.Status == "Processing" && book.SubscriptionId == subId);
             //processing là đợi người dùng tới lấy
             //pending là đợi người dùng trả
         }
@@ -584,7 +584,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             return new ServiceResult
             {
-                Status = 201,
+                Status = 200,
                 Message = "Booking created successfully",
                 Data = appointment
             };
