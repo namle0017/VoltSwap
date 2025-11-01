@@ -75,7 +75,7 @@ namespace VoltSwap.DAL.Repositories
                     && trans.CreateAt.HasValue
                     && trans.CreateAt.Value.Month == month
                     && trans.CreateAt.Value.Year == year)
-                .SumAsync(trans => trans.TotalAmount);
+                .SumAsync(trans=> trans.TotalAmount);
             return totalRevenue;
         }
         public async Task<decimal> GetRevenueCurrentMonthByPlanIdAsync(string planId)
@@ -87,7 +87,7 @@ namespace VoltSwap.DAL.Repositories
                     && trans.CreateAt.HasValue
                     && trans.CreateAt.Value.Month == today.Month
                     && trans.CreateAt.Value.Year == today.Year)
-                .SumAsync(trans => trans.TotalAmount);
+                .SumAsync(trans=> trans.TotalAmount);
             return totalRevenue;
         }
     }

@@ -77,5 +77,17 @@ namespace VoltSwap.API.Controllers
                 getDetail.Data
             });
         }
+
+        //Bin: lấy thông tin plan ngoài landscap
+        [HttpGet("view-plan-landscape")]
+        public async Task<IActionResult> ViewPlan()
+        {
+            var getplan = await _planService.GetPlanOutLandScap();
+            return StatusCode(getplan.Status, new
+            {
+                getplan.Message,
+                getplan.Data
+            });
+        }
     }
 }

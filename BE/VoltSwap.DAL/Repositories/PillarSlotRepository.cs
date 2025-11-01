@@ -14,60 +14,41 @@ namespace VoltSwap.DAL.Repositories
     public class PillarSlotRepository : GenericRepositories<PillarSlot>, IPillarSlotRepository
     {
         private readonly VoltSwapDbContext _context;
-        private const string SLOT_USE = "Use";
-        private const string SLOT_LOCK = "Lock";
 
         public PillarSlotRepository(VoltSwapDbContext context) : base(context) => _context = context;
 
-        public async Task<int> LockSlotsAsync(string stationId, string subscriptionId, string bookingId)
-        {
-            var requiredBatteries = await _context.Subscriptions
-                .Where(s => s.SubscriptionId == subscriptionId)
-                .Select(s => s.Plan.NumberOfBattery)
-                .FirstOrDefaultAsync();
 
-            var slotsToLock = await _context.PillarSlots
+
+        public async Task<List<PillarSlot>> GetLockedSlotsByStationAsync(string stationId)
+        {
+            return await _context.PillarSlots
                 .Include(ps => ps.BatterySwapPillar)
-                .Include(b => b.Battery)
-                .Where(ps => ps.BatterySwapPillar.BatterySwapStationId == stationId
-          && ps.PillarStatus == "Unavailable")
-                .OrderByDescending(ps => ps.BatterySwapPillarId)
-                .ThenByDescending(ps => ps.SlotNumber)
-                .Take(requiredBatteries.Value)
-                .ToListAsync();
-
-            foreach (var slot in slotsToLock)
-            {
-                slot.PillarStatus = "Lock";
-                slot.AppointmentId = bookingId;
-                _context.PillarSlots.Update(slot);
-
-            }
-
-
-            return await _context.SaveChangesAsync();
-
-
+                .Include(ps => ps.Battery)
+                .Where(ps => ps.AppointmentId != null &&                      
+                             ps.BatterySwapPillar.BatterySwapStationId == stationId &&  
+                             ps.PillarStatus == "Lock")                       
+                            .ToListAsync();
         }
-        public async Task<int> UnlockSlotsByAppointmentIdAsync(string appointmentId)
+
+        public async Task<List<PillarSlot>> GetAvailableSlotsByPillarAsync(string pillarId)
         {
-            if (string.IsNullOrWhiteSpace(appointmentId)) return 0;
+            return await _context.PillarSlots
+                                .Include(ps => ps.Battery)
+                                .Where(ps =>
+                                    ps.BatterySwapPillarId == pillarId &&
+                                    ps.PillarStatus == "Unavailable" &&
+                                    ps.Battery != null &&
+                                    ps.Battery.BatteryStatus == "Available")
+                                .ToListAsync();
+        }
 
-            var slots = await _context.PillarSlots
-                .Where(ps => ps.AppointmentId == appointmentId && ps.PillarStatus == SLOT_LOCK)
-                .ToListAsync();
-
-            if (slots.Count == 0) return 0;
-
-            foreach (var slot in slots)
-            {
-                slot.PillarStatus = SLOT_USE;
-                slot.AppointmentId = null;           // giải liên kết
-                slot.UpdateAt = DateTime.UtcNow;
-            }
-
-            _context.PillarSlots.UpdateRange(slots);
-            return await _context.SaveChangesAsync();
+        public async Task<List<PillarSlot>> UnlockSlotsByAppointmentIdAsync(string appointmentId)
+        {
+            return await _context.PillarSlots
+                                .Include(ps => ps.Battery)
+                                .Include(ps => ps.BatterySwapPillar)
+                                .Where(ps => ps.AppointmentId == appointmentId && ps.PillarStatus == "Lock")
+                                .ToListAsync();
         }
 
         public async Task<List<PillarSlot>> GetUnavailableSlotsAtStationAsync(string stationId, int take)

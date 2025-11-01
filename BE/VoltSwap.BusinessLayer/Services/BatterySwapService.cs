@@ -306,6 +306,13 @@ namespace VoltSwap.BusinessLayer.Services
         // 4. Cập nhật lại battery.Status là Using và đồng thời là gán cái Battery.StationId là null nếu là in using và sẽ là có id nếu là charging và cập nhật thêm là soc và soh
         public async Task<ServiceResult> CheckBatteryAvailable(BatterySwapListRequest requestBatteryList)
         {
+
+            //Bin: Chỗ này để kiểm tra có booking ko:
+            // 1. Bỏ pin đã dùng vào slot trống trong đúng trụ đang có booking 
+            // 2. Sau khi swap-in -> trả về danh sách cács slot Lock để FE swap-out
+
+
+
             //Nemo:Chỗ này là check coi cái battery vào đã đúng chưa, nếu chưa thì sẽ nhảy ra lỗi là đưa vào different battery
             var getBatteryAvailable = await GetBatteryInUsingAvailable(requestBatteryList.AccessRequest.SubscriptionId);
 
@@ -419,7 +426,6 @@ namespace VoltSwap.BusinessLayer.Services
 
 
             //Chỗ này để đưa cho FE để FE hiển thị các slot pin available để user để lấy pin ra
-            //Bin (cải tiến lại)
 
             var checkbooking = await _unitOfWork.Stations.CheckSubscriptionHasBookingAsync(requestBatteryList.AccessRequest.SubscriptionId);
             var getPillarSlotList = new List<PillarSlot>();
@@ -431,17 +437,7 @@ namespace VoltSwap.BusinessLayer.Services
                 await _appoinmentRepo.UpdateAsync(getbooking);
                 await _unitOfWork.SaveChangesAsync();
 
-
-
-            }
-            else
-            {
-                getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarIdAsync(requestBatteryList.PillarId, topNumber);
-            }
-
-            //end
-
-            //var getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarIdAsync(requestBatteryList.PillarId, topNumber);
+            var getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarIdAsync(requestBatteryList.PillarId, topNumber);
 
             //lúc này là trả về các slot pin để FE hiển thị (bao gồm id pin và slotId)
             var dtoList = getPillarSlotList.Select(slot => new BatteryDto
