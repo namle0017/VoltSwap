@@ -8,7 +8,7 @@ using VoltSwap.DAL.Models;
 
 namespace VoltSwap.DAL.IRepositories
 {
-    public interface IPillarRepository 
+    public interface IPillarRepository  : IGenericRepositories<BatterySwapPillar>
     {
  
     }

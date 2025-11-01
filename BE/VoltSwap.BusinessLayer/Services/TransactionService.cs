@@ -309,7 +309,7 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "Transaction not found."
                 };
             }
-            transaction.ConfirmDate = DateTime.UtcNow.ToLocalTime();
+     
             transaction.Status = requestDto.NewStatus;
             _transRepo.UpdateAsync(transaction);
             await _unitOfWork.SaveChangesAsync();
@@ -682,7 +682,7 @@ namespace VoltSwap.BusinessLayer.Services
        
                 mess = "Confirm Success.";
                 gettrans.Status = "Success";
-                gettrans.ConfirmDate = DateTime.Now.ToLocalTime();
+               
                 getsub.Status = "Inactive";
                 await _subRepo.UpdateAsync(getsub);
                 await _transRepo.UpdateAsync(gettrans);

@@ -353,6 +353,8 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "Delete user successfully",
             };
         }
+
+
         //Bin : tạo mới staff
         public async Task<IServiceResult> CreateNewStaffAsync(StaffCreateRequest request)
         {
@@ -368,8 +370,6 @@ namespace VoltSwap.BusinessLayer.Services
                     };
                 }
 
-                string role = "Staff";
-                string password = "VoltSwapProjectSwp";
                 var supervisorId = await GetAdminId();
                 var userId =  await GenerateStaffId();
                 var newUser = new User()
@@ -377,9 +377,9 @@ namespace VoltSwap.BusinessLayer.Services
                     UserId = userId,
                     UserName = request.StaffName,
                     UserEmail = request.StaffEmail,
-                    UserPasswordHash = GeneratedPasswordHash(password),
+                    UserPasswordHash = GeneratedPasswordHash("VoltSwapProjectSwp"),
                     UserTele = request.StaffTele,
-                    UserRole = role,
+                    UserRole = "Staff",
                     UserAddress = request.StaffAddress,
                     SupervisorId = supervisorId,
                     CreatedAt = DateTime.UtcNow,
@@ -388,10 +388,16 @@ namespace VoltSwap.BusinessLayer.Services
 
                 await _userRepo.CreateAsync(newUser);
                 await _unitOfWork.SaveChangesAsync();
-                //var station = new StationStaff()
-                //{
+                var station = new StationStaff()
+                {
+                    BatterySwapStationId = request.StationStaff.StationId,
+                    UserStaffId = userId,
+                    ShiftStart = request.StationStaff.ShiftStart,
+                    ShiftEnd = request.StationStaff.ShiftEnd,
 
-                //}
+                };
+                await _stationStaffRepo.CreateAsync(station);
+                await _unitOfWork.SaveChangesAsync();
 
 
                 return new ServiceResult
@@ -418,8 +424,8 @@ namespace VoltSwap.BusinessLayer.Services
             do
             {
                 var random = new Random();
-                staffId = $"ST-{string.Concat(Enumerable.Range(0, 9).Select(_ => random.Next(0, 8).ToString()))}";
-                isUnique = !await _unitOfWork.Users.AnyAsync(u => u.UserId == staffId);
+                staffId = $"ST-{string.Concat(Enumerable.Range(0, 9).Select(_ => random.Next(0, 7).ToString()))}";
+                isUnique = await _unitOfWork.Users.AnyAsync(u => u.UserId == staffId);
             }
             while (isUnique);
             return staffId;

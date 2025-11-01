@@ -372,6 +372,99 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
+        //Bin: Hàm để lấy thông tin plan ngoài landscap
+        public async Task<ServiceResult> GetPlanOutLandScap()
+        {
+           var  getListPlan = await _unitOfWork.Plans.GetAllAsync();
+
+            var getplan = getListPlan.Select(p => new PlanDtos
+            {
+                PlanId = p.PlanId,
+                PlanName = p.PlanName,
+                Price = p.Price,
+                NumberBattery = p.NumberOfBattery,
+                SwapLimit = p.SwapLimit,
+                MilleageBaseUsed = p.MileageBaseUsed,
+                DurationDays = p.DurationDays,
+                             
+            });
+
+           var grouped = getListPlan.GroupBy(p => GetGroupKey(p.PlanName));
+            var feeGroups = new List<PlanGroupDetail>();
+            foreach (var group in grouped) 
+            {
+                var groupName = group.Key;
+                var anyPlan = group.FirstOrDefault();
+
+                var fees = await _unitOfWork.Plans.GetAllFeeAsync(anyPlan.PlanId);
+
+                var excess = fees
+                    .Where(f => string.Equals(f.TypeOfFee, "Excess Mileage", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(f => f.MinValue)
+                    .Select(f => new ExcessMileageTier
+                    {
+                        MinValue = f.MinValue,
+                        MaxValue = f.MaxValue,
+                        Amount = f.Amount,
+                        Unit = f.Unit
+                    }).ToList();
+
+                var deposit = fees.FirstOrDefault(f => string.Equals(f.TypeOfFee, "Battery Deposit", StringComparison.OrdinalIgnoreCase));
+                var booking = fees.FirstOrDefault(f => string.Equals(f.TypeOfFee, "Booking", StringComparison.OrdinalIgnoreCase));
+                var swapFee = (groupName == "TP")
+                    ? fees.FirstOrDefault(f => string.Equals(f.TypeOfFee, "Battery Swap", StringComparison.OrdinalIgnoreCase))
+                    : null;
+
+                var groupDetail = new PlanGroupDetail
+                {
+                    GroupKey = groupName,
+                    FeeSummary = new FeeSummary
+                    {
+                        ExcessMileage = excess,
+                        BatteryDeposit = deposit == null ? null : new SimpleFee
+                        {
+                            TypeOfFee = deposit.TypeOfFee,
+                            Amount = deposit.Amount,
+                            Unit = deposit.Unit
+
+                        },
+                        Booking = booking == null ? null : new SimpleFee
+                        {
+                            TypeOfFee = booking.TypeOfFee,
+                            Amount = booking.Amount,
+                            Unit = booking.Unit
+
+                        },
+                        BatterySwap = swapFee == null ? null : new SimpleFee
+                        {
+                            TypeOfFee = swapFee.TypeOfFee,
+                            Amount = swapFee.Amount,
+                            Unit = swapFee.Unit
+
+                        }
+                    }
+                };
+
+                feeGroups.Add(groupDetail);
+            }
+
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Successful",
+                Data = new
+                {
+                    planList = getplan,
+                    feeGroups = feeGroups,
+                }
+            };
+
+
+        }
+
+        //Bin: Cập nhật fee:
+
 
         //Hàm để lấy nhóm plan
         private string GetGroupKey(string? planName)

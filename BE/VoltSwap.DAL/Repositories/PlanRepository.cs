@@ -72,9 +72,9 @@ namespace VoltSwap.DAL.Repositories
             var totalRevenue = await _context.Transactions
                 .Where(trans => trans.Subscription.PlanId == planId
                     && trans.Status == "Success"
-                    && trans.ConfirmDate.HasValue
-                    && trans.ConfirmDate.Value.Month == month
-                    && trans.ConfirmDate.Value.Year == year)
+                    && trans.CreateAt.HasValue
+                    && trans.CreateAt.Value.Month == month
+                    && trans.CreateAt.Value.Year == year)
                 .SumAsync(trans=> trans.TotalAmount);
             return totalRevenue;
         }
@@ -84,9 +84,9 @@ namespace VoltSwap.DAL.Repositories
             var totalRevenue = await _context.Transactions
                 .Where(trans => trans.Subscription.PlanId == planId
                     && trans.Status == "Success"
-                    && trans.ConfirmDate.HasValue
-                    && trans.ConfirmDate.Value.Month == today.Month
-                    && trans.ConfirmDate.Value.Year == today.Year)
+                    && trans.CreateAt.HasValue
+                    && trans.CreateAt.Value.Month == today.Month
+                    && trans.CreateAt.Value.Year == today.Year)
                 .SumAsync(trans=> trans.TotalAmount);
             return totalRevenue;
         }
