@@ -156,13 +156,35 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "Can't find this transaction."
                 };
             }
-
+            //2. Lấy số lần booking trong tháng đó
             var getNumberOfAppointment = await _unitOfWork.Bookings.GetAllQueryable()
                                                 .Where(app => app.SubscriptionId == transaction.SubscriptionId
                                                 && app.DateBooking.Month == prevMonth
                                                 && app.DateBooking.Year == currYear)
                                                 .CountAsync();
-            var
+            //3. Lấy Plan dựa trên subId
+            var getPlan = await _unitOfWork.Subscriptions.GetAllQueryable()
+                                            .Where(sub => sub.SubscriptionId == transaction.SubscriptionId)
+                                            .Include(sub => sub.Plan)
+                                            .FirstOrDefaultAsync();
+
+            //4. Lấy tên của user
+            var getUserName = await _unitOfWork.Users.GetAllQueryable()
+                                        .FirstOrDefaultAsync(us => us.UserId == transaction.UserDriverId);
+
+            var transactionResponse = new TransactionDetailResponse
+            {
+                TransactionId = transactionId,
+                TransactionType = transaction.TransactionType,
+                SubscriptionId = transaction.SubscriptionId,
+                PlanName = getPlan.Plan.PlanName,
+                DriverId = transaction.UserDriverId,
+                DriverName = getUserName.UserName,
+                Status = transaction.Status,
+                NumberOfBooking = getNumberOfAppointment,
+                TotalFee = transaction.Fee,
+                TotalAmount = transaction.TotalAmount,
+            };
 
             return new ServiceResult
             {
