@@ -427,35 +427,26 @@ namespace VoltSwap.BusinessLayer.Services
 
             //Chỗ này để đưa cho FE để FE hiển thị các slot pin available để user để lấy pin ra
 
-            var checkbooking = await _unitOfWork.Stations.CheckSubscriptionHasBookingAsync(requestBatteryList.AccessRequest.SubscriptionId);
-            var getPillarSlotList = new List<PillarSlot>();
-            if (checkbooking)
-            {
-                var getbooking = await _unitOfWork.Bookings.GetBookingBySubId(requestBatteryList.SubscriptionId);
-                getPillarSlotList = await _unitOfWork.Stations.GetBatteriesLockByPillarIdAsync(requestBatteryList.PillarId, getbooking.AppointmentId);
-                getbooking.Status = "Done";
-                await _appoinmentRepo.UpdateAsync(getbooking);
-                await _unitOfWork.SaveChangesAsync();
+                var getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarIdAsync(requestBatteryList.PillarId, topNumber);
 
-            var getPillarSlotList = await _unitOfWork.Stations.GetBatteriesAvailableByPillarIdAsync(requestBatteryList.PillarId, topNumber);
-
-            //lúc này là trả về các slot pin để FE hiển thị (bao gồm id pin và slotId)
-            var dtoList = getPillarSlotList.Select(slot => new BatteryDto
-            {
-                SlotId = slot.SlotId,
-                BatteryId = slot.BatteryId,
-            }).ToList();
-            return new ServiceResult
-            {
-                Status = 200,
-                Message = "Successfull",
-                Data = new BatteryRequest
+                //lúc này là trả về các slot pin để FE hiển thị (bao gồm id pin và slotId)
+                var dtoList = getPillarSlotList.Select(slot => new BatteryDto
                 {
-                    BatteryDtos = dtoList,
-                    SubscriptionId = requestBatteryList.AccessRequest.SubscriptionId,
-                }
-            };
-        }
+                    SlotId = slot.SlotId,
+                    BatteryId = slot.BatteryId,
+                }).ToList();
+                return new ServiceResult
+                {
+                    Status = 200,
+                    Message = "Successfull",
+                    Data = new BatteryRequest
+                    {
+                        BatteryDtos = dtoList,
+                        SubscriptionId = requestBatteryList.AccessRequest.SubscriptionId,
+                    }
+                };
+            }
+        
 
         public async Task<int> UpdatebatSwapOutAsync(string batId, string stationId, string subId)
         {
