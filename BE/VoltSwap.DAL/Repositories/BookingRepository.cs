@@ -18,8 +18,7 @@ namespace VoltSwap.DAL.Repositories
     public class BookingRepository : GenericRepositories<Appointment>, IBookingRepository
     {
         private VoltSwapDbContext _context;
-        private const string SLOT_USE = "Use";
-        private const string SLOT_LOCK = "Lock";
+
         public BookingRepository(VoltSwapDbContext context)
         {
             _context = context;

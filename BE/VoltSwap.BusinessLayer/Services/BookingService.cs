@@ -91,7 +91,6 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
-
         public async Task<ServiceResult> CreateBookingAsync(CreateBookingRequest request)
         {
             var subscription = await GetSubscriptionById(request.SubscriptionId);
@@ -157,39 +156,19 @@ namespace VoltSwap.BusinessLayer.Services
             await _bookingRepo.CreateAsync(appointmentDB);
             await _unitOfWork.SaveChangesAsync();
 
-            var lockedSlot = await _pillarSlotService.LockSlotsAsync(request.StationId,request.SubscriptionId,bookingId
+            var lockedSlot = await _pillarSlotService.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId
             );
-            if ( lockedSlot == null)
+            if (lockedSlot == null)
             {
-                TransactionId = newTransId,
-                AppointmentId = appointmentDB.AppointmentId,
-                DriverId = appointmentDB.UserDriverId,
-                BatterySwapStationId = appointmentDB.BatterySwapStationId,
-                Note = appointmentDB.Note,
-                SubscriptionId = appointmentDB.SubscriptionId,
-                Status = appointmentDB.Status,
-                DateBooking = appointmentDB.DateBooking,
-                TimeBooking = appointmentDB.TimeBooking,
-                CreateBookingAt = appointmentDB.CreateBookingAt
-            };
-
-            return new ServiceResult
-            {
-                Status = 201,
-                Message = "Booking created successfully",
-                Data =  appointment 
-            };
-        }
-        public async Task<ServiceResult> CreateBookingAsync_HC(CreateBookingRequest request)
-        {
-            var subscription = await GetSubscriptionById(request.SubscriptionId);
-            if (subscription == null)
-            {
-                return new ServiceResult { Status = 404, Message = "Subscription not found" };
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "There is no pillar in the station with enough available batteries to lock."
+                };
             }
 
             var pillars = lockedSlot.Select(p => p.PillarId).FirstOrDefault();
-
+            var calculatetime = CalculateCancelCountdownSeconds(appointmentDB, true);
 
             if (pillars == null)
             {
@@ -218,10 +197,25 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 Status = 201,
                 Message = $"Locked {lockedSlot.Count} batteries at pillar {pillars}.",
-                Data = appointment
+                Data = new
+                {
+                 Booking = appointment,
+                 Time = calculatetime
+                }
             };
         }
 
+        private static int CalculateCancelCountdownSeconds(Appointment appointment, bool addExtraHour = true)
+        {
+            var nowUtc = DateTime.UtcNow.ToLocalTime();
+            var scheduledLocalVn = appointment.DateBooking.ToDateTime(appointment.TimeBooking);
+            var scheduledUtc = scheduledLocalVn;
+            var expireAtUtc = addExtraHour ? scheduledUtc.AddHours(1) : scheduledUtc;
+            var realSecondsRemaining = (expireAtUtc - nowUtc).TotalSeconds;
+            var scaledSeconds = realSecondsRemaining * (10.0 / 3600.0);
+            if (scaledSeconds <= 0) return 0;
+            return (int)Math.Ceiling(scaledSeconds);
+        }
 
 
         //Bin: Staff xem danh sách booking của trạm mình
