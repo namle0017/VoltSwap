@@ -23,16 +23,6 @@ namespace VoltSwap.Common.DTOs
         public string TransactionContext { get; set; }
         //Nemo: thêm transactionNote để cho lưu các fee hay note nào đó
     }
-
-    public class TransactionReponse
-    {
-        public string TransactionId { get; set; }
-        public decimal Amount { get; set; }
-        public string PaymentStatus { get; set; } = "Pending";
-        public string BankName { get; set; }
-        public string TransactionContext { get; set; }
-        public string PaymentAccount { get; set; }
-    }
     public class TransactionListReponse
     {
         public string TransactionId { get; set; }
