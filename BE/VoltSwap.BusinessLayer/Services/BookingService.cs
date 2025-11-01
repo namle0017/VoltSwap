@@ -63,10 +63,6 @@ namespace VoltSwap.BusinessLayer.Services
             if (appointment == null)
                 return new ServiceResult { Status = 404, Message = "Booking not found" };
 
-            //if (!string.Equals(appointment.Status, "Pending", StringComparison.OrdinalIgnoreCase))
-            //    return new ServiceResult { Status = 409, Message = "Only Not Done bookings can be cancelled" };
-
-
             appointment.Status = "Canceled";
 
             var lockedSlots = await _unitOfWork.PillarSlots.UnlockSlotsByAppointmentIdAsync(appointment.AppointmentId);
@@ -77,7 +73,7 @@ namespace VoltSwap.BusinessLayer.Services
                 {
                     slot.PillarStatus = "Unavailable";
                     slot.AppointmentId = null;
-                    await _unitOfWork.PillarSlots.UpdateAsync(slot); 
+                    await _unitOfWork.PillarSlots.UpdateAsync(slot);
                 }
             }
 
@@ -91,11 +87,115 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
+
+        public async Task<ServiceResult> CancelBookingByUserAsync(CancelBookingRequest request)
+        {
+            var appointment = await _bookingRepo.GetByIdAsync(a => a.AppointmentId == request.BookingId);
+            if (appointment == null)
+                return new ServiceResult { Status = 404, Message = "Booking not found" };
+
+            if (appointment.Status == "Done")
+            {
+                return new ServiceResult
+                {
+                    Status = 409,
+                    Message = "This booking cannot be canceled because it is already completed."
+                };
+            }
+
+
+            var nowVn = DateTime.UtcNow.ToLocalTime();
+
+
+            var bookingDateTime = appointment.DateBooking.ToDateTime(appointment.TimeBooking);
+
+            if (nowVn >= bookingDateTime)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "the scheduled time has passed."
+                };
+            }
+
+
+            appointment.Status = "Canceled";
+
+
+            var lockedSlots = await _unitOfWork.PillarSlots.UnlockSlotsByAppointmentIdAsync(appointment.AppointmentId);
+            if (lockedSlots.Any())
+            {
+                foreach (var slot in lockedSlots)
+                {
+                    slot.PillarStatus = "Unavailable";
+                    slot.AppointmentId = null;
+                    await _unitOfWork.PillarSlots.UpdateAsync(slot);
+                }
+            }
+
+
+            var transaction = await _unitOfWork.Trans.GetByIdAsync(t =>
+                t.SubscriptionId == appointment.SubscriptionId &&
+                t.Status == "Waiting" &&
+                t.TransactionType == "Penalty Fee");
+
+            if (transaction != null)
+            {
+                var bookingFee = await _unitOfWork.Fees.GetByIdAsync(f =>
+                    f.PlanId == transaction.Subscription.PlanId && f.TypeOfFee == "Booking");
+
+                if (bookingFee != null)
+                {
+                    transaction.Fee -= bookingFee.Amount;
+                    transaction.TotalAmount -= bookingFee.Amount;
+
+                    if (transaction.Fee < 0) transaction.Fee = 0;
+                    if (transaction.TotalAmount < 0) transaction.TotalAmount = 0;
+
+                    if (transaction.Fee == 0 && transaction.TotalAmount == 0)
+                    {
+    
+                        await _unitOfWork.Trans.RemoveAsync(transaction);
+                    }
+                    else
+                    {
+                        await _unitOfWork.Trans.UpdateAsync(transaction);
+                    }
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Booking cancelled successfully.",
+                Data = new
+                {
+                    appointmentId = appointment.AppointmentId
+                }
+            };
+        }
+
+
         public async Task<ServiceResult> CreateBookingAsync(CreateBookingRequest request)
         {
             var subscription = await GetSubscriptionById(request.SubscriptionId);
             if (subscription == null)
                 return new ServiceResult { Status = 404, Message = "Subscription not found" };
+
+
+            var existingBooking = await _bookingRepo.GetByIdAsync(b => b.SubscriptionId == request.SubscriptionId &&
+                                                                       b.Status == "Processing");
+
+            if (existingBooking != null)
+            {
+                return new ServiceResult
+                {
+                    Status = 409,
+                    Message = "You already have an active booking. Please complete or cancel it before creating a new one."
+                };
+            }
 
             var getFee = await _unitOfWork.Fees.GetByIdAsync(f =>
                 f.PlanId == subscription.PlanId && f.TypeOfFee == "Booking");
@@ -199,8 +299,8 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = $"Locked {lockedSlot.Count} batteries at pillar {pillars}.",
                 Data = new
                 {
-                 Booking = appointment,
-                 Time = calculatetime
+                    Booking = appointment,
+                    Time = calculatetime
                 }
             };
         }
@@ -238,7 +338,7 @@ namespace VoltSwap.BusinessLayer.Services
 
                 bookingResponses.Add(new ViewBookingResponse
                 {
-                    BookingId =booking.AppointmentId,
+                    BookingId = booking.AppointmentId,
                     SubcriptionId = booking.SubscriptionId,
                     DriverId = booking.UserDriverId,
                     Date = booking.DateBooking,
@@ -329,9 +429,9 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Nemo: Dùng để check coi là cái sub đó có booking được hoàn thiện chưa
-        private async Task<bool> CheckBookingExist(string subId)
+        public async Task<bool> CheckBookingExist(string subId)
         {
-            return await _bookingRepo.GetAllQueryable().AnyAsync(book => book.Status == "Processing" && book.Status == "Pending" && book.SubscriptionId == subId);
+            return await _bookingRepo.GetAllQueryable().AnyAsync(book => book.Status == "Processing" && book.SubscriptionId == subId);
             //processing là đợi người dùng tới lấy
             //pending là đợi người dùng trả
         }
@@ -484,7 +584,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             return new ServiceResult
             {
-                Status = 201,
+                Status = 200,
                 Message = "Booking created successfully",
                 Data = appointment
             };

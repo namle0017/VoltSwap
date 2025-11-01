@@ -50,13 +50,12 @@ namespace VoltSwap.BusinessLayer.Services
             var result = new Report
             {
                 UserAdminId = await GetAdminId(),
-                UserStaffId = requestDto.StaffId,
+                UserStaffId = null,
                 UserDriverId = requestDto.DriverId,
-                ReportId = requestDto.ReportTypeId,
                 Note = requestDto.ReportNote,
                 CreateAt = DateTime.UtcNow.ToLocalTime(),
                 Status = "Processing",
-                ProcessesAt = DateTime.MinValue,
+                ProcessesAt = null,
             };
 
             await _reportRepo.CreateAsync(result);

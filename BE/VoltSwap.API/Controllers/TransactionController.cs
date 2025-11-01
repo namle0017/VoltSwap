@@ -42,7 +42,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Hàm này để cho user trả transaction
-        [HttpPost("{requestTransactionId}")]
+        [HttpGet("transaction-detail")]
         public async Task<IActionResult> CreateTransaction(string requestTransactionId)
         {
             if (!ModelState.IsValid)
@@ -131,6 +131,21 @@ namespace VoltSwap.API.Controllers
             return StatusCode(result.Status, new
             {
                 message = result.Message,
+            });
+        }
+
+        [HttpPatch("recreate-transaction")]
+        public async Task<IActionResult> RecreateTransactionAsync(string transactionId)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _transService.RecreateTransaction(transactionId);
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+                Data = result,
             });
         }
     }
