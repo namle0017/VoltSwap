@@ -19,6 +19,7 @@ appsettings.*.json  # Thêm để cover các env khác như Production, Staging
 .sonarqube
 VoltSwap.API/Properties/launchSettings.json
 launchSettings.json
+efpt.config.json
 # Dependency packages (nếu dùng NuGet)
 packages/
 *.nupkg

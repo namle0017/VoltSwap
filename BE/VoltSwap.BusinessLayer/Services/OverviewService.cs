@@ -129,9 +129,65 @@ namespace VoltSwap.BusinessLayer.Services
             return new ServiceResult
             {
                 Status = 200,
-                Message= "Get Admin overview successfull",
+                Message = "Get Admin overview successfull",
                 Data = adminOverview
             };
         }
+
+        public async Task<ServiceResult> GetUserSubscriptionsAsync(CheckSubRequest request)
+        {
+            var userSubscriptions = await _unitOfWork.Subscriptions
+                .GetSubscriptionByUserIdAsync(request.DriverId);
+
+
+            if (userSubscriptions == null || !userSubscriptions.Any())
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "No subscriptions found for the user."
+                };
+            }
+            var getTrans = await _unitOfWork.Trans
+                .GetAllQueryable()
+                .Where(trans => trans.UserDriverId == request.DriverId)
+                .ToListAsync();
+
+            // Tính tổng Fee theo từng SubscriptionId
+            var feeBySubId = getTrans
+                .GroupBy(trans => trans.SubscriptionId) // Giả sử Trans có thuộc tính SubscriptionId
+                .ToDictionary(
+                    g => g.Key,
+                    g => (double)g.Sum(trans => trans.Fee)
+                );
+
+            // Map subscription thành DTO, gán Fee riêng
+            var subscriptionDtos = new List<ServiceOverviewItemDto>();
+
+            foreach (var sub in userSubscriptions.Where(s => s.Status != "Inactive"))
+            {
+                var batteryDtos = await _batterySwapService.GetBatteryInUsingAvailable(sub.SubscriptionId);
+
+                subscriptionDtos.Add(new ServiceOverviewItemDto
+                {
+                    SubId = sub.SubscriptionId,
+                    PlanName = sub.Plan.PlanName,
+                    PlanStatus = sub.Status,
+                    SwapLimit = null,
+                    Remaining_swap = sub.RemainingSwap,
+                    Current_miligate = sub.CurrentMileage,
+                    SubFee = feeBySubId.TryGetValue(sub.SubscriptionId, out var fee) ? fee : 0.0,
+                    EndDate = sub.EndDate,
+                    BatteryDtos = batteryDtos
+                });
+            }
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Subscriptions retrieved successfully.",
+                Data = subscriptionDtos
+            };
+    }
     }
 }

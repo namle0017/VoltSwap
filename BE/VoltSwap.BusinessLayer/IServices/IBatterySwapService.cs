@@ -17,7 +17,7 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<ServiceResult> SwapOutBattery(BatterySwapOutListRequest requestDto);
         Task<ServiceResult> CheckBatteryAvailable(BatterySwapListRequest requestBatteryList);
         Task<List<MilleageBaseMonthly>> CalMilleageBase(List<BatterySession> batSession);
-        Task<List<BatterySwapMonthlyResponse>> GetBatterySwapMonthly();
+        Task<BatterySwapMonthlyResponse> GetBatterySwapMonthly();
 
         //Nemo: Count số lần swap trong ngày cho staff
         Task<int> CalNumberOfSwapDailyForStaff(string staffId);

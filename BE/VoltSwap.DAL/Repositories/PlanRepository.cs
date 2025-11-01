@@ -50,7 +50,7 @@ namespace VoltSwap.DAL.Repositories
         //Bin: Đếm tổng người dùng đang sử dụng plan đó
         public async Task<int> CountUsersByPlanIdAsync(string planId, int month, int year)
         {
-            return await _context.Subscriptions.Where(sub => sub.PlanId == planId 
+            return await _context.Subscriptions.Where(sub => sub.PlanId == planId
               && sub.Status == "Active"
               && sub.StartDate.Month == month
               && sub.StartDate.Year == year).CountAsync();
@@ -59,7 +59,7 @@ namespace VoltSwap.DAL.Repositories
         public async Task<int> CountUsersCurrentMonthByPlanIdAsync(string planId)
         {
             var today = DateTime.UtcNow.ToLocalTime();
-            return await _context.Subscriptions.Where(sub => sub.PlanId == planId 
+            return await _context.Subscriptions.Where(sub => sub.PlanId == planId
               && sub.Status == "Active"
               && sub.StartDate.Month == today.Month
               && sub.StartDate.Year == today.Year).CountAsync();

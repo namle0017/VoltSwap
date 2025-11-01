@@ -116,11 +116,16 @@ namespace VoltSwap.Common.DTOs
         public string BatteryId { get; set; }
     }
 
-    //Nemo: Dto cho tính lượt đổi pin theo tháng
-    public class BatterySwapMonthlyResponse
+    public class BatterySwapMonthlyList
     {
         public int Month { get; set; }
         public int BatterySwapInMonth { get; set; }
+    }
+
+    //Nemo: Dto cho tính lượt đổi pin theo tháng
+    public class BatterySwapMonthlyResponse
+    {
+        public List<BatterySwapMonthlyList> BatterySwapMonthlyLists { get; set; }
         public int AvgBatterySwap { get; set; }
     }
 
@@ -188,19 +193,19 @@ namespace VoltSwap.Common.DTOs
         public string SubcriptionId { get; set; }
         public AccessRequest AccessRequest { get; set; }
         public List<BatteryDto> BatteryReturnId { get; set; }
-        public List<BatteryDto>  BatteryOutId { get; set; }
+        public List<BatteryDto> BatteryOutId { get; set; }
     }
 
-    public class BatterySwapListRespone 
-    { 
+    public class BatterySwapListRespone
+    {
         public string StaffId { get; set; }
         public string UserId { get; set; }
-       
+
         public string UserName { get; set; }
         public string? BatteryIdIn { get; set; }
         public string? BatteryIdOut { get; set; }
-        public string Status {  get; set; }
-        public TimeOnly Time {  get; set; }
+        public string Status { get; set; }
+        public TimeOnly Time { get; set; }
 
 
     }

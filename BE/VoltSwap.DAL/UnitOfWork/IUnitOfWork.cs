@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using VoltSwap.DAL.Base;
 using VoltSwap.DAL.Data;
 using VoltSwap.DAL.IRepositories;
+using VoltSwap.DAL.Repositories;
 
 namespace VoltSwap.DAL.UnitOfWork
 {
@@ -27,6 +28,7 @@ namespace VoltSwap.DAL.UnitOfWork
         IPillarRepository Pillars { get; }
         IFeeRepository Fees { get; }
         IBatterySessionRepository BatSession { get; }
+        IReportTypeRepository ReportType { get; }
 
 
     }

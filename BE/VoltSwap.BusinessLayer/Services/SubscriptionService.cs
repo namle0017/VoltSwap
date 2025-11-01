@@ -76,44 +76,6 @@ namespace VoltSwap.BusinessLayer.Services
 
             return new ServiceResult(200, "Done");
         }
-
-        public async Task<ServiceResult> GetUserSubscriptionsAsync(CheckSubRequest request)
-        {
-            var userSubscriptions = await _unitOfWork.Subscriptions
-                .GetSubscriptionByUserIdAsync(request.DriverId);
-
-            if (userSubscriptions == null || !userSubscriptions.Any())
-            {
-                return new ServiceResult
-                {
-                    Status = 404,
-                    Message = "No subscriptions found for the user."
-                };
-            }
-
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-
-            var subscriptionDtos = userSubscriptions
-                .Where(sub => sub.Status != "Inactive")
-                .Select(sub => new ServiceOverviewItemDto
-                {
-                    SubId = sub.SubscriptionId,
-                    PlanName = sub.Plan.PlanName,
-                    PlanStatus = sub.Status,
-                    SwapLimit = null,
-                    Remaining_swap = sub.RemainingSwap,
-                    Current_miligate = sub.CurrentMileage,
-                    EndDate = sub.EndDate
-                })
-                .ToList();
-
-            return new ServiceResult
-            {
-                Status = 200,
-                Message = "Subscriptions retrieved successfully.",
-                Data = subscriptionDtos
-            };
-        }
         //Hàm đăng ký subcription mới
         //public async Task<ServiceResult> RegisterSubcriptionAsync( string DriverId, string PlanId)
         //{

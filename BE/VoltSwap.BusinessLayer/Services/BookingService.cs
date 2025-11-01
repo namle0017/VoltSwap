@@ -161,11 +161,31 @@ namespace VoltSwap.BusinessLayer.Services
             );
             if ( lockedSlot == null)
             {
-                return new ServiceResult
-                {
-                    Status = 400,
-                    Message = "There is no pillar in the station with enough available batteries to lock."
-                };
+                TransactionId = newTransId,
+                AppointmentId = appointmentDB.AppointmentId,
+                DriverId = appointmentDB.UserDriverId,
+                BatterySwapStationId = appointmentDB.BatterySwapStationId,
+                Note = appointmentDB.Note,
+                SubscriptionId = appointmentDB.SubscriptionId,
+                Status = appointmentDB.Status,
+                DateBooking = appointmentDB.DateBooking,
+                TimeBooking = appointmentDB.TimeBooking,
+                CreateBookingAt = appointmentDB.CreateBookingAt
+            };
+
+            return new ServiceResult
+            {
+                Status = 201,
+                Message = "Booking created successfully",
+                Data =  appointment 
+            };
+        }
+        public async Task<ServiceResult> CreateBookingAsync_HC(CreateBookingRequest request)
+        {
+            var subscription = await GetSubscriptionById(request.SubscriptionId);
+            if (subscription == null)
+            {
+                return new ServiceResult { Status = 404, Message = "Subscription not found" };
             }
 
             var pillars = lockedSlot.Select(p => p.PillarId).FirstOrDefault();
@@ -210,7 +230,7 @@ namespace VoltSwap.BusinessLayer.Services
             var today = DateTime.UtcNow.ToLocalTime();
             var stationId = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.StaffId);
             var bookingList = await _bookingRepo.GetAllQueryable()
-                .Where(b => b.BatterySwapStationId == stationId.BatterySwapStationId 
+                .Where(b => b.BatterySwapStationId == stationId.BatterySwapStationId
                 //&& b.CreateBookingAt == today
                 )
 

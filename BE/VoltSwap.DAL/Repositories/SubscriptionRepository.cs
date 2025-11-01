@@ -31,7 +31,7 @@ namespace VoltSwap.DAL.Repositories
         public async Task<User> GetUserBySubscriptionIdAsync(string subId)
         {
             var getuser = await _context.Subscriptions.Where(sub => sub.SubscriptionId == subId)
-                                                     .Select (u => u.UserDriver)
+                                                     .Select(u => u.UserDriver)
                                                      .FirstOrDefaultAsync();
             return getuser;
         }
@@ -45,14 +45,14 @@ namespace VoltSwap.DAL.Repositories
 
         public async Task<bool> CheckPlanAvailabel(string subId)
         {
-            return await _context.Subscriptions.AnyAsync(x => x.SubscriptionId == subId);
+            return await _context.Subscriptions.AnyAsync(x => x.SubscriptionId == subId && x.Status == "Active");
         }
 
         public async Task<int> GetNumberOfbatteryInSub(string subId)
         {
             var count = await _context.Subscriptions
                 .Where(sub => sub.SubscriptionId == subId)
-                .Include(plan => plan.Plan )
+                .Include(plan => plan.Plan)
                 .Select(sub => sub.Plan.NumberOfBattery)
                 .FirstOrDefaultAsync();
             return count ?? 0;
@@ -93,7 +93,7 @@ namespace VoltSwap.DAL.Repositories
                 .Where(swap => swap.StartDate.Month == month && swap.StartDate.Year == year)
                 .SumAsync(sub => sub.RemainingSwap);
             return (int)totalSwapsUsed;
-        } 
+        }
 
 
     }
