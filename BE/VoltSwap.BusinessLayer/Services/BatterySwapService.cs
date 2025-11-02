@@ -432,13 +432,10 @@ namespace VoltSwap.BusinessLayer.Services
                     updateBat.BatterySwapStationId = requestBatteryList.AccessRequest.StationId;
                     //Update lại cái pin được trả vô
                     await _batSwapRepo.CreateAsync(updateBatSwapIn);
-                   
+
                     await _slotRepo.UpdateAsync(getSlot);
                     await _batRepo.UpdateAsync(updateBat);
-<<<<<<< HEAD
-=======
-                     await _unitOfWork.SaveChangesAsync();
->>>>>>> 28068a1453bf294490e50898817c9ed5329e5185
+                    await _unitOfWork.SaveChangesAsync();
                 }
 
             }
@@ -772,6 +769,7 @@ namespace VoltSwap.BusinessLayer.Services
         }
         public async Task<ServiceResult> StaffSwapBattery(StaffBatteryRequest requestDto)
         {
+            var currDate = DateOnly.FromDateTime(DateTime.UtcNow.ToLocalTime());
             //Lấy trạm của staff
             var station = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(requestDto.StaffId);
             if (station == null || string.IsNullOrEmpty(station.BatterySwapStationId))
@@ -818,6 +816,12 @@ namespace VoltSwap.BusinessLayer.Services
                 if (batteryIn == null)
                     return new ServiceResult { Status = 404, Message = "BatteryIn not found" };
 
+                var getBatteryIn = await _batSwapRepo.GetAllQueryable()
+                                        .Where(bat => bat.BatteryOutId == requestDto.BatteryInId
+                                            && bat.SubscriptionId == bat.SubscriptionId
+                                            && bat.Status == "Using")
+                                        .FirstOrDefaultAsync();
+                TimeSpan diff = currDate.ToDateTime(TimeOnly.MinValue) - getBatteryIn.SwapDate.ToDateTime(TimeOnly.MinValue);
                 //Cập nhật pin vào (pin trả lại trạm)
                 batteryIn.BatterySwapStationId = stationId;
                 batteryIn.BatteryStatus = "Charging";
@@ -838,7 +842,7 @@ namespace VoltSwap.BusinessLayer.Services
                 await _batSwapRepo.CreateAsync(swapIn);
 
                 //Tạo session cho battery-in
-                var sessions = await GenerateBatterySessionForBattery(requestDto.BatteryInId);
+                var sessions = await GenerateBatterySessionForBattery(requestDto.BatteryInId, diff);
                 await _unitOfWork.BatSession.BulkCreateAsync(sessions);
 
                 //Tính mileage base (km người dùng đã đi) và mileage fee (phí vượt km / penalty fee)
@@ -868,9 +872,9 @@ namespace VoltSwap.BusinessLayer.Services
                     {
                         TransactionId = newTrans,
                         SubscriptionId = requestDto.SubId,
-                        Fee = mileageFee,                                  
-                        TotalAmount = mileageFee,                            
-                        Status = "Waiting",                                  
+                        Fee = mileageFee,
+                        TotalAmount = mileageFee,
+                        Status = "Waiting",
                         CreateAt = DateTime.UtcNow.ToLocalTime(),
                         Note = "Penalty Fee"
                     };
