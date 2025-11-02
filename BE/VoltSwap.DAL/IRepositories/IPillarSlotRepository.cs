@@ -10,7 +10,7 @@ namespace VoltSwap.DAL.IRepositories
 {
     public interface IPillarSlotRepository : IGenericRepositories<PillarSlot>
     {
-        Task<List<PillarSlot>> GetLockedSlotsByStationAsync(string pillarId);
+
         Task<List<PillarSlot>> GetAvailableSlotsByPillarAsync(string pillarId);
 
         Task<List<PillarSlot>> UnlockSlotsByAppointmentIdAsync(string appointmentId);

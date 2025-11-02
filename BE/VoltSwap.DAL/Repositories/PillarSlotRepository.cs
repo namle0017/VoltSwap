@@ -18,19 +18,6 @@ namespace VoltSwap.DAL.Repositories
         public PillarSlotRepository(VoltSwapDbContext context) : base(context) => _context = context;
 
 
-
-        public async Task<List<PillarSlot>> GetLockedSlotsByStationAsync(string pillarId)
-        {
-            return await _context.PillarSlots
-                .Include(ps => ps.BatterySwapPillar)
-                .Include(ps => ps.Battery)
-                .Where(ps => ps.AppointmentId != null &&                      
-                             ps.BatterySwapPillarId == pillarId &&
-                             ps.Battery.BatteryStatus == "Available" &&
-                             ps.PillarStatus == "Lock")                       
-                            .ToListAsync();
-        }
-
         public async Task<List<PillarSlot>> GetAvailableSlotsByPillarAsync(string pillarId)
         {
             return await _context.PillarSlots

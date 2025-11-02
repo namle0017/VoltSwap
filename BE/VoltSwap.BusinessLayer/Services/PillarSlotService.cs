@@ -266,41 +266,38 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Bin: hàm để Lock pin khi booking xog
-        public async Task<ServiceResult> LockSlotsAsync( string stationId, string subscriptionId,string bookingId)
+        // Bin: hàm để Lock pin khi booking xong
+        public async Task<List<PillarSlotDto>> LockSlotsAsync(
+            string stationId,
+            string subscriptionId,
+            string bookingId)
         {
-            var lockedSlotsDto = new List<PillarSlotDto>();
+            var result = new List<PillarSlotDto>();
 
-            // 1. Check sub còn tồn tại
+            // 1. Tìm subId có đúng không
             var subscription = await _subRepo.GetByIdAsync(subscriptionId);
+            if (subscription == null)
+                return result;
 
-            // 2. Số pin cần lock theo gói của subscription
+            // 2. Lấy số pin có trong subId đó
             var requiredBatteries =
-                await _unitOfWork.Subscriptions
-                    .GetBatteryCountBySubscriptionIdAsync(subscriptionId);
-
+                await _unitOfWork.Subscriptions.GetBatteryCountBySubscriptionIdAsync(subscriptionId);
             if (requiredBatteries <= 0)
-            {
-                return new ServiceResult
-                {
-                    Status = 400,
-                    Message = "This subscription does not require any batteries"
-                };
-            }
+                return result;
 
-            // 3. Lấy tất cả trụ thuộc station
-            var pillars = await _unitOfWork.Pillars
-                .GetAllAsync(p => p.BatterySwapStationId == stationId);
+            // 3. Lấy các pillar có trong trạm
+            var pillars = await _unitOfWork.Pillars.GetAllAsync(
+                p => p.BatterySwapStationId == stationId
+            );
 
-            // 4. Thử từng trụ để xem có trụ nào đủ pin không
             foreach (var pillar in pillars)
             {
-
+                // 4. Lấy các slot phù hợp có trong trụ
                 var availableSlots = await _unitOfWork.PillarSlots
                     .GetAvailableSlotsByPillarAsync(pillar.BatterySwapPillarId);
 
                 if (availableSlots.Count >= requiredBatteries)
                 {
-
                     var slotsToLock = availableSlots
                         .Take(requiredBatteries)
                         .ToList();
@@ -311,40 +308,29 @@ namespace VoltSwap.BusinessLayer.Services
                         slot.AppointmentId = bookingId;
 
                         await _unitOfWork.PillarSlots.UpdateAsync(slot);
+                        await _unitOfWork.SaveChangesAsync();
 
-                        lockedSlotsDto.Add(new PillarSlotDto
+                        result.Add(new PillarSlotDto
                         {
                             SlotId = slot.SlotId,
                             BatteryId = slot.BatteryId,
                             SlotNumber = slot.SlotNumber,
                             StationId = stationId,
                             PillarId = slot.BatterySwapPillarId,
-                            PillarStatus = "Lock",
+                            PillarStatus = slot.PillarStatus,
                             BatteryStatus = slot.Battery.BatteryStatus,
                             BatterySoc = slot.Battery.Soc,
                             BatterySoh = slot.Battery.Soh
                         });
                     }
 
-
-                    await _unitOfWork.SaveChangesAsync();
-
-                    return new ServiceResult
-                    {
-                        Status = 201,
-                        Message = $"Locked {lockedSlotsDto.Count} batteries at pillar {pillar.BatterySwapPillarId}.",
-                        Data = lockedSlotsDto
-                    };
+                    break;
                 }
             }
 
-
-            return new ServiceResult
-            {
-                Status = 409, 
-                Message = "Not enough available batteries in a single pillar for this subscription plan"
-            };
+            return result;
         }
+
 
     }
 }
