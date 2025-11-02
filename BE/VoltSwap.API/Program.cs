@@ -39,6 +39,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<IVnPayService, VnPayService>();
 builder.Services.AddScoped<VehicleService>();
+builder.Services.AddScoped<FeeService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddScoped<IPillarSlotRepository, PillarSlotRepository>();

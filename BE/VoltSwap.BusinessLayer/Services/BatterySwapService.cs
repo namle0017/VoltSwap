@@ -271,7 +271,6 @@ namespace VoltSwap.BusinessLayer.Services
                 Fee = t + calMilleageFee,
                 TotalAmount = -(getFee.Amount) + t + calMilleageFee,
                 TransactionContext = transactionContext,
-                CreateAt = null,
                 CreatedBy = requestDto.StaffId,
             };
 
@@ -433,9 +432,13 @@ namespace VoltSwap.BusinessLayer.Services
                     updateBat.BatterySwapStationId = requestBatteryList.AccessRequest.StationId;
                     //Update lại cái pin được trả vô
                     await _batSwapRepo.CreateAsync(updateBatSwapIn);
-                    await _unitOfWork.SaveChangesAsync();
+                   
                     await _slotRepo.UpdateAsync(getSlot);
                     await _batRepo.UpdateAsync(updateBat);
+<<<<<<< HEAD
+=======
+                     await _unitOfWork.SaveChangesAsync();
+>>>>>>> 28068a1453bf294490e50898817c9ed5329e5185
                 }
 
             }
@@ -741,7 +744,7 @@ namespace VoltSwap.BusinessLayer.Services
                 if (batteryIn != null)
                 {
                     batteryIn.BatterySwapStationId = getsation.BatterySwapStationId;
-                    batteryIn.BatteryStatus = "Maintenance";
+                    batteryIn.BatteryStatus = "Maintanance";
                     await _batRepo.UpdateAsync(batteryIn);
                     var swapIn = new BatterySwap
                     {
@@ -767,6 +770,142 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "Battery transfer processed successfully"
             };
         }
+        public async Task<ServiceResult> StaffSwapBattery(StaffBatteryRequest requestDto)
+        {
+            //Lấy trạm của staff
+            var station = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(requestDto.StaffId);
+            if (station == null || string.IsNullOrEmpty(station.BatterySwapStationId))
+                return new ServiceResult { Status = 400, Message = "Invalid station or staff ID" };
+
+            var stationId = station.BatterySwapStationId;
+
+            //Kiểm tra BatteryOut hợp lệ
+            if (string.IsNullOrEmpty(requestDto.BatteryOutId))
+                return new ServiceResult { Status = 400, Message = "BatteryOutId is required" };
+
+            var batteryOut = await _batRepo.GetByIdAsync(b => b.BatteryId == requestDto.BatteryOutId);
+            if (batteryOut == null)
+                return new ServiceResult { Status = 404, Message = "BatteryOut not found" };
+
+            if (batteryOut.BatterySwapStationId != stationId)
+                return new ServiceResult { Status = 400, Message = "Battery not available in this station" };
+
+            if (batteryOut.BatteryStatus == "Using")
+                return new ServiceResult { Status = 409, Message = "Battery is already in use" };
+
+            //Xử lý pin ra (swap-out)
+            batteryOut.BatterySwapStationId = null;
+            batteryOut.BatteryStatus = "Using";
+            await _batRepo.UpdateAsync(batteryOut);
+
+            var swapOut = new BatterySwap
+            {
+                SwapHistoryId = await GenerateBatterySwapId(),
+                SubscriptionId = requestDto.SubId,
+                BatterySwapStationId = stationId,
+                BatteryOutId = requestDto.BatteryOutId,
+                Status = "Using",
+                SwapDate = DateOnly.FromDateTime(DateTime.Today),
+                Note = "Swap started",
+                CreateAt = DateTime.UtcNow.ToLocalTime(),
+            };
+            await _batSwapRepo.CreateAsync(swapOut);
+
+            //Nếu có BatteryIn thì xử lý đổi pin bình thường
+            if (!string.IsNullOrEmpty(requestDto.BatteryInId))
+            {
+                var batteryIn = await _batRepo.GetByIdAsync(b => b.BatteryId == requestDto.BatteryInId);
+                if (batteryIn == null)
+                    return new ServiceResult { Status = 404, Message = "BatteryIn not found" };
+
+                //Cập nhật pin vào (pin trả lại trạm)
+                batteryIn.BatterySwapStationId = stationId;
+                batteryIn.BatteryStatus = "Charging";
+                batteryIn.Soc = new Random().Next(20, 100); // giả lập SOC
+                await _batRepo.UpdateAsync(batteryIn);
+
+                var swapIn = new BatterySwap
+                {
+                    SwapHistoryId = await GenerateBatterySwapId(),
+                    SubscriptionId = requestDto.SubId,
+                    BatterySwapStationId = stationId,
+                    BatteryInId = requestDto.BatteryInId,
+                    Status = "Returned",
+                    SwapDate = DateOnly.FromDateTime(DateTime.Today),
+                    Note = "Swap completed",
+                    CreateAt = DateTime.UtcNow.ToLocalTime(),
+                };
+                await _batSwapRepo.CreateAsync(swapIn);
+
+                //Tạo session cho battery-in
+                var sessions = await GenerateBatterySessionForBattery(requestDto.BatteryInId);
+                await _unitOfWork.BatSession.BulkCreateAsync(sessions);
+
+                //Tính mileage base (km người dùng đã đi) và mileage fee (phí vượt km / penalty fee)
+                var mileageBase = await CalMilleageBase(sessions);
+
+                var mileageFee = await CalMilleageFee(
+                    new BatterySwapRequest
+                    {
+                        SubId = requestDto.SubId,
+                        MonthSwap = DateTime.UtcNow.Month,
+                        YearSwap = DateTime.UtcNow.Year
+                    },
+                    sessions
+                );
+
+                var transaction = await _unitOfWork.Trans.GetAllQueryable()
+                    .FirstOrDefaultAsync(t =>
+                        t.SubscriptionId == requestDto.SubId &&
+                        t.Status == "Waiting" &&
+                        t.TransactionType == "Penalty Fee"
+                    );
+
+                if (transaction == null)
+                {
+                    var newTrans = await GenerateTransactionId();
+                    transaction = new Transaction
+                    {
+                        TransactionId = newTrans,
+                        SubscriptionId = requestDto.SubId,
+                        Fee = mileageFee,                                  
+                        TotalAmount = mileageFee,                            
+                        Status = "Waiting",                                  
+                        CreateAt = DateTime.UtcNow.ToLocalTime(),
+                        Note = "Penalty Fee"
+                    };
+
+                    await _unitOfWork.Trans.CreateAsync(transaction);
+                }
+                else
+                {
+                    // ĐÃ có transaction chờ 
+                    transaction.Fee += mileageFee;
+                    transaction.TotalAmount += mileageFee;
+                    await _unitOfWork.Trans.UpdateAsync(transaction);
+                }
+
+                //Cập nhật subscription
+                var sub = await _subRepo.GetByIdAsync(requestDto.SubId);
+                if (sub != null)
+                {
+                    sub.CurrentMileage += mileageBase.Sum(x => x.MilleageBase);
+                    sub.RemainingSwap += await _unitOfWork.Subscriptions.GetNumberOfbatteryInSub(requestDto.SubId);
+
+                    await _subRepo.UpdateAsync(sub);
+                }
+            }
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = $"Swap success — Out: {requestDto.BatteryOutId}, In: {requestDto.BatteryInId ?? "None"}"
+            };
+        }
+
+
+
 
 
         //Hàm này để staff check pin trong trạm đồng thời là thêm pin hay thay đổi pin trong trụ

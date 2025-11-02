@@ -199,7 +199,7 @@ export default function Service() {
             <p className="text-sm text-gray-700 mt-1">
               <strong>Battery ID:</strong>{" "}
               {Array.isArray(current.batteryDtos) &&
-              current.batteryDtos.length > 0
+                current.batteryDtos.length > 0
                 ? current.batteryDtos.map((b) => b.batteryId).join(", ")
                 : "You have no batteries assigned!"}
             </p>

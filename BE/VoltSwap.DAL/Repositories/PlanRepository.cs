@@ -8,6 +8,7 @@ using VoltSwap.DAL.Base;
 using VoltSwap.DAL.Data;
 using VoltSwap.DAL.IRepositories;
 using VoltSwap.DAL.Models;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace VoltSwap.DAL.Repositories
 {
@@ -72,9 +73,8 @@ namespace VoltSwap.DAL.Repositories
             var totalRevenue = await _context.Transactions
                 .Where(trans => trans.Subscription.PlanId == planId
                     && trans.Status == "Success"
-                    && trans.CreateAt.HasValue
-                    && trans.CreateAt.Value.Month == month
-                    && trans.CreateAt.Value.Year == year)
+                    && trans.TransactionDate.Month == month
+                    && trans.TransactionDate.Year == year)
                 .SumAsync(trans=> trans.TotalAmount);
             return totalRevenue;
         }
@@ -84,9 +84,8 @@ namespace VoltSwap.DAL.Repositories
             var totalRevenue = await _context.Transactions
                 .Where(trans => trans.Subscription.PlanId == planId
                     && trans.Status == "Success"
-                    && trans.CreateAt.HasValue
-                    && trans.CreateAt.Value.Month == today.Month
-                    && trans.CreateAt.Value.Year == today.Year)
+                    && trans.TransactionDate.Month == today.Month
+                    && trans.TransactionDate.Year == today.Year)
                 .SumAsync(trans=> trans.TotalAmount);
             return totalRevenue;
         }

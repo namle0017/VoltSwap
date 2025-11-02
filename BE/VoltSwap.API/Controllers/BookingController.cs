@@ -48,6 +48,14 @@ namespace VoltSwap.API.Controllers
             return StatusCode(result.Status, result.Message);
         }
 
+        //Bin:hủy booking bởi người dùng
+        [HttpPost("cancel-booking-by-user")]
+        public async Task<IActionResult> CancelBooking([FromBody] CancelBookingRequest request)
+        {
+            var result = await _bookingService.CancelBookingByUserAsync(request);
+            return StatusCode(result.Status, result.Message);
+        }
+
         //Bin: Staff xem danh sách booking của trạm
         [HttpGet("station-booking-list")]
         public async Task<IActionResult> GetBookingListByStationId([FromQuery] ViewBookingRequest request)
