@@ -306,7 +306,7 @@ namespace VoltSwap.BusinessLayer.Services
             var transactions = await _transRepo.GetAllAsync(t => t.Status == "Pending");
             foreach (var trans in transactions)
             {
-                var getTransDate = trans.CreateAt.Value.Date;
+                var getTransDate = trans.CreateAt?.Date;
                 if (getTransDate >= currentDate.Date.AddDays(4))
                 {
                     trans.Status = "Expired";
