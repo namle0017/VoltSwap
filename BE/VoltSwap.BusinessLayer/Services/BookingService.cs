@@ -196,13 +196,19 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<ServiceResult> CreateBookingAsync(CreateBookingRequest request)
         {
+
             var subscription = await GetSubscriptionById(request.SubscriptionId);
             if (subscription == null)
-                return new ServiceResult { Status = 404, Message = "Subscription not found" };
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Subscription not found"
+                };
 
-
-            var existingBooking = await _bookingRepo.GetByIdAsync(b => b.SubscriptionId == request.SubscriptionId &&
-                                                                       b.Status == "Processing");
+            var existingBooking = await _bookingRepo.GetByIdAsync(b =>
+                b.SubscriptionId == request.SubscriptionId &&
+                b.Status == "Processing"
+            );
 
             if (existingBooking != null)
             {
@@ -214,20 +220,30 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             var getFee = await _unitOfWork.Fees.GetByIdAsync(f =>
-                f.PlanId == subscription.PlanId && f.TypeOfFee == "Booking");
+                f.PlanId == subscription.PlanId &&
+                f.TypeOfFee == "Booking"
+            );
+
             if (getFee == null)
-                return new ServiceResult { Status = 404, Message = "Don't have fee here!!!" };
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Don't have fee here!!!"
+                };
+
 
             var gettrans = await _unitOfWork.Trans.GetByIdAsync(t =>
                 t.SubscriptionId == request.SubscriptionId &&
                 t.TransactionType == "Penalty Fee" &&
-                t.Status == "Waiting");
+                t.Status == "Waiting"
+            );
 
             string newTransId = await GenerateTransactionId();
 
             if (gettrans == null)
             {
                 string transactionContext = $"{subscription.UserDriverId}-BOOKING-{newTransId.Substring(6)}";
+
                 var newTransaction = new Transaction
                 {
                     TransactionId = newTransId,
@@ -244,6 +260,7 @@ namespace VoltSwap.BusinessLayer.Services
                     Note = $"Booking transaction for subscription {subscription.SubscriptionId}",
                     TransactionContext = transactionContext,
                 };
+
                 await _unitOfWork.Trans.CreateAsync(newTransaction);
             }
             else
@@ -256,6 +273,7 @@ namespace VoltSwap.BusinessLayer.Services
             await _unitOfWork.SaveChangesAsync();
 
             string bookingId = await GenerateBookingId();
+
             var appointmentDB = new Appointment
             {
                 AppointmentId = bookingId,
@@ -272,29 +290,39 @@ namespace VoltSwap.BusinessLayer.Services
             await _bookingRepo.CreateAsync(appointmentDB);
             await _unitOfWork.SaveChangesAsync();
 
-            var lockedSlot = await _pillarSlotService.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId
+
+            var lockedSlot = await _pillarSlotService.LockSlotsAsync(
+                request.StationId,
+                request.SubscriptionId,
+                bookingId
             );
-            if (lockedSlot == null)
+
+            if (lockedSlot == null || !lockedSlot.Any())
             {
+     
+                appointmentDB.Status = "Canceled";
+                gettrans.Fee -= getFee.Amount;
+                gettrans.TotalAmount -= getFee.Amount;
+                await _unitOfWork.Trans.UpdateAsync(gettrans);
+                await _unitOfWork.Bookings.UpdateAsync(appointmentDB);
+                await _unitOfWork.SaveChangesAsync();
+
                 return new ServiceResult
                 {
-                    Status = 400,
-                    Message = "There is no pillar in the station with enough available batteries to lock."
+                    Status = 409,
+                    Message = "There is no pillar in this station with enough available batteries to lock for your plan."
+
                 };
             }
 
-            var pillars = lockedSlot.Select(p => p.PillarId).FirstOrDefault();
+
+            var pillarId = lockedSlot
+                .Select(p => p.PillarId)
+                .FirstOrDefault(); 
+
             var calculatetime = CalculateCancelCountdownSeconds(appointmentDB);
 
-            if (pillars == null)
-            {
-                return new ServiceResult
-                {
-                    Status = 404,
-                    Message = "Pillar not found"
-                };
-            }
-
+  
             ScheduleAutoCancel(appointmentDB.AppointmentId, calculatetime);
 
             var appointment = new BookingResponse
@@ -314,7 +342,7 @@ namespace VoltSwap.BusinessLayer.Services
             return new ServiceResult
             {
                 Status = 201,
-                Message = $"Locked {lockedSlot.Count} batteries at pillar {pillars}.",
+                Message = $"Locked {lockedSlot.Count} batteries at pillar {pillarId}.",
                 Data = new
                 {
                     Booking = appointment,
@@ -322,6 +350,7 @@ namespace VoltSwap.BusinessLayer.Services
                 }
             };
         }
+
 
         private static int CalculateCancelCountdownSeconds(Appointment appointment )
         {
