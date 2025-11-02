@@ -6,15 +6,16 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline } from "react-
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
+// ==== CONFIG ====
+const WARNING_THRESHOLD = 30; // giây — mốc chuyển sang trạng thái cảnh báo
+const MUTE_KEY = "bookingMuted"; // cờ tắt thông báo nếu user bấm Navigate sớm
+
 // Leaflet default icon fix
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-    iconRetinaUrl:
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-    iconUrl:
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-    shadowUrl:
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+    iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+    iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 });
 
 // User location icon
@@ -43,13 +44,67 @@ const haversineKm = (a, b) => {
     return 2 * R * Math.asin(Math.sqrt(x));
 };
 
-// small helper: format seconds -> mm:ss
+// format seconds -> mm:ss
 const formatMMSS = (sec) => {
     const s = Math.max(0, Number(sec) || 0);
     const mm = Math.floor(s / 60);
     const ss = s % 60;
     return `${mm}m ${String(ss).padStart(2, "0")}s`;
 };
+
+// ==== Small sticky banner for active booking ====
+function BookingCountdownBanner({
+    remain,
+    stationName,
+    transactionId,
+    appointmentId,
+    onNavigate,
+    onDismiss,
+}) {
+    if (remain <= 0) return null;
+
+    const danger = remain <= WARNING_THRESHOLD;
+
+    return (
+        <div className={`sticky top-0 z-[60] mb-4`}>
+            <div
+                className={`mx-auto max-w-4xl rounded-xl border shadow
+        ${danger ? "border-red-300 bg-red-50" : "border-amber-300 bg-amber-50"}
+        px-4 py-3`}
+            >
+                <div className="flex items-start gap-3">
+                    <div className={`text-xl ${danger ? "text-red-600" : "text-amber-600"}`}>⏳</div>
+                    <div className="flex-1">
+                        <div className="font-semibold">
+                            You have an active booking {stationName ? `at ${stationName}` : ""}.
+                        </div>
+                        <div className="text-sm text-gray-700 mt-0.5">
+                            Auto-cancel in <b className={danger ? "text-red-600" : ""}>{formatMMSS(remain)}</b>.
+                            {transactionId ? <> • TX: <span className="font-mono">{transactionId}</span></> : null}
+                            {appointmentId ? <> • AP: <span className="font-mono">{appointmentId}</span></> : null}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={onNavigate}
+                            className={`px-3 py-1.5 rounded-lg text-white text-sm
+                ${danger ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}`}
+                        >
+                            Navigate now
+                        </button>
+                        <button
+                            onClick={onDismiss}
+                            className="px-3 py-1.5 rounded-lg border text-sm hover:bg-white/60"
+                            title="Hide this reminder"
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function Station() {
     const navigate = useNavigate();
@@ -76,6 +131,29 @@ export default function Station() {
     const [route, setRoute] = useState(null);
     const mapRef = useRef(null);
 
+    // ==== Active booking banner state ====
+    const [bannerRemain, setBannerRemain] = useState(0);
+    const [bannerInfo, setBannerInfo] = useState({
+        stationName: "",
+        transactionId: "",
+        appointmentId: "",
+    });
+    const [bannerHidden, setBannerHidden] = useState(false);
+    const [bannerMuted, setBannerMuted] = useState(false); // tắt thông báo/banner khi user đã Navigate sớm
+
+    // Browser notification helper (optional)
+    const notify = (title, body) => {
+        if (!("Notification" in window)) return;
+        if (Notification.permission === "granted") {
+            new Notification(title, { body });
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission().then((p) => {
+                if (p === "granted") new Notification(title, { body });
+            });
+        }
+    };
+
+    // load initial data
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -103,6 +181,39 @@ export default function Station() {
 
         fetchData();
     }, [navigate]);
+
+    // restore active booking countdown + mute flag
+    useEffect(() => {
+        const expireAt = Number(localStorage.getItem("lockExpireAt") || 0);
+        const transactionId = localStorage.getItem("lastTransactionId") || "";
+        const appointmentId = localStorage.getItem("lastAppointmentId") || "";
+        const stationName = localStorage.getItem("swap_stationName") || "";
+        const muted = localStorage.getItem(MUTE_KEY) === "1";
+        setBannerMuted(muted);
+        if (expireAt > Date.now()) {
+            setBannerInfo({ stationName, transactionId, appointmentId });
+            setBannerHidden(false);
+            setBannerRemain(Math.ceil((expireAt - Date.now()) / 1000));
+        }
+    }, []);
+
+    // ticking countdown
+    useEffect(() => {
+        if (bannerHidden || bannerMuted) return;
+        if (bannerRemain <= 0) return;
+        const t = setInterval(() => {
+            setBannerRemain((s) => {
+                const next = s - 1;
+                if (next <= 0) {
+                    // hết thời gian — dọn local hint (BE sẽ tự huỷ)
+                    localStorage.removeItem("lockExpireAt");
+                    return 0;
+                }
+                return next;
+            });
+        }, 1000);
+        return () => clearInterval(t);
+    }, [bannerRemain, bannerHidden, bannerMuted]);
 
     // draw route & highlight
     const handleNavigateVisual = (st) => {
@@ -163,7 +274,6 @@ export default function Station() {
             return;
         }
 
-        // Lưu preset cho StationSwap.jsx
         localStorage.setItem("swap_stationId", navStation.stationId);
         localStorage.setItem("swap_stationName", navStation.stationName || "");
         localStorage.setItem("swap_subscriptionId", chosen.subId);
@@ -182,7 +292,7 @@ export default function Station() {
         setNavSub("");
     };
 
-    // ====== Booking flow (UPDATED to match new BE response) ======
+    // ====== Booking flow (UPDATED to show banner/countdown) ======
     const confirmBooking = async () => {
         if (!selectedSub || !bookingDate || !bookingTime)
             return alert("Please complete all fields");
@@ -213,30 +323,38 @@ export default function Station() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            // NEW: BE now returns { data: { booking: {...}, time: seconds } }
-            const booking =
-                res?.data?.data?.booking || res?.data?.booking || {};
-            const lockSeconds =
-                Number(res?.data?.data?.time ?? res?.data?.time ?? 0) || 0;
+            const booking = res?.data?.data?.booking || res?.data?.booking || {};
+            const lockSeconds = Number(res?.data?.data?.time ?? res?.data?.time ?? 0) || 0;
 
-            // Stash for next steps (payment / simulation)
+            // Persist for other pages
             localStorage.setItem("swap_stationId", selectedStation.stationId);
+            localStorage.setItem("swap_stationName", selectedStation.stationName || "");
             localStorage.setItem("swap_subscriptionId", selectedSub);
-
-            // Optional: keep for quick lookup in transactions
-            if (booking.transactionId) {
-                localStorage.setItem("lastTransactionId", booking.transactionId);
-            }
-            if (booking.appointmentId) {
-                localStorage.setItem("lastAppointmentId", booking.appointmentId);
-            }
-            // Also keep lastPlanId (for legacy flows using it)
+            if (booking.transactionId) localStorage.setItem("lastTransactionId", booking.transactionId);
+            if (booking.appointmentId) localStorage.setItem("lastAppointmentId", booking.appointmentId);
             localStorage.setItem("lastPlanId", booking.subscriptionId || selectedSub);
 
-            // Save a lock-expire timestamp (client-side hint)
+            // Reset mute flag for booking mới
+            localStorage.removeItem(MUTE_KEY);
+            setBannerMuted(false);
+
+            // Save client-side expire hint and show banner immediately
             if (lockSeconds > 0) {
                 const expireAt = Date.now() + lockSeconds * 1000;
                 localStorage.setItem("lockExpireAt", String(expireAt));
+                setBannerInfo({
+                    stationName: selectedStation.stationName || "",
+                    transactionId: booking.transactionId || "",
+                    appointmentId: booking.appointmentId || "",
+                });
+                setBannerHidden(false);
+                setBannerRemain(lockSeconds);
+
+                // Thông báo nhẹ cho người dùng lúc tạo (không phải cảnh báo muộn)
+                notify(
+                    "Booking created",
+                    `Batteries locked at ${selectedStation.stationName}. Expires in ${formatMMSS(lockSeconds)}`
+                );
             }
 
             alert(
@@ -246,22 +364,16 @@ export default function Station() {
                     `🧾 Transaction: ${booking.transactionId || "—"}`,
                     `📄 Appointment: ${booking.appointmentId || "—"}`,
                     `📅 ${dateBooking} ${timeBooking}`,
-                    lockSeconds
-                        ? `⏳ Lock time: ${formatMMSS(lockSeconds)}`
-                        : undefined,
+                    lockSeconds ? `⏳ Lock time: ${formatMMSS(lockSeconds)}` : undefined,
                     "",
-                    "➡ Tiếp theo: vào Transactions để thanh toán.",
+                    "➡ Bạn có thể nhấn Navigate để xác thực tại trạm.",
                 ]
                     .filter(Boolean)
                     .join("\n")
             );
 
             setShowModal(false);
-
-            // Navigate to transactions with context
-            navigate("/user/transaction", {
-                state: { transactionId: booking.transactionId || null },
-            });
+            // KHÔNG ép điều hướng ngay; user sẽ thấy banner
         } catch (err) {
             const v = err?.response?.data;
             const msg =
@@ -282,11 +394,8 @@ export default function Station() {
 
     const defaultCenter = [10.7769, 106.7009];
 
-    // helper: render option label with name + ID + status
-    // eslint-disable-next-line no-unused-vars
     const subOptionLabel = (s) => `${s.planName} — ID: ${s.subId} — ${s.planStatus}`;
 
-    // helper: detail line for selected sub
     const SelectedSubInfo = ({ subId }) => {
         const s = subs.find((x) => x.subId === subId);
         if (!s) return null;
@@ -300,6 +409,43 @@ export default function Station() {
 
     return (
         <div className="min-h-screen bg-gray-50 p-6">
+            {/* Booking countdown banner */}
+            {!bannerHidden && !bannerMuted && bannerRemain > 0 && (
+                <BookingCountdownBanner
+                    remain={bannerRemain}
+                    stationName={bannerInfo.stationName}
+                    transactionId={bannerInfo.transactionId}
+                    appointmentId={bannerInfo.appointmentId}
+                    onNavigate={() => {
+                        // Nếu user bấm Navigate khi vẫn còn > WARNING_THRESHOLD giây => mute tất cả cảnh báo sau đó
+                        if (bannerRemain > WARNING_THRESHOLD) {
+                            localStorage.setItem(MUTE_KEY, "1");
+                            setBannerMuted(true);     // ẩn banner ngay
+                            setBannerHidden(true);    // đảm bảo UI không còn nhắc nữa
+                        }
+                        // mở modal chọn subscription nếu chưa có
+                        const st =
+                            stations.find((s) => s.stationName === bannerInfo.stationName) ||
+                            stations.find((s) => s.stationId === localStorage.getItem("swap_stationId"));
+                        if (st) {
+                            handleNavigateVisual(st);
+                            openNavigateModal(st);
+                        } else {
+                            // fallback: chuyển thẳng sang giả lập nếu đã lưu station
+                            navigate("/stations", {
+                                state: {
+                                    stationId: localStorage.getItem("swap_stationId") || "",
+                                    stationName: bannerInfo.stationName || "",
+                                    subscriptionId: localStorage.getItem("swap_subscriptionId") || "",
+                                    subscriptionName: localStorage.getItem("swap_subscriptionName") || "",
+                                },
+                            });
+                        }
+                    }}
+                    onDismiss={() => setBannerHidden(true)}
+                />
+            )}
+
             <h2 className="text-2xl font-bold mb-3">🗺️ Battery Swap Stations</h2>
 
             {/* ==== MAP (Leaflet) ==== */}
@@ -380,9 +526,7 @@ export default function Station() {
                     ))}
 
                     {userPos && <Marker position={[userPos.lat, userPos.lng]} icon={userIcon} />}
-                    {route && (
-                        <Polyline positions={route} dashArray="6 8" color="#2563eb" weight={4} />
-                    )}
+                    {route && <Polyline positions={route} dashArray="6 8" color="#2563eb" weight={4} />}
                 </MapContainer>
             </div>
 
@@ -459,14 +603,13 @@ export default function Station() {
                             {subs.length > 0 ? (
                                 subs.map((s) => (
                                     <option key={s.subId} value={s.subId}>
-                                        {`${s.planName} — ID: ${s.subId} — ${s.planStatus}`}
+                                        {subOptionLabel(s)}
                                     </option>
                                 ))
                             ) : (
                                 <option disabled>No active subscriptions</option>
                             )}
                         </select>
-                        {/* show chosen sub name + ID */}
                         <SelectedSubInfo subId={selectedSub} />
 
                         <label className="block text-sm font-medium mb-1 mt-3">Date</label>
@@ -521,14 +664,13 @@ export default function Station() {
                             {subs.length > 0 ? (
                                 subs.map((s) => (
                                     <option key={s.subId} value={s.subId}>
-                                        {`${s.planName} — ID: ${s.subId} — ${s.planStatus}`}
+                                        {subOptionLabel(s)}
                                     </option>
                                 ))
                             ) : (
                                 <option disabled>No active subscriptions</option>
                             )}
                         </select>
-                        {/* show chosen sub name + ID */}
                         <SelectedSubInfo subId={navSub} />
 
                         <div className="flex justify-between mt-4">

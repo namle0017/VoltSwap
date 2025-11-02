@@ -21,68 +21,9 @@ export default function Service() {
         const token = localStorage.getItem("token");
         const userId = localStorage.getItem("userId");
 
-<<<<<<< Updated upstream
         const res = await api.get(
           `/Subscription/subscription-user-list?DriverId=${userId}`,
           { headers: { Authorization: `Bearer ${token}` } }
-=======
-        const payload = {
-            stationId: selectedStation,
-            driverId,
-            note: cancelNote,
-            subscriptionId: current.subId,
-            dateBooking: new Date().toISOString().split("T")[0],
-            timeBooking: new Date().toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-            }),
-        };
-
-        try {
-            await api.post("/Booking/booking-cancel-plan", payload, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            alert("✅ Subscription canceled successfully!");
-            setShowCancelModal(false);
-            navigate("/user/transaction");
-        } catch (err) {
-            console.error("❌ Cancel failed:", err.response?.data || err);
-            alert(err.response?.data?.message || "Failed to cancel!");
-        }
-    };
-    // ♻️ Renew plan
-    const handleRenew = async () => {
-        if (!current) return alert("No active subscription to renew!");
-        const driverId = localStorage.getItem("userId");
-        const token = localStorage.getItem("token");
-
-        try {
-            await api.post(
-                "/Subscription/renew",
-                {
-                    driverId: driverId,
-                    subId: current.subId,
-                },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            alert("✅ Subscription renewed successfully!");
-            navigate("/user/transaction");
-        } catch (error) {
-            console.error("❌ Renew failed:", error);
-            alert("Failed to renew subscription!");
-        } finally {
-            setShowRenewModal(false);
-        }
-    };
-
-    if (loading)
-        return (
-            <div className="flex justify-center items-center min-h-screen">
-                <div className="h-10 w-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-            </div>
->>>>>>> Stashed changes
         );
 
         const data = Array.isArray(res.data?.data) ? res.data.data : [];
@@ -210,7 +151,6 @@ export default function Service() {
         📦 Subscription
       </h2>
 
-<<<<<<< Updated upstream
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* LEFT CARD - CURRENT PLAN */}
         <div
@@ -239,17 +179,6 @@ export default function Service() {
               ))}
             </select>
           </div>
-=======
-                    <div className="bg-white bg-opacity-30 rounded-xl p-3 mb-4">
-                        <p className="text-sm text-gray-700 mt-1">
-                            <strong>Battery ID:</strong>{" "}
-                            {Array.isArray(current.batteryDtos) &&
-                                current.batteryDtos.length > 0
-                                ? current.batteryDtos.map((b) => b.batteryId).join(", ")
-                                : "You have no batteries assigned!"}
-                        </p>
-                    </div>
->>>>>>> Stashed changes
 
           <div className="flex justify-between items-center mb-4">
             <div>
@@ -270,7 +199,7 @@ export default function Service() {
             <p className="text-sm text-gray-700 mt-1">
               <strong>Battery ID:</strong>{" "}
               {Array.isArray(current.batteryDtos) &&
-              current.batteryDtos.length > 0
+                current.batteryDtos.length > 0
                 ? current.batteryDtos.map((b) => b.batteryId).join(", ")
                 : "You have no batteries assigned!"}
             </p>
