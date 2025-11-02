@@ -1,6 +1,7 @@
 ﻿using Azure.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -26,6 +27,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IPillarSlotRepository _slotRepo;
         private readonly ITransactionService _transService;
         private readonly IGenericRepositories<StationStaff> _stationstaffRepo;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
 
@@ -36,9 +38,10 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<Subscription> subRepo,
             IGenericRepositories<Fee> feeRepo,
             IGenericRepositories<StationStaff> stationstaffRepo,
-             IPillarSlotService pillarSlotService,
+            IPillarSlotService pillarSlotService,
             IPillarSlotRepository slotRepo,
             ITransactionService transService,
+            IServiceScopeFactory scopeFactory,
             IUnitOfWork unitOfWork,
             IConfiguration configuration
         ) : base(serviceProvider)
@@ -46,6 +49,7 @@ namespace VoltSwap.BusinessLayer.Services
             _pillarSlotService = pillarSlotService;
             _bookingRepo = bookingRepo;
             _driverRepo = driverRepo;
+            _scopeFactory = scopeFactory;
             _subRepo = subRepo;
             _stationstaffRepo = stationstaffRepo;
             _feeRepo = feeRepo;
@@ -63,6 +67,16 @@ namespace VoltSwap.BusinessLayer.Services
             if (appointment == null)
                 return new ServiceResult { Status = 404, Message = "Booking not found" };
 
+
+            if (string.Equals(appointment.Status, "Done", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ServiceResult
+                {
+                    Status = 409,
+                    Message = "This booking cannot be canceled because it is already completed."
+                };
+            }
+
             appointment.Status = "Canceled";
 
             var lockedSlots = await _unitOfWork.PillarSlots.UnlockSlotsByAppointmentIdAsync(appointment.AppointmentId);
@@ -76,6 +90,7 @@ namespace VoltSwap.BusinessLayer.Services
                     await _unitOfWork.PillarSlots.UpdateAsync(slot);
                 }
             }
+            await _bookingRepo.UpdateAsync(appointment);
 
             await _unitOfWork.SaveChangesAsync();
 
@@ -86,6 +101,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = new { appointmentId = appointment.AppointmentId }
             };
         }
+
 
 
         public async Task<ServiceResult> CancelBookingByUserAsync(CancelBookingRequest request)
@@ -268,7 +284,7 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             var pillars = lockedSlot.Select(p => p.PillarId).FirstOrDefault();
-            var calculatetime = CalculateCancelCountdownSeconds(appointmentDB, true);
+            var calculatetime = CalculateCancelCountdownSeconds(appointmentDB);
 
             if (pillars == null)
             {
@@ -278,6 +294,8 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "Pillar not found"
                 };
             }
+
+            ScheduleAutoCancel(appointmentDB.AppointmentId, calculatetime);
 
             var appointment = new BookingResponse
             {
@@ -305,16 +323,43 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
-        private static int CalculateCancelCountdownSeconds(Appointment appointment, bool addExtraHour = true)
+        private static int CalculateCancelCountdownSeconds(Appointment appointment )
         {
             var nowUtc = DateTime.UtcNow.ToLocalTime();
-            var scheduledLocalVn = appointment.DateBooking.ToDateTime(appointment.TimeBooking);
-            var scheduledUtc = scheduledLocalVn;
-            var expireAtUtc = addExtraHour ? scheduledUtc.AddHours(1) : scheduledUtc;
+
+            var scheduledUtc = appointment.DateBooking.ToDateTime(appointment.TimeBooking);
+
+            var expireAtUtc = scheduledUtc.AddHours(1);
+
             var realSecondsRemaining = (expireAtUtc - nowUtc).TotalSeconds;
+
             var scaledSeconds = realSecondsRemaining * (10.0 / 3600.0);
+
             if (scaledSeconds <= 0) return 0;
+
             return (int)Math.Ceiling(scaledSeconds);
+        }
+
+        private void ScheduleAutoCancel(string bookingId, int delaySeconds)
+        {
+            _ = Task.Run(() => AutoCancelAfterDelay(bookingId, delaySeconds));
+        }
+
+        private async Task AutoCancelAfterDelay(string bookingId, int delaySeconds)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var scopedBookingService = scope.ServiceProvider.GetRequiredService<IBookingService>();
+
+                var req = new CancelBookingRequest
+                {
+                    BookingId = bookingId
+                };
+
+                await scopedBookingService.CancelBookingAsync(req);
+            }
         }
 
 

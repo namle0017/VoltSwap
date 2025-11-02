@@ -171,10 +171,50 @@ export default function Stations() {
 
     const [selectedBatteryIds, setSelectedBatteryIds] = useState(new Set());
 
+    // ===== NEW: Search & Pagination for inventory =====
+    const [searchText, setSearchText] = useState("");       // NEW: search battery/status/station
+    const [page, setPage] = useState(1);                    // NEW
+    const [pageSize, setPageSize] = useState(10);           // NEW
+
+    // reset page khi filter/search đổi
+    useEffect(() => {
+        setPage(1);
+    }, [fromStation, searchText]);
+
     const inventoryFiltered = useMemo(() => {
-        if (!fromStation) return inventory;
-        return inventory.filter((b) => String(b.stationId) === String(fromStation));
-    }, [inventory, fromStation]);
+        // filter theo nguồn
+        let list = fromStation
+            ? inventory.filter((b) => String(b.stationId) === String(fromStation))
+            : inventory;
+
+        // search theo batteryId | status | stationId | stationName
+        const q = searchText.trim().toLowerCase();
+        if (q) {
+            list = list.filter((b) => {
+                const id = String(b.batteryId || "").toLowerCase();
+                const st = String(b.status || "").toLowerCase();
+                const sid = String(b.stationId || "").toLowerCase();
+                const sname = String(b.stationName || "").toLowerCase();
+                return (
+                    id.includes(q) ||
+                    st.includes(q) ||
+                    sid.includes(q) ||
+                    sname.includes(q)
+                );
+            });
+        }
+        return list;
+    }, [inventory, fromStation, searchText]);
+
+    const totalPages = useMemo(
+        () => Math.max(1, Math.ceil(inventoryFiltered.length / pageSize)),
+        [inventoryFiltered.length, pageSize]
+    );
+
+    const pagedInventory = useMemo(() => {
+        const start = (page - 1) * pageSize;
+        return inventoryFiltered.slice(start, start + pageSize);
+    }, [inventoryFiltered, page, pageSize]);
 
     const toggleSelect = (batteryId) => {
         setSelectedBatteryIds((prev) => {
@@ -188,6 +228,11 @@ export default function Stations() {
     const selectAllInFilter = () => {
         const next = new Set(selectedBatteryIds);
         inventoryFiltered.forEach((b) => next.add(b.batteryId));
+        setSelectedBatteryIds(next);
+    };
+    const selectAllInPage = () => {
+        const next = new Set(selectedBatteryIds);
+        pagedInventory.forEach((b) => next.add(b.batteryId));
         setSelectedBatteryIds(next);
     };
     const clearAllSelection = () => setSelectedBatteryIds(new Set());
@@ -378,24 +423,59 @@ export default function Stations() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 mb-3">
-                    <button
-                        className="px-3 py-2 border rounded-lg hover:bg-gray-50"
-                        onClick={selectAllInFilter}
-                        disabled={loadingInv || inventoryFiltered.length === 0}
-                    >
-                        Select all (filter)
-                    </button>
-                    <button
-                        className="px-3 py-2 border rounded-lg hover:bg-gray-50"
-                        onClick={clearAllSelection}
-                        disabled={selectedBatteryIds.size === 0}
-                    >
-                        Clear
-                    </button>
+                {/* NEW: Search + page size */}
+                <div className="flex flex-wrap items-center gap-3 mb-3">
+                    <div className="relative">
+                        <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                            className="pl-10 pr-3 py-2 border rounded-lg"
+                            placeholder="Tìm pin theo BatteryId / Status / Station…"
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">Hiển thị</span>
+                        <select
+                            className="border rounded-lg px-2 py-1"
+                            value={pageSize}
+                            onChange={(e) => setPageSize(Number(e.target.value))}
+                        >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                        </select>
+                        <span className="text-sm text-gray-600">mỗi trang</span>
+                    </div>
+
+                    <div className="ml-auto flex items-center gap-2">
+                        <button
+                            className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                            onClick={selectAllInPage}
+                            disabled={loadingInv || pagedInventory.length === 0}
+                        >
+                            Select all (page)
+                        </button>
+                        <button
+                            className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                            onClick={selectAllInFilter}
+                            disabled={loadingInv || inventoryFiltered.length === 0}
+                        >
+                            Select all (filter)
+                        </button>
+                        <button
+                            className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                            onClick={clearAllSelection}
+                            disabled={selectedBatteryIds.size === 0}
+                        >
+                            Clear
+                        </button>
+                    </div>
                 </div>
 
-                {/* Inventory table */}
+                {/* Inventory table (PAGED) */}
                 {loadingInv ? (
                     <div className="text-gray-500 text-center py-8">
                         <div className="h-8 w-8 mx-auto mb-2 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
@@ -406,45 +486,86 @@ export default function Stations() {
                 ) : inventoryFiltered.length === 0 ? (
                     <div className="text-gray-500">Không có pin phù hợp bộ lọc.</div>
                 ) : (
-                    <div className="overflow-x-auto border rounded-lg">
-                        <table className="min-w-full text-sm">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="p-2 text-left">Select</th>
-                                    <th className="p-2 text-left">BatteryId</th>
-                                    <th className="p-2 text-left">Status</th>
-                                    <th className="p-2 text-left">SoC</th>
-                                    <th className="p-2 text-left">SoH</th>
-                                    <th className="p-2 text-left">Capacity</th>
-                                    <th className="p-2 text-left">Station</th>
-                                    <th className="p-2 text-left">Station Name</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {inventoryFiltered.map((b) => {
-                                    const checked = selectedBatteryIds.has(b.batteryId);
-                                    return (
-                                        <tr key={b.batteryId} className="border-t">
-                                            <td className="p-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={checked}
-                                                    onChange={() => toggleSelect(b.batteryId)}
-                                                />
-                                            </td>
-                                            <td className="p-2 font-medium">{b.batteryId}</td>
-                                            <td className="p-2">{b.status}</td>
-                                            <td className="p-2">{b.soc}%</td>
-                                            <td className="p-2">{b.soh}</td>
-                                            <td className="p-2">{b.capacity}</td>
-                                            <td className="p-2">{b.stationId}</td>
-                                            <td className="p-2">{b.stationName}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                    <>
+                        <div className="overflow-x-auto border rounded-lg">
+                            <table className="min-w-full text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="p-2 text-left">Select</th>
+                                        <th className="p-2 text-left">BatteryId</th>
+                                        <th className="p-2 text-left">Status</th>
+                                        <th className="p-2 text-left">SoC</th>
+                                        <th className="p-2 text-left">SoH</th>
+                                        <th className="p-2 text-left">Capacity</th>
+                                        <th className="p-2 text-left">Station</th>
+                                        <th className="p-2 text-left">Station Name</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pagedInventory.map((b) => {
+                                        const checked = selectedBatteryIds.has(b.batteryId);
+                                        return (
+                                            <tr key={b.batteryId} className="border-t">
+                                                <td className="p-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={() => toggleSelect(b.batteryId)}
+                                                    />
+                                                </td>
+                                                <td className="p-2 font-medium">{b.batteryId}</td>
+                                                <td className="p-2">{b.status}</td>
+                                                <td className="p-2">{b.soc}%</td>
+                                                <td className="p-2">{b.soh}</td>
+                                                <td className="p-2">{b.capacity}</td>
+                                                <td className="p-2">{b.stationId}</td>
+                                                <td className="p-2">{b.stationName}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* NEW: Pagination controls */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
+                            <div className="text-sm text-gray-600">
+                                Tổng: <b>{inventoryFiltered.length}</b> pin • Trang{" "}
+                                <b>{page}</b>/<b>{totalPages}</b>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                                    onClick={() => setPage(1)}
+                                    disabled={page === 1}
+                                >
+                                    « First
+                                </button>
+                                <button
+                                    className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                >
+                                    ‹ Prev
+                                </button>
+                                <span className="px-2 text-sm text-gray-700">Page {page}</span>
+                                <button
+                                    className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages}
+                                >
+                                    Next ›
+                                </button>
+                                <button
+                                    className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                                    onClick={() => setPage(totalPages)}
+                                    disabled={page === totalPages}
+                                >
+                                    Last »
+                                </button>
+                            </div>
+                        </div>
+                    </>
                 )}
 
                 <div className="mt-4 flex items-center justify-between">
@@ -454,7 +575,12 @@ export default function Stations() {
                     <button
                         className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-60"
                         onClick={handleTransfer}
-                        disabled={transferring || loadingInv || selectedBatteryIds.size === 0 || !toStation}
+                        disabled={
+                            transferring ||
+                            loadingInv ||
+                            selectedBatteryIds.size === 0 ||
+                            !toStation
+                        }
                     >
                         {transferring ? "Scheduling..." : "Schedule Battery Transfer"}
                     </button>

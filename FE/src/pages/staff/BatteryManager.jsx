@@ -1,7 +1,12 @@
+<<<<<<< Updated upstream
+=======
+/* eslint-disable no-unused-vars */
+>>>>>>> Stashed changes
 // src/pages/staff/BatteryManager.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import api from "@/api/api";
 
+<<<<<<< Updated upstream
 /* ===== Endpoint BE =====
  * 1) Lấy danh sách trụ (pillar) cho staff:
  *    GET /PillarSlot/staff-pillar-slot?UserId=...
@@ -17,6 +22,14 @@ import api from "@/api/api";
  *
  * 5) Lấy pin ra khỏi slot, trả về kho:
  *    POST /PillarSlot/take-out-slot
+=======
+/* ===== Endpoints =====
+ * 1) Danh sách 3 trụ:      GET /PillarSlot/staff-pillar-slot?UserId=...
+ * 2) Slots của 1 trụ:      GET /PillarSlot/battery-in-pillar?pillarId=PI-...
+ * 3) Kho pin:              GET /Station/station-inventory?StaffId=...
+ * 4) Dock kho -> slot:     POST /PillarSlot/store-battery-inventory-to-pillar-slot
+ * 5) Lấy pin ra kho:       POST /PillarSlot/take-out-slot
+>>>>>>> Stashed changes
  */
 const ROUTES = {
     PILLARS: "/PillarSlot/staff-pillar-slot",
@@ -115,18 +128,28 @@ function normalizePillarsFromServer(payload) {
 function normalizeSlotsFromServer(payload, pillarId) {
     const serverList = Array.isArray(payload)
         ? payload
+<<<<<<< Updated upstream
         : Array.isArray(payload?.data)
         ? payload.data
         : [];
+=======
+        : Array.isArray(payload?.data) ? payload.data : [];
+>>>>>>> Stashed changes
 
     // khung mặc định 20 slot
     const slots = Array.from({ length: 20 }, (_, i) => ({
         pillarId,
         index: i,
         slotNumber: i + 1,
+<<<<<<< Updated upstream
         slotId: null,      // id slot thật bên BE
         code: null,        // mã pin/batteryId
         pos: toPos(i),     // A1, A2, ...
+=======
+        slotId: null,
+        code: null,
+        pos: toPos(i),
+>>>>>>> Stashed changes
         soc: null,
         soh: null,
         empty: true,
@@ -134,8 +157,13 @@ function normalizeSlotsFromServer(payload, pillarId) {
         stationId: null,
         batteryStatus: null,
         pillarStatus: null,
+<<<<<<< Updated upstream
         status: null,
         isLocked: false,
+=======
+        status: null,        // vẫn giữ nếu BE có trả
+        isLocked: false,     // <-- tính từ pillarStatus
+>>>>>>> Stashed changes
     }));
 
     for (const s of serverList) {
@@ -152,12 +180,17 @@ function normalizeSlotsFromServer(payload, pillarId) {
         const socRaw = s?.batterySoc ?? s?.soc ?? s?.battery?.soc;
         const sohRaw = s?.batterySoh ?? s?.soh ?? s?.battery?.soh;
 
+<<<<<<< Updated upstream
         // pillarStatus: nếu = "lock" -> isLocked = true
         const pillarStatusRaw = s?.pillarStatus ?? s?.slotStatus ?? null;
         const isLocked =
             String(pillarStatusRaw ?? "")
                 .trim()
                 .toLowerCase() === "lock";
+=======
+        const pillarStatusRaw = s?.pillarStatus ?? s?.slotStatus ?? null; // <-- lấy đúng trụ
+        const isLocked = String(pillarStatusRaw ?? "").trim().toLowerCase() === "lock"; // <-- LOCK theo pillarStatus
+>>>>>>> Stashed changes
 
         slots[idx] = {
             ...slots[idx],
@@ -168,8 +201,13 @@ function normalizeSlotsFromServer(payload, pillarId) {
             soh: clampPct(sohRaw),
             stationId: s?.stationId ?? s?.station ?? null,
             batteryStatus: s?.batteryStatus ?? s?.battery_status ?? null,
+<<<<<<< Updated upstream
             pillarStatus: pillarStatusRaw ?? null,
             status: s?.status ?? null,
+=======
+            pillarStatus: pillarStatusRaw,
+            status: s?.status ?? null, // chỉ hiển thị nếu cần
+>>>>>>> Stashed changes
             isLocked,
             empty: !code,
         };
@@ -245,6 +283,7 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
     const isEmpty = data.empty;
     const soc = data.soc ?? 0;
     const color = socColor(isEmpty ? null : soc);
+<<<<<<< Updated upstream
 
     const isMaintenance =
         String(data?.batteryStatus || "").toLowerCase() ===
@@ -275,15 +314,35 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
               : isMaintenance
               ? " • Maintenance"
               : "");
+=======
+    const isMaintenance = String(data?.batteryStatus || "").toLowerCase() === "maintenance";
+    const isLocked = !!data?.isLocked; // chỉ true khi status === "lock"
+>>>>>>> Stashed changes
 
     return (
         <button
             onClick={onClick}
+<<<<<<< Updated upstream
             className={`relative w-full h-[120px] rounded-xl border transition ${baseClass} ${ringClass}`}
             title={titleText}
             type="button"
         >
             {/* Thanh fill SoC dưới đáy (ẩn nếu slot rỗng / maintenance / locked) */}
+=======
+            className={`relative w-full h-[120px] rounded-xl border transition
+        ${isMaintenance ? "bg-red-50 border-red-500" : "bg-slate-100"}
+        ${selected ? (isMaintenance ? "ring-2 ring-red-500" : "ring-2 ring-blue-500") : ""}`}
+            title={
+                isEmpty
+                    ? `${data.pillarId} • ${data.pos} • ${isLocked ? "Locked" : "Empty"} • SlotNo ${data.slotNumber}`
+                    : `${data.pillarId} • ${data.code} • ${data.pos} • SlotNo ${data.slotNumber} • SoC ${soc}%`
+                    + (isMaintenance ? " • Maintenance" : "")
+                    + (isLocked ? " • Locked" : "")
+            }
+            type="button"
+        >
+            {/* SoC bar chỉ hiện khi không Maintenance và không Locked */}
+>>>>>>> Stashed changes
             {!isEmpty && !isMaintenance && !isLocked && (
                 <div
                     className="absolute bottom-0 left-0 right-0 rounded-b-xl"
@@ -294,6 +353,7 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
                 />
             )}
 
+<<<<<<< Updated upstream
             {/* Nội dung chính giữa ô */}
             <div className="absolute inset-0 grid place-items-center text-[13px] font-semibold text-slate-800">
                 {isEmpty
@@ -306,24 +366,43 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
             </div>
 
             {/* Nhãn góc trên trái: vị trí A1, A2,... */}
+=======
+            {/* text trung tâm */}
+            <div className="absolute inset-0 grid place-items-center text-[13px] font-semibold">
+                {isLocked ? "🔒 Locked"
+                    : isEmpty ? "＋"
+                        : (isMaintenance ? "Maintenance" : `${soc}%`)}
+            </div>
+
+            {/* nhãn pos */}
+>>>>>>> Stashed changes
             <div className="absolute left-2 top-2 text-[11px] font-bold text-slate-700">
                 {data.pos}
             </div>
 
+<<<<<<< Updated upstream
             {/* Góc dưới phải: mã pin */}
+=======
+            {/* mã pin */}
+>>>>>>> Stashed changes
             {!isEmpty && (
                 <div className="absolute right-2 bottom-2 text-[11px] font-medium opacity-80">
                     {data.code}
                 </div>
             )}
 
+<<<<<<< Updated upstream
             {/* Badge Maintenance ở góc trên phải */}
+=======
+            {/* badge Maintenance */}
+>>>>>>> Stashed changes
             {isMaintenance && (
                 <div className="absolute right-2 top-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-500 text-white">
                     Maintenance
                 </div>
             )}
 
+<<<<<<< Updated upstream
             {/* Badge Locked ở góc trên phải */}
             {isLocked && (
                 <div className="absolute right-2 top-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-600 text-white">
@@ -332,27 +411,35 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
             )}
 
             {/* Ô trống + không lock => cho phép "Add battery" */}
+=======
+            {/* badge Locked (status === 'lock') */}
+            {isLocked && (
+                <div className="absolute right-2 top-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-800 text-white">
+                    🔒 Locked
+                </div>
+            )}
+
+            {/* Slot trống -> Thêm Pin (chỉ cho phép khi không lock) */}
+>>>>>>> Stashed changes
             {isEmpty && !isLocked && typeof onAdd === "function" && (
                 <div className="absolute inset-x-2 bottom-2">
                     <span
                         role="button"
                         tabIndex={0}
                         className="w-full inline-flex justify-center text-xs px-2 py-1 rounded-md border bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onAdd(data);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onAdd(data); }}
                         onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onAdd(data);
-                            }
+                            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onAdd(data); }
                         }}
                     >
                         Add battery
                     </span>
                 </div>
+            )}
+
+            {/* overlay mờ khi locked */}
+            {isLocked && (
+                <div className="absolute inset-0 rounded-xl bg-black/10 pointer-events-none" />
             )}
         </button>
     );
@@ -368,6 +455,7 @@ function Row({ k, v }) {
     );
 }
 
+<<<<<<< Updated upstream
 /* ===== Panel chi tiết bên phải (DetailPanel)
  * - Hiện thông tin slot đang chọn
  * - Có nút Take out đưa pin về kho (nếu slot có pin)
@@ -376,6 +464,10 @@ function Row({ k, v }) {
 function DetailPanel({ selected, onRequestRemove }) {
     const isLocked = !!selected?.isLocked;
 
+=======
+function DetailPanel({ selected, onRequestRemove }) {
+    const isLocked = !!selected?.isLocked;
+>>>>>>> Stashed changes
     return (
         <div className="rounded-2xl border bg-white shadow-sm p-4">
             <div className="font-semibold mb-3">Battery details</div>
@@ -389,6 +481,7 @@ function DetailPanel({ selected, onRequestRemove }) {
                 /* Nếu ô trống */
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
+<<<<<<< Updated upstream
                     <Row k="Slot #" v={selected.slotNumber} />
                     <Row k="Grid Pos" v={selected.pos} />
                     <Row
@@ -402,6 +495,12 @@ function DetailPanel({ selected, onRequestRemove }) {
                     <div className="mt-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm">
                         Empty slot
                     </div>
+=======
+                    <Row k="Slot No." v={selected.slotNumber} />
+                    <Row k="Position" v={selected.pos} />
+                    <Row k="Status" v={isLocked ? "Locked 🔒" : (selected.status ?? "—")} />
+                    <div className="mt-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm">Slot trống</div>
+>>>>>>> Stashed changes
                 </div>
             ) : (
                 /* Nếu ô có pin */
@@ -429,6 +528,12 @@ function DetailPanel({ selected, onRequestRemove }) {
                             }
                         />
                     )}
+<<<<<<< Updated upstream
+=======
+                    {/* Hiển thị đúng field status từ BE; lock chỉ khi status === "lock" */}
+                    <Row k="Status" v={isLocked ? "Locked 🔒" : (selected.status ?? "—")} />
+                    {selected.pillarStatus && <Row k="Pillar Status" v={selected.pillarStatus} />}
+>>>>>>> Stashed changes
 
                     <Row
                         k="Pillar Status"
@@ -443,10 +548,14 @@ function DetailPanel({ selected, onRequestRemove }) {
                     <div className="mt-3 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                         <div
                             className="h-full"
+<<<<<<< Updated upstream
                             style={{
                                 width: `${clamp(selected.soc, 0, 100)}%`,
                                 background: socColor(selected.soc),
                             }}
+=======
+                            style={{ width: `${clamp(selected.soc, 0, 100)}%`, background: socColor(selected.soc) }}
+>>>>>>> Stashed changes
                         />
                     </div>
 
@@ -458,7 +567,11 @@ function DetailPanel({ selected, onRequestRemove }) {
                             onClick={() => onRequestRemove?.(selected)}
                             title="Take battery out of this slot and return it to warehouse"
                         >
+<<<<<<< Updated upstream
                             Take out to warehouse
+=======
+                            Lấy Pin ra (kho)
+>>>>>>> Stashed changes
                         </button>
                     </div>
                 </div>
@@ -625,6 +738,8 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
 
     if (!open || !slot) return null;
 
+    const locked = !!slot?.isLocked; // lock đúng theo status === "lock"
+
     return (
         <div className="fixed inset-0 z-[100]">
             <div
@@ -651,6 +766,7 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                 <div className="p-5 space-y-4 text-sm">
                     {/* Info slot đang gắn pin */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+<<<<<<< Updated upstream
                         <div>
                             <div className="text-slate-500">Pillar</div>
                             <div className="font-medium">
@@ -676,6 +792,30 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                             <div className="font-medium">
                                 {staffId || "—"}
                             </div>
+=======
+                        <div><div className="text-slate-500">Pillar</div><div className="font-medium">{slot.pillarId}</div></div>
+                        <div><div className="text-slate-500">Slot No.</div><div className="font-medium">{slot.slotNumber} ({slot.pos})</div></div>
+                        <div><div className="text-slate-500">Slot ID (BE)</div><div className="font-medium">{slot.slotId ?? "—"}</div></div>
+                        <div><div className="text-slate-500">Staff</div><div className="font-medium">{staffId || "—"}</div></div>
+                    </div>
+
+                    {locked && (
+                        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            🔒 Slot đang ở trạng thái <b>Locked</b> (status = "lock"). Không thể dock pin vào slot này.
+                        </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-3">
+                        <input
+                            className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Tìm theo Battery Id..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            disabled={loadingInv || locked}
+                        />
+                        <div className="text-xs text-slate-500 shrink-0">
+                            {loadingInv ? "Đang tải kho…" : `Kho: ${warehouse.length} pin`}
+>>>>>>> Stashed changes
                         </div>
                     </div>
 
@@ -738,6 +878,7 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                             </thead>
                             <tbody>
                                 {loadingInv ? (
+<<<<<<< Updated upstream
                                     <tr>
                                         <td
                                             className="px-3 py-3 text-slate-500"
@@ -746,6 +887,11 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                                             Loading...
                                         </td>
                                     </tr>
+=======
+                                    <tr><td className="px-3 py-3 text-slate-500" colSpan={5}>Đang tải…</td></tr>
+                                ) : (locked ? (
+                                    <tr><td className="px-3 py-3 text-slate-500" colSpan={5}>Slot đang Locked.</td></tr>
+>>>>>>> Stashed changes
                                 ) : filtered.length === 0 ? (
                                     <tr>
                                         <td
@@ -765,6 +911,7 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                                                 <input
                                                     type="radio"
                                                     name="pickBattery"
+<<<<<<< Updated upstream
                                                     checked={
                                                         selectedId ===
                                                         b.batteryId
@@ -777,6 +924,11 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                                                     disabled={
                                                         locked
                                                     }
+=======
+                                                    checked={selectedId === b.batteryId}
+                                                    onChange={() => setSelectedId(b.batteryId)}
+                                                    disabled={locked}
+>>>>>>> Stashed changes
                                                 />
                                             </td>
                                             <td className="px-3 py-2 font-medium">
@@ -799,7 +951,7 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                                             </td>
                                         </tr>
                                     ))
-                                )}
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -816,6 +968,7 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                         <button
                             className="px-3 py-2 rounded-lg border bg-blue-600 text-white text-sm disabled:opacity-60"
                             onClick={handleDock}
+<<<<<<< Updated upstream
                             disabled={
                                 busy ||
                                 !selectedId ||
@@ -828,6 +981,10 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                                     ? "Pick one battery first"
                                     : "Dock battery into this slot"
                             }
+=======
+                            disabled={busy || !selectedId || locked}
+                            title={locked ? "Slot đang Locked" : (!selectedId ? "Chọn 1 Pin trước" : "Dock Pin vào slot")}
+>>>>>>> Stashed changes
                             type="button"
                         >
                             {busy ? "Working..." : "Dock battery"}
@@ -1009,6 +1166,7 @@ function RemoveBatteryModal({
     );
 }
 
+<<<<<<< Updated upstream
 /* ===== Component trang chính BatteryManager =====
  * Đây là trang "Battery Management" của Staff
  * Luồng chính:
@@ -1022,6 +1180,9 @@ function RemoveBatteryModal({
  *  - Hiển thị Maintenance nếu batteryStatus = "maintenance"
  *  - Header hiển thị pillarName BE trả về
  */
+=======
+/* ===== Page ===== */
+>>>>>>> Stashed changes
 export default function BatteryManager() {
     // userId: dùng để gọi API lấy danh sách pillar
     const [userId] = useState(() =>
@@ -1063,7 +1224,10 @@ export default function BatteryManager() {
     const [removeOpen, setRemoveOpen] = useState(false);
     const [removeTarget, setRemoveTarget] = useState(null);
 
+<<<<<<< Updated upstream
     /* ===== useEffect: load danh sách pillar khi mount ===== */
+=======
+>>>>>>> Stashed changes
     useEffect(() => {
         const ac = new AbortController();
         (async () => {
@@ -1106,6 +1270,7 @@ export default function BatteryManager() {
         try {
             setLoadingSlots(true);
             setError("");
+<<<<<<< Updated upstream
             const res = await api.get(ROUTES.SLOTS, {
                 params: { pillarId },
                 signal: ac.signal,
@@ -1118,6 +1283,11 @@ export default function BatteryManager() {
                 ...prev,
                 [pillarId]: normalized,
             }));
+=======
+            const res = await api.get(ROUTES.SLOTS, { params: { pillarId }, signal: ac.signal });
+            const normalized = normalizeSlotsFromServer(res.data, pillarId);
+            setSlotsByPillar((prev) => ({ ...prev, [pillarId]: normalized }));
+>>>>>>> Stashed changes
         } catch (e) {
             if (ac.signal.aborted) return;
             setSlotsByPillar((prev) => ({
@@ -1164,12 +1334,21 @@ export default function BatteryManager() {
     // legend màu ở góc phải header
     const legend = useMemo(
         () => [
+<<<<<<< Updated upstream
             { color: "#ef4444", label: "Maintenance (red tile)" },
             { color: "#dc2626", label: "≤ 20% SoC (red fill)" },
             { color: "#f59e0b", label: "21–50% SoC (yellow fill)" },
             { color: "#22c55e", label: "> 50% SoC (green fill)" },
             { color: "#94a3b8", label: "Empty slot" },
             { color: "#64748b", label: "Locked 🔒" },
+=======
+            { color: "#111827", label: "Locked (status='lock')" },
+            { color: "#ef4444", label: "Maintenance (ô đỏ)" },
+            { color: "#dc2626", label: "≤ 20% (Đỏ SoC)" },
+            { color: "#f59e0b", label: "21–50% (Vàng SoC)" },
+            { color: "#22c55e", label: "> 50% (Xanh lá SoC)" },
+            { color: "#94a3b8", label: "Empty" },
+>>>>>>> Stashed changes
         ],
         []
     );
@@ -1358,6 +1537,7 @@ export default function BatteryManager() {
                     {/* Panel chi tiết bên phải */}
                     <DetailPanel
                         selected={selected}
+<<<<<<< Updated upstream
                         onRequestRemove={(
                             slot
                         ) => {
@@ -1372,6 +1552,12 @@ export default function BatteryManager() {
                             setRemoveOpen(
                                 true
                             );
+=======
+                        onRequestRemove={(slot) => {
+                            if (!slot || slot.empty) return;
+                            setRemoveTarget(slot);
+                            setRemoveOpen(true);
+>>>>>>> Stashed changes
                         }}
                     />
                 </div>
@@ -1400,9 +1586,13 @@ export default function BatteryManager() {
                 }
                 slot={removeTarget}
                 staffId={staffId}
+<<<<<<< Updated upstream
                 onRemoved={
                     refreshCurrentPillarSlots
                 }
+=======
+                onRemoved={refreshCurrentPillarSlots}
+>>>>>>> Stashed changes
             />
         </div>
     );

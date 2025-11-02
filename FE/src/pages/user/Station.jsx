@@ -9,9 +9,12 @@ import L from "leaflet";
 // Leaflet default icon fix
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-    iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-    iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+    iconRetinaUrl:
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+    iconUrl:
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+    shadowUrl:
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 });
 
 // User location icon
@@ -38,6 +41,14 @@ const haversineKm = (a, b) => {
         Math.sin(dLat / 2) ** 2 +
         Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
     return 2 * R * Math.asin(Math.sqrt(x));
+};
+
+// small helper: format seconds -> mm:ss
+const formatMMSS = (sec) => {
+    const s = Math.max(0, Number(sec) || 0);
+    const mm = Math.floor(s / 60);
+    const ss = s % 60;
+    return `${mm}m ${String(ss).padStart(2, "0")}s`;
 };
 
 export default function Station() {
@@ -171,7 +182,7 @@ export default function Station() {
         setNavSub("");
     };
 
-    // ====== Booking flow (giữ nguyên) ======
+    // ====== Booking flow (UPDATED to match new BE response) ======
     const confirmBooking = async () => {
         if (!selectedSub || !bookingDate || !bookingTime)
             return alert("Please complete all fields");
@@ -202,19 +213,55 @@ export default function Station() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            const appointment =
-                res?.data?.data?.appointment || res?.data?.appointment || {};
+            // NEW: BE now returns { data: { booking: {...}, time: seconds } }
+            const booking =
+                res?.data?.data?.booking || res?.data?.booking || {};
+            const lockSeconds =
+                Number(res?.data?.data?.time ?? res?.data?.time ?? 0) || 0;
 
+            // Stash for next steps (payment / simulation)
             localStorage.setItem("swap_stationId", selectedStation.stationId);
             localStorage.setItem("swap_subscriptionId", selectedSub);
-            localStorage.setItem("lastPlanId", appointment.planId || selectedSub);
+
+            // Optional: keep for quick lookup in transactions
+            if (booking.transactionId) {
+                localStorage.setItem("lastTransactionId", booking.transactionId);
+            }
+            if (booking.appointmentId) {
+                localStorage.setItem("lastAppointmentId", booking.appointmentId);
+            }
+            // Also keep lastPlanId (for legacy flows using it)
+            localStorage.setItem("lastPlanId", booking.subscriptionId || selectedSub);
+
+            // Save a lock-expire timestamp (client-side hint)
+            if (lockSeconds > 0) {
+                const expireAt = Date.now() + lockSeconds * 1000;
+                localStorage.setItem("lockExpireAt", String(expireAt));
+            }
 
             alert(
-                `✅ Booking created!\n📍 ${selectedStation.stationName}\n📅 ${dateBooking} ${timeBooking}\n\n➡ Tiếp theo: vào Transactions để thanh toán.`
+                [
+                    "✅ Booking created & battery locked!",
+                    `📍 ${selectedStation.stationName}`,
+                    `🧾 Transaction: ${booking.transactionId || "—"}`,
+                    `📄 Appointment: ${booking.appointmentId || "—"}`,
+                    `📅 ${dateBooking} ${timeBooking}`,
+                    lockSeconds
+                        ? `⏳ Lock time: ${formatMMSS(lockSeconds)}`
+                        : undefined,
+                    "",
+                    "➡ Tiếp theo: vào Transactions để thanh toán.",
+                ]
+                    .filter(Boolean)
+                    .join("\n")
             );
+
             setShowModal(false);
 
-            navigate("/user/transaction");
+            // Navigate to transactions with context
+            navigate("/user/transaction", {
+                state: { transactionId: booking.transactionId || null },
+            });
         } catch (err) {
             const v = err?.response?.data;
             const msg =
@@ -236,6 +283,7 @@ export default function Station() {
     const defaultCenter = [10.7769, 106.7009];
 
     // helper: render option label with name + ID + status
+    // eslint-disable-next-line no-unused-vars
     const subOptionLabel = (s) => `${s.planName} — ID: ${s.subId} — ${s.planStatus}`;
 
     // helper: detail line for selected sub
@@ -307,7 +355,7 @@ export default function Station() {
                                         <button
                                             onClick={() => {
                                                 handleNavigateVisual(st); // preview route
-                                                openNavigateModal(st);    // mở modal chọn sub để vào giả lập
+                                                openNavigateModal(st); // open modal to go to simulation
                                             }}
                                             className="px-2 py-1 border text-xs rounded-lg hover:bg-gray-100"
                                         >
@@ -332,7 +380,9 @@ export default function Station() {
                     ))}
 
                     {userPos && <Marker position={[userPos.lat, userPos.lng]} icon={userIcon} />}
-                    {route && <Polyline positions={route} dashArray="6 8" color="#2563eb" weight={4} />}
+                    {route && (
+                        <Polyline positions={route} dashArray="6 8" color="#2563eb" weight={4} />
+                    )}
                 </MapContainer>
             </div>
 
@@ -409,7 +459,7 @@ export default function Station() {
                             {subs.length > 0 ? (
                                 subs.map((s) => (
                                     <option key={s.subId} value={s.subId}>
-                                        {subOptionLabel(s)}
+                                        {`${s.planName} — ID: ${s.subId} — ${s.planStatus}`}
                                     </option>
                                 ))
                             ) : (
@@ -471,7 +521,7 @@ export default function Station() {
                             {subs.length > 0 ? (
                                 subs.map((s) => (
                                     <option key={s.subId} value={s.subId}>
-                                        {subOptionLabel(s)}
+                                        {`${s.planName} — ID: ${s.subId} — ${s.planStatus}`}
                                     </option>
                                 ))
                             ) : (
