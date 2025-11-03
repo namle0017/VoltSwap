@@ -148,7 +148,7 @@ export default function Service() {
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        📦 Subscription
+        <i className="bi bi-box" style={{ color: "brown" }}></i> Subscription
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -199,7 +199,7 @@ export default function Service() {
             <p className="text-sm text-gray-700 mt-1">
               <strong>Battery ID:</strong>{" "}
               {Array.isArray(current.batteryDtos) &&
-                current.batteryDtos.length > 0
+              current.batteryDtos.length > 0
                 ? current.batteryDtos.map((b) => b.batteryId).join(", ")
                 : "You have no batteries assigned!"}
             </p>

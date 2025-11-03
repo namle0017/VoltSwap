@@ -54,7 +54,7 @@ namespace VoltSwap.DAL.Repositories
         {
             return await _context.PillarSlots
             .Where(ps => ps.BatterySwapPillarId == pillarId
-                         && ps.Battery != null
+                        && ps.PillarStatus == "Unavailable"
                          && ps.Battery.BatteryStatus == "Available")
             .OrderByDescending(ps => ps.Battery.Soc)
             .Take(topNumber)
@@ -78,7 +78,7 @@ namespace VoltSwap.DAL.Repositories
             .OrderByDescending(ps => ps.Battery.Soc)
             .ToListAsync();
         }
-        
+
 
         public async Task<List<Battery>> GetBatteriesByStationIdAsync(String stationId)
         {

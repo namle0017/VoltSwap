@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+// src/pages/admin/StaffManagement.jsx
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
@@ -32,7 +33,7 @@ export default function StaffManagement() {
 
     const [selectedStaff, setSelectedStaff] = useState(null);
 
-    // ===== NEW: Create Staff Modal state =====
+    // ===== Create Staff Modal state =====
     const [createOpen, setCreateOpen] = useState(false);
     const [creating, setCreating] = useState(false);
     const [stations, setStations] = useState([]);
@@ -48,6 +49,24 @@ export default function StaffManagement() {
         shiftEnd: "17:00",
     });
 
+    // ===== UPDATE STAFF modal state =====
+    const [editOpen, setEditOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [editForm, setEditForm] = useState({
+        staffId: "",
+        staffName: "",
+        staffEmail: "",
+        staffTele: "",
+        staffAddress: "",
+        staffStatus: "Active",
+        stationId: "",
+        shiftStart: "08:00",
+        shiftEnd: "17:00",
+    });
+
+    const toHHMMSS = (t) => (t && t.length === 5 ? `${t}:00` : t || "00:00:00");
+    const isValidEmail = (s = "") => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+
     // ===== Load staff list =====
     const loadStaffs = async () => {
         setLoading(true);
@@ -58,7 +77,6 @@ export default function StaffManagement() {
             });
 
             const arr = res?.data?.data ?? [];
-
             const mapped = arr.map((x) => ({
                 staffId: x.staffId ?? x.userId ?? x.employeeId ?? x.id,
                 userId: x.userId ?? x.staffId ?? x.employeeId ?? x.id, // dùng để delete & detail
@@ -83,7 +101,7 @@ export default function StaffManagement() {
         loadStaffs();
     }, []);
 
-    // ===== Load stations for create modal =====
+    // ===== Load stations (dùng cho create & edit) =====
     const loadStations = async () => {
         setLoadingStations(true);
         try {
@@ -112,12 +130,16 @@ export default function StaffManagement() {
         if (createOpen) loadStations();
     }, [createOpen]);
 
+    // có danh sách trạm khi mở edit
+    useEffect(() => {
+        if (editOpen && !stations.length) loadStations();
+    }, [editOpen]);
+
     // ===== Load staff detail (ONLY pass UserId) =====
     const openDetail = async (row) => {
         setLoadingDetail(true);
         try {
             const token = localStorage.getItem("token");
-            // CHỈ TRUYỀN UserId như yêu cầu
             const res = await api.get("User/staff-information", {
                 params: { UserId: row.userId },
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -126,19 +148,16 @@ export default function StaffManagement() {
             const d = res?.data?.data;
             if (!d) throw new Error("No data");
 
-            // Map theo JSON mới
             const detail = {
-                staffId: d.staffId,               // ST-xxxx
+                staffId: d.staffId,
                 name: d.staffName,
                 email: d.staffEmail,
                 phone: d.staffTele,
                 address: d.staffAddress,
                 status: d.staffStatus,
-                // stationStaff block
                 stationId: d.stationStaff?.stationId || "—",
                 shiftStart: d.stationStaff?.shiftStart || "—",
                 shiftEnd: d.stationStaff?.shiftEnd || "—",
-                // giữ các field cũ nếu BE có (optional)
                 role: d.role ?? row.role ?? "Staff",
                 registrationDate: d.registation ?? d.createdAt ?? "—",
                 certifications: d.certifications ?? [],
@@ -179,16 +198,13 @@ export default function StaffManagement() {
         }
     };
 
-    // ===== NEW: Create staff submit =====
+    // ===== Create staff submit =====
     const onCreateStaff = async (e) => {
         e.preventDefault();
         if (!createForm.staffName.trim()) return alert("Vui lòng nhập tên nhân viên.");
         if (!createForm.staffEmail.trim()) return alert("Vui lòng nhập email.");
         if (!createForm.stationId) return alert("Vui lòng chọn trạm.");
-        const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createForm.staffEmail.trim());
-        if (!emailOk) return alert("Email không hợp lệ.");
-
-        const toHHMMSS = (t) => (t && t.length === 5 ? `${t}:00` : t || "00:00:00");
+        if (!isValidEmail(createForm.staffEmail)) return alert("Email không hợp lệ.");
 
         const payload = {
             staffName: createForm.staffName.trim(),
@@ -236,21 +252,141 @@ export default function StaffManagement() {
         }
     };
 
+    // ===== OPEN EDIT (from row) =====
+    const openEditFromRow = async (row) => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await api.get("User/staff-information", {
+                params: { UserId: row.userId ?? row.staffId },
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            const d = res?.data?.data || {};
+
+            setEditForm({
+                staffId: d.staffId ?? row.staffId,
+                staffName: d.staffName ?? row.name ?? "",
+                staffEmail: d.staffEmail ?? row.email ?? "",
+                staffTele: d.staffTele ?? row.phone ?? "",
+                staffAddress: d.staffAddress ?? "",
+                staffStatus: d.staffStatus ?? row.status ?? "Active",
+                stationId: d.stationStaff?.stationId || "",
+                shiftStart: String(d.stationStaff?.shiftStart || "08:00").slice(0, 5),
+                shiftEnd: String(d.stationStaff?.shiftEnd || "17:00").slice(0, 5),
+            });
+            setEditOpen(true);
+        } catch (e) {
+            console.error("openEditFromRow error:", e?.response?.data || e);
+            alert("❌ Không lấy được thông tin nhân viên để sửa.");
+        }
+    };
+
+    // ===== OPEN EDIT (from detail modal) =====
+    const openEditFromDetail = () => {
+        const d = selectedStaff;
+        setEditForm({
+            staffId: d.staffId,
+            staffName: d.name || "",
+            staffEmail: d.email || "",
+            staffTele: d.phone || "",
+            staffAddress: d.address || "",
+            staffStatus: d.status || "Active",
+            stationId: d.stationId || "",
+            shiftStart: String(d.shiftStart || "08:00").slice(0, 5),
+            shiftEnd: String(d.shiftEnd || "17:00").slice(0, 5),
+        });
+        setEditOpen(true);
+    };
+
+    // ===== SUBMIT UPDATE =====
+    const submitUpdateStaff = async (e) => {
+        e?.preventDefault?.();
+
+        const payload = {
+            staffId: editForm.staffId?.trim(),
+            staffName: editForm.staffName?.trim(),
+            staffEmail: editForm.staffEmail?.trim(),
+            staffTele: editForm.staffTele?.trim(),
+            staffAddress: editForm.staffAddress?.trim(),
+            staffStatus: editForm.staffStatus || "Active",
+            stationStaff: {
+                stationId: editForm.stationId || "",
+                shiftStart: toHHMMSS(editForm.shiftStart),
+                shiftEnd: toHHMMSS(editForm.shiftEnd),
+            },
+        };
+
+        if (!payload.staffId) return alert("Thiếu staffId.");
+        if (!payload.staffName) return alert("Vui lòng nhập tên.");
+        if (!payload.staffEmail || !isValidEmail(payload.staffEmail))
+            return alert("Email không hợp lệ.");
+
+        try {
+            setSaving(true);
+            const token = localStorage.getItem("token");
+            await api.put("/User/update-staff-information", payload, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+
+            // cập nhật ngay bảng
+            setStaffs((prev) =>
+                prev.map((s) =>
+                    s.staffId === payload.staffId
+                        ? {
+                            ...s,
+                            name: payload.staffName,
+                            email: payload.staffEmail,
+                            status: payload.staffStatus,
+                            stationName:
+                                stations.find((x) => x.stationId === payload.stationStaff.stationId)
+                                    ?.stationName ?? s.stationName,
+                        }
+                        : s
+                )
+            );
+
+            // cập nhật modal chi tiết (nếu đang mở)
+            setSelectedStaff((prev) =>
+                prev && prev.staffId === payload.staffId
+                    ? {
+                        ...prev,
+                        name: payload.staffName,
+                        email: payload.staffEmail,
+                        phone: payload.staffTele,
+                        address: payload.staffAddress,
+                        status: payload.staffStatus,
+                        stationId: payload.stationStaff.stationId,
+                        shiftStart: payload.stationStaff.shiftStart,
+                        shiftEnd: payload.stationStaff.shiftEnd,
+                    }
+                    : prev
+            );
+
+            alert("✅ Cập nhật nhân viên thành công.");
+            setEditOpen(false);
+        } catch (err) {
+            console.error("update-staff-information error:", err?.response?.data || err);
+            const v = err?.response?.data;
+            const msg =
+                (typeof v === "object" && (v.message || v.title)) ||
+                (typeof v === "string" && v) ||
+                err.message;
+            alert(`❌ Cập nhật thất bại.\n${msg || ""}`);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     // ===== Derived filters =====
     const roleOptions = useMemo(() => {
         const set = new Set(
-            staffs
-                .map((s) => String(s.role || "").trim())
-                .filter((x) => x && x !== "—")
+            staffs.map((s) => String(s.role || "").trim()).filter((x) => x && x !== "—")
         );
         return Array.from(set);
     }, [staffs]);
 
     const stationOptions = useMemo(() => {
         const set = new Set(
-            staffs
-                .map((s) => String(s.stationName || "").trim())
-                .filter((x) => x && x !== "—")
+            staffs.map((s) => String(s.stationName || "").trim()).filter((x) => x && x !== "—")
         );
         return Array.from(set);
     }, [staffs]);
@@ -285,12 +421,8 @@ export default function StaffManagement() {
                     animate={{ opacity: 1, y: 0 }}
                 >
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                            Staff Management
-                        </h1>
-                        <p className="text-gray-600">
-                            Search, filter and manage station staff accounts.
-                        </p>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Staff Management</h1>
+                        <p className="text-gray-600">Search, filter and manage station staff accounts.</p>
                     </div>
                     <div className="flex gap-2">
                         <button
@@ -469,6 +601,16 @@ export default function StaffManagement() {
                                                     >
                                                         <i className="bi bi-eye" />
                                                     </button>
+
+                                                    {/* NEW: Edit button */}
+                                                    <button
+                                                        onClick={() => openEditFromRow(s)}
+                                                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                                                        title="Edit staff"
+                                                    >
+                                                        <i className="bi bi-pencil-square" />
+                                                    </button>
+
                                                     <button
                                                         onClick={() => deleteStaff(s)}
                                                         className={`p-2 rounded-lg ${deletingId === s.staffId
@@ -512,13 +654,22 @@ export default function StaffManagement() {
                                 <div className="p-6 border-b flex justify-between items-center">
                                     <h2 className="text-2xl font-bold text-gray-900">Staff Details</h2>
                                     <div className="flex items-center gap-2">
+                                        {/* NEW: Edit from detail */}
+                                        <button
+                                            onClick={openEditFromDetail}
+                                            className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                                            title="Edit staff"
+                                        >
+                                            <i className="bi bi-pencil-square" />
+                                        </button>
+
                                         <button
                                             onClick={() =>
                                                 deleteStaff({
                                                     staffId: selectedStaff.staffId,
                                                     userId:
-                                                        staffs.find((x) => x.staffId === selectedStaff.staffId)
-                                                            ?.userId ?? selectedStaff.staffId,
+                                                        staffs.find((x) => x.staffId === selectedStaff.staffId)?.userId ??
+                                                        selectedStaff.staffId,
                                                     name: selectedStaff.name,
                                                 })
                                             }
@@ -622,7 +773,7 @@ export default function StaffManagement() {
                     )}
                 </AnimatePresence>
 
-                {/* ===== NEW: Create Staff Modal ===== */}
+                {/* ===== Create Staff Modal ===== */}
                 <AnimatePresence>
                     {createOpen && (
                         <motion.div
@@ -639,10 +790,7 @@ export default function StaffManagement() {
                             >
                                 <div className="p-6 border-b flex items-center justify-between">
                                     <h3 className="text-lg font-semibold">Create Staff</h3>
-                                    <button
-                                        className="p-2 hover:bg-gray-100 rounded-lg"
-                                        onClick={() => setCreateOpen(false)}
-                                    >
+                                    <button className="p-2 hover:bg-gray-100 rounded-lg" onClick={() => setCreateOpen(false)}>
                                         <i className="bi bi-x-lg" />
                                     </button>
                                 </div>
@@ -764,6 +912,154 @@ export default function StaffManagement() {
                                             disabled={creating}
                                         >
                                             {creating ? "Creating..." : "Create"}
+                                        </button>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* ===== UPDATE STAFF MODAL ===== */}
+                <AnimatePresence>
+                    {editOpen && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                        >
+                            <motion.div
+                                initial={{ y: 16, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: 16, opacity: 0 }}
+                                className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl"
+                            >
+                                <div className="p-6 border-b flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold">Update Staff</h3>
+                                    <button className="p-2 hover:bg-gray-100 rounded-lg" onClick={() => setEditOpen(false)}>
+                                        <i className="bi bi-x-lg" />
+                                    </button>
+                                </div>
+
+                                <form className="p-6 grid md:grid-cols-2 gap-4" onSubmit={submitUpdateStaff}>
+                                    <div className="md:col-span-2 grid md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Staff ID</label>
+                                            <input className="w-full border rounded-lg px-3 py-2 bg-gray-100" value={editForm.staffId} readOnly />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Full name</label>
+                                            <input
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={editForm.staffName}
+                                                onChange={(e) => setEditForm((f) => ({ ...f, staffName: e.target.value }))}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Email</label>
+                                        <input
+                                            type="email"
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.staffEmail}
+                                            onChange={(e) => setEditForm((f) => ({ ...f, staffEmail: e.target.value }))}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Telephone</label>
+                                        <input
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.staffTele}
+                                            onChange={(e) => setEditForm((f) => ({ ...f, staffTele: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm text-gray-700 mb-1">Address</label>
+                                        <input
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.staffAddress}
+                                            onChange={(e) => setEditForm((f) => ({ ...f, staffAddress: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Status</label>
+                                        <select
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.staffStatus}
+                                            onChange={(e) => setEditForm((f) => ({ ...f, staffStatus: e.target.value }))}
+                                        >
+                                            <option value="Active">Active</option>
+                                            <option value="Inactive">Inactive</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Station</label>
+                                        <select
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.stationId}
+                                            onChange={(e) => setEditForm((f) => ({ ...f, stationId: e.target.value }))}
+                                            required
+                                        >
+                                            {loadingStations ? (
+                                                <option>Loading...</option>
+                                            ) : stations.length ? (
+                                                stations.map((s) => (
+                                                    <option key={s.stationId} value={s.stationId}>
+                                                        {s.stationName} ({s.stationId})
+                                                    </option>
+                                                ))
+                                            ) : (
+                                                <option value="">No stations</option>
+                                            )}
+                                        </select>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Shift start</label>
+                                            <input
+                                                type="time"
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={editForm.shiftStart}
+                                                onChange={(e) => setEditForm((f) => ({ ...f, shiftStart: e.target.value }))}
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Shift end</label>
+                                            <input
+                                                type="time"
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={editForm.shiftEnd}
+                                                onChange={(e) => setEditForm((f) => ({ ...f, shiftEnd: e.target.value }))}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="md:col-span-2 flex justify-end gap-2 pt-2">
+                                        <button
+                                            type="button"
+                                            className="px-4 py-2 border rounded-lg"
+                                            onClick={() => setEditOpen(false)}
+                                            disabled={saving}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-60"
+                                            disabled={saving}
+                                        >
+                                            {saving ? "Saving..." : "Save changes"}
                                         </button>
                                     </div>
                                 </form>

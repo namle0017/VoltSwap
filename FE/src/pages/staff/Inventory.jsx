@@ -1,167 +1,142 @@
 // src/pages/staff/Inventory.jsx
+// ===================
+// UI: English
+// Comment: Tiếng Việt
+// Yêu cầu: Chỉ hiển thị 20 pin đầu; có nút "View more" để xem toàn bộ (và "View less" để thu về).
+// Sắp xếp: Pin thường lên trước, Maintenance xuống dưới; trong nhóm sort theo SOC ↓, SOH ↓, ID ↑.
+// API: GET /Station/station-inventory?staffId=...
+// ===================
+
 import React from "react";
-import api from "@/api/api"; // axios instance của bạn (đã set baseURL)
+import api from "@/api/api";
+
+/* ===== Helpers ===== */
+// Ép SOC/SOH về 0..100 (làm tròn)
+function clamp01(n) {
+    const x = Number(n);
+    if (!Number.isFinite(x)) return 0;
+    const r = Math.round(x);
+    return Math.max(0, Math.min(100, r));
+}
+
+// BE đôi khi viết sai chính tả "mantaince" → vẫn coi là maintenance
+function isMaintenance(item) {
+    const a = (item?.status || "").toLowerCase();
+    const b = (item?.batteryStatus || "").toLowerCase();
+    return a === "maintenance" || b === "maintenance" || a === "mantaince" || b === "mantaince";
+}
+
+// Tone màu cho thẻ theo trạng thái
+function statusTone(item) {
+    if (isMaintenance(item)) {
+        return { bg: "rgba(239,68,68,.10)", fg: "#7f1d1d", br: "#ef4444", label: "Maintenance" };
+    }
+    return { bg: "rgba(16,185,129,.10)", fg: "#065f46", br: "#10b981", label: item?.status || "Normal" };
+}
+
+// Chuẩn hoá 1 bản ghi pin về shape dùng cho UI
+function mapBattery(it) {
+    return {
+        id: it.batteryId || it.id || "",
+        soh: clamp01(it.soh),
+        soc: clamp01(it.soc),
+        capacityKWh: Number(it.capacity ?? it.capacityKWh ?? 0),
+        status: it.status || it.batteryStatus || "Normal",
+        batteryStatus: it.batteryStatus,
+        stationId: it.stationId,
+    };
+}
+
+// Sort: pin thường trước, Maintenance sau; trong nhóm sort theo SOC desc → SOH desc → ID asc
+function compareBattery(a, b) {
+    const aMaint = isMaintenance(a) ? 1 : 0;
+    const bMaint = isMaintenance(b) ? 1 : 0;
+    if (aMaint !== bMaint) return aMaint - bMaint; // 0 trước 1 (Maintenance xuống dưới)
+    if ((b.soc ?? 0) !== (a.soc ?? 0)) return (b.soc ?? 0) - (a.soc ?? 0);
+    if ((b.soh ?? 0) !== (a.soh ?? 0)) return (b.soh ?? 0) - (a.soh ?? 0);
+    return String(a.id).localeCompare(String(b.id));
+}
+
+const PAGE_SIZE = 20; // Hiển thị 20 pin đầu
 
 export default function Inventory() {
-    /* ===== Constants ===== */
-    const ROWS = ["A", "B", "C", "D", "E"]; // 5 hàng x 4 cột = 20 ô (chỉ dùng để sắp, KHÔNG hiển thị)
-    const COLS = 4;
-    const toPos = (i) => `${ROWS[Math.floor(i / COLS)]}${(i % COLS) + 1}`; // nội bộ
+    // StaffId gửi cho BE
+    const staffId =
+        localStorage.getItem("StaffId") ||
+        localStorage.getItem("staffId") ||
+        localStorage.getItem("userId") ||
+        "";
 
-    /* ===== State ===== */
-    const [slots, setSlots] = React.useState([]);       // [{ slot, battery|null }]
-    const [openSlot, setOpenSlot] = React.useState(null);
+    const [list, setList] = React.useState([]);          // toàn bộ pin đã sort
     const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState(null);
-    const [lastUpdated, setLastUpdated] = React.useState(null);
+    const [error, setError] = React.useState("");
 
-    // Hiển thị tên trạm: ưu tiên localStorage.stationName; fallback stationId từ payload
+    // Tên trạm nếu BE có trả
     const [stationName, setStationName] = React.useState(
         localStorage.getItem("stationName") || "Station"
     );
 
-    // StaffId gửi cho BE (chú ý key — tuỳ hệ thống bạn đang lưu)
-    const staffId =
-        localStorage.getItem("staffId") ||
-        localStorage.getItem("StaffId") ||
-        localStorage.getItem("userId") ||
-        "";
+    // Drawer detail
+    const [openSlot, setOpenSlot] = React.useState(null);
 
-    /* ===== Helpers ===== */
-    const buildEmptyGrid = React.useCallback(
-        () => Array.from({ length: ROWS.length * COLS }, (_, i) => ({ slot: toPos(i), battery: null })),
-        []
-    );
+    // View-more: dùng limit thay vì boolean để control hiển thị
+    const [limit, setLimit] = React.useState(PAGE_SIZE);
 
-    const clamp01 = (n) => {
-        const x = Number(n);
-        if (!Number.isFinite(x)) return 0;
-        return Math.max(0, Math.min(100, Math.round(x)));
-    };
-
-    const fmtTime = (iso) => (iso ? new Date(iso).toLocaleString() : "—");
-
-    // Tone theo status từ BE:
-    // - Maintenance/mantaince -> đỏ
-    // - Warehouse/Full/FullPin/Best -> xanh
-    // - khác -> xám
-    const statusTone = (status) => {
-        const raw = (status || "").trim();
-        const s = raw.toLowerCase();
-
-        const isMaintenance = /maintain/.test(s); // bắt cả "maintenance" & "mantaince"
-        if (isMaintenance) {
-            return {
-                bg: "rgba(239,68,68,.12)", // red-500/12
-                fg: "#991b1b",             // red-800
-                br: "#ef4444",             // red-500
-                label: raw || "Maintenance",
-            };
-        }
-
-        const isGreen =
-            s.includes("warehouse") ||
-            s === "full" ||
-            s === "fullpin" ||
-            s === "best";
-        if (isGreen) {
-            return {
-                bg: "rgba(16,185,129,.12)", // emerald-500/12
-                fg: "#065f46",               // emerald-900
-                br: "#10b981",               // emerald-500
-                label: raw || "Warehouse",
-            };
-        }
-
-        // Default (xám)
-        return {
-            bg: "rgba(148,163,184,.12)", // slate-400/12
-            fg: "#334155",               // slate-700
-            br: "#94a3b8",               // slate-400
-            label: raw,                  // giữ nguyên status BE
-        };
-    };
-
-    // Map 1 item BE -> battery chuẩn UI
-    const mapBattery = (it) => ({
-        id: it.batteryId,
-        soh: clamp01(it.soh),
-        soc: clamp01(it.soc),
-        capacityKWh: Number(it.capacity),
-        status: it.status || "Warehouse",
-        updatedAt: new Date().toISOString(), // BE chưa trả time cập nhật
-        stationId: it.stationId,
-        stationName: it.stationName,
-    });
-
-    // Lấy tối đa 20 pin, gán tuần tự vào 20 ô; phần còn lại để trống
-    const buildGridFromApi = (list) => {
-        const grid = buildEmptyGrid();
-        if (!Array.isArray(list)) return grid;
-
-        if (list.length > 20) {
-            console.warn(`[Inventory] API returned ${list.length} items; using first 20.`);
-        }
-        const items = list.slice(0, 20).map(mapBattery);
-
-        return grid.map((g, idx) => ({
-            slot: g.slot,               // vẫn giữ để sắp xếp nội bộ
-            battery: items[idx] || null,
-        }));
-    };
-
-    /* ===== Fetch ===== */
+    // Fetch inventory
     const fetchInventory = React.useCallback(async () => {
         try {
+            setLoading(true);
+            setError("");
+            setLimit(PAGE_SIZE); // reset về 20 mỗi lần refresh
+
             if (!staffId) {
                 setError("Missing staffId in localStorage. Please sign in again.");
-                setSlots(buildEmptyGrid());
-                setLoading(false);
+                setList([]);
                 return;
             }
 
-            setError(null);
-            setLoading(true);
-            const res = await api.get("/Station/station-inventory", {
-                params: { StaffId: staffId }, // đúng key theo BE
-            });
-
+            const res = await api.get("/Station/station-inventory", { params: { staffId } });
             const payload = Array.isArray(res.data) ? res.data : res.data?.data || [];
-            const grid = buildGridFromApi(payload);
-            setSlots(grid);
 
-            // Cập nhật tên trạm nếu có stationId trong payload
-            const stId = payload?.[0]?.stationId;
-            if (stId) setStationName(stId);
+            const mapped = payload.map(mapBattery).sort(compareBattery);
+            setList(mapped);
 
-            setLastUpdated(new Date().toISOString());
+            const stName =
+                res.data?.stationName ||
+                res.data?.data?.stationName ||
+                payload?.[0]?.stationName;
+            if (stName) setStationName(stName);
         } catch (e) {
-            console.error("Fetch station inventory failed:", e);
-            setError(
-                e?.response?.data?.message ||
-                e?.message ||
-                "Failed to load station inventory."
-            );
-            setSlots(buildEmptyGrid());
+            console.error(e);
+            setError(e?.response?.data?.message || e?.message || "Failed to load station inventory.");
+            setList([]);
         } finally {
             setLoading(false);
         }
-    }, [staffId, buildEmptyGrid]);
+    }, [staffId]);
 
     React.useEffect(() => {
         fetchInventory();
     }, [fetchInventory]);
 
-    /* ===== UI ===== */
+    // Danh sách hiển thị dựa theo limit
+    const visible = loading ? [] : list.slice(0, Math.min(limit, list.length));
+    const canViewMore = !loading && limit < list.length;
+    const canViewLess = !loading && limit > PAGE_SIZE;
+
     return (
         <section>
             {/* Header */}
             <header className="row-between">
                 <div className="header-left">
-                    <span className="kho-chip">Station Inventory</span>
+                    <span className="kho-chip">Station inventory</span>
                     <h2 className="h1 m-0">{stationName}</h2>
                     <div className="muted small">
-                        {lastUpdated ? `Updated: ${fmtTime(lastUpdated)}` : ""}
+                        {!loading && (
+                            <>
+                                Showing <b>{visible.length}</b> of <b>{list.length}</b> batteries
+                            </>
+                        )}
                     </div>
                 </div>
                 <div className="actions">
@@ -178,115 +153,93 @@ export default function Inventory() {
                 </div>
             )}
 
-            {/* Grid 20 ô (KHÔNG hiển thị vị trí) */}
+            {/* Grid: chỉ 20 pin đầu; có View more / View less */}
             <section className="card card-padded mt-4">
                 <div className="row-between">
-                    <h3 className="h4 m-0">Battery Warehouse</h3>
+                    <h3 className="h4 m-0">Batteries</h3>
                     <div className="legend">
-                        <span className="legend-dot full" /> Warehouse / Full
+                        <span className="legend-dot full" /> Normal
                         <span className="legend-dot maint" /> Maintenance
-                        <span className="legend-dot empty" /> Other / Empty
                     </div>
                 </div>
 
-                <div
-                    className="slots-grid mt-3"
-                    role="grid"
-                    aria-label="Battery list in warehouse"
-                >
-                    {(loading && slots.length === 0 ? buildEmptyGrid() : slots).map(
-                        ({ slot, battery }) => {
-                            const tone = statusTone(battery?.status);
-                            const pct = battery ? clamp01(battery.soc) : 0;
-
-                            return (
-                                <button
-                                    key={slot}
-                                    role="gridcell"
-                                    className={`slot-card ${loading && !battery ? "skeleton" : ""
-                                        }`}
-                                    style={{
-                                        borderColor: tone.br,
-                                        background: battery
-                                            ? "#fff"
-                                            : "linear-gradient(#f8fafc,#f1f5f9)",
-                                    }}
-                                    onClick={() => setOpenSlot({ slot, battery })}
-                                    disabled={loading && slots.length === 0}
-                                    aria-label={
-                                        battery
-                                            ? `Battery ${battery.id}, SOC ${pct}%`
-                                            : "Empty slot"
-                                    }
-                                    type="button"
-                                >
-                                    <div className="slot-head">
-                                        {/* ĐÃ BỎ nhãn vị trí (A1..E4) */}
-                                        <span
-                                            className="status-badge"
-                                            style={{
-                                                background: tone.bg,
-                                                color: tone.fg,
-                                                borderColor: tone.br,
-                                            }}
-                                        >
-                                            {battery ? tone.label || "—" : ""}
-                                        </span>
-                                    </div>
-
-                                    <div className="slot-body">
-                                        <div className="slot-id">
-                                            {battery?.id || "—"}
-                                        </div>
-
-                                        {battery ? (
-                                            <>
-                                                <div className="kv">
-                                                    <span>SOH</span>
-                                                    <b>{clamp01(battery.soh)}%</b>
-                                                </div>
-                                                <div className="kv">
-                                                    <span>SOC</span>
-                                                    <b>{pct}%</b>
-                                                </div>
-                                                <div className="socbar">
-                                                    <span
-                                                        className="socbar-fill"
-                                                        style={{
-                                                            width: `${pct}%`,
-                                                            background: tone.br,
-                                                        }}
-                                                    />
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div className="muted small">
-                                                No Battery
-                                            </div>
-                                        )}
-                                    </div>
-                                </button>
-                            );
+                <div className="slots-grid mt-3" role="grid" aria-label="Station batteries">
+                    {(loading ? Array.from({ length: PAGE_SIZE }) : visible).map((b, i) => {
+                        if (loading) {
+                            return <div key={i} className="slot-card skeleton" />;
                         }
-                    )}
+
+                        const tone = statusTone(b);
+                        const pct = clamp01(b.soc);
+
+                        return (
+                            <button
+                                key={b.id || i}
+                                role="gridcell"
+                                className="slot-card"
+                                style={{ borderColor: tone.br, background: "#fff" }}
+                                onClick={() => setOpenSlot({ battery: b })}
+                                aria-label={b.id ? `Battery ${b.id}, SOC ${pct}%` : "Battery"}
+                            >
+                                <div className="slot-head">
+                                    <span
+                                        className="status-badge"
+                                        style={{ background: tone.bg, color: tone.fg, borderColor: tone.br }}
+                                    >
+                                        {tone.label}
+                                    </span>
+                                </div>
+
+                                <div className="slot-body">
+                                    <div className="slot-id">{b.id || "—"}</div>
+
+                                    <div className="kv">
+                                        <span>SOH</span>
+                                        <b>{clamp01(b.soh)}%</b>
+                                    </div>
+                                    <div className="kv">
+                                        <span>SOC</span>
+                                        <b>{pct}%</b>
+                                    </div>
+
+                                    <div className="socbar" title={`SOC ${pct}%`}>
+                                        <span className="socbar-fill" style={{ width: `${pct}%`, borderColor: tone.br, background: tone.br }} />
+                                    </div>
+
+                                    <div className="kv">
+                                        <span>Capacity</span>
+                                        <b>{b.capacityKWh ? `${b.capacityKWh} kWh` : "—"}</b>
+                                    </div>
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
+
+                {/* View more / View less */}
+                {!loading && (canViewMore || canViewLess) && (
+                    <div className="mt-3" style={{ display: "flex", justifyContent: "center", gap: 8 }}>
+                        {canViewMore && (
+                            <button className="btn" onClick={() => setLimit(list.length)}>
+                                View more
+                            </button>
+                        )}
+                        {canViewLess && (
+                            <button className="btn" onClick={() => setLimit(PAGE_SIZE)}>
+                                View less
+                            </button>
+                        )}
+                    </div>
+                )}
             </section>
 
-            {/* Drawer detail (KHÔNG hiển thị vị trí) */}
+            {/* Drawer detail */}
             {openSlot && (
                 <div className="overlay" onClick={() => setOpenSlot(null)}>
-                    <aside
-                        className="drawer"
-                        onClick={(e) => e.stopPropagation()}
-                    >
+                    <aside className="drawer" onClick={(e) => e.stopPropagation()}>
                         <header className="drawer-head">
-                            <h4 className="m-0">Battery Detail</h4>
-                            <button
-                                className="btn-close"
-                                onClick={() => setOpenSlot(null)}
-                                aria-label="Close"
-                                type="button"
-                            >
+                            <h4 className="m-0">Battery detail</h4>
+                            <button className="btn-close" onClick={() => setOpenSlot(null)} aria-label="Close">
                                 ×
                             </button>
                         </header>
@@ -299,82 +252,25 @@ export default function Inventory() {
                                 </div>
                                 <div className="detail">
                                     <dt>SOH</dt>
-                                    <dd>
-                                        {openSlot.battery?.soh != null
-                                            ? `${clamp01(
-                                                openSlot.battery.soh
-                                            )}%`
-                                            : "—"}
-                                    </dd>
+                                    <dd>{clamp01(openSlot.battery?.soh)}%</dd>
                                 </div>
                                 <div className="detail">
                                     <dt>SOC</dt>
-                                    <dd>
-                                        {openSlot.battery?.soc != null
-                                            ? `${clamp01(
-                                                openSlot.battery.soc
-                                            )}%`
-                                            : "—"}
-                                    </dd>
+                                    <dd>{clamp01(openSlot.battery?.soc)}%</dd>
                                 </div>
                                 <div className="detail">
                                     <dt>Capacity</dt>
-                                    <dd>
-                                        {openSlot.battery?.capacityKWh != null
-                                            ? `${openSlot.battery.capacityKWh} kWh`
-                                            : "—"}
-                                    </dd>
+                                    <dd>{openSlot.battery?.capacityKWh ? `${openSlot.battery.capacityKWh} kWh` : "—"}</dd>
                                 </div>
                                 <div className="detail">
                                     <dt>Status</dt>
-                                    <dd>
-                                        {openSlot.battery ? (
-                                            (() => {
-                                                const t = statusTone(
-                                                    openSlot.battery.status
-                                                );
-                                                return (
-                                                    <span
-                                                        className="status-badge"
-                                                        style={{
-                                                            background: t.bg,
-                                                            color: t.fg,
-                                                            borderColor: t.br,
-                                                        }}
-                                                    >
-                                                        {t.label || "—"}
-                                                    </span>
-                                                );
-                                            })()
-                                        ) : (
-                                            ""
-                                        )}
-                                    </dd>
-                                </div>
-                                <div className="detail">
-                                    <dt>Station</dt>
-                                    <dd>
-                                        {openSlot.battery?.stationId ||
-                                            stationName}
-                                    </dd>
-                                </div>
-                                <div className="detail">
-                                    <dt>Updated</dt>
-                                    <dd>
-                                        {fmtTime(
-                                            openSlot.battery?.updatedAt
-                                        )}
-                                    </dd>
+                                    <dd>{isMaintenance(openSlot.battery) ? "Maintenance" : (openSlot.battery?.status || "Normal")}</dd>
                                 </div>
                             </dl>
                         </div>
 
                         <footer className="drawer-foot">
-                            <button
-                                className="btn ghost"
-                                onClick={() => setOpenSlot(null)}
-                                type="button"
-                            >
+                            <button className="btn ghost" onClick={() => setOpenSlot(null)}>
                                 Close
                             </button>
                         </footer>
@@ -382,13 +278,12 @@ export default function Inventory() {
                 </div>
             )}
 
-            {/* Styles scoped */}
+            {/* Styles */}
             <style>{`
         .row-between { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
         .card-padded { padding: 16px 20px; }
         .m-0 { margin: 0; }
         .h4 { font-size:16px; font-weight:600; }
-        .h5 { font-size:18px; font-weight:700; }
         .small { font-size:12px; }
         .muted { color: var(--muted); }
 
@@ -404,13 +299,15 @@ export default function Inventory() {
         .legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; border:1px solid var(--line); margin-right:4px; }
         .legend .full { background:#10b98133; border-color:#10b981; }
         .legend .maint { background:#ef444433; border-color:#ef4444; }
-        .legend .empty { background:#94a3b833; border-color:#94a3b8; }
 
         .slots-grid {
           display:grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap:12px;
         }
+        @media (max-width: 1024px) { .slots-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 768px) { .slots-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
         .slot-card {
           border:1px solid var(--line);
           border-radius:14px;
@@ -422,15 +319,14 @@ export default function Inventory() {
         }
         .slot-card:hover { box-shadow:0 4px 16px rgba(2,6,23,.06); transform: translateY(-1px); }
         .slot-card:active { transform: translateY(0); }
-        .slot-card.skeleton { position:relative; overflow:hidden; }
+        .slot-card.skeleton { position:relative; overflow:hidden; min-height:120px; }
         .slot-card.skeleton::after {
           content:""; position:absolute; inset:0;
           background: linear-gradient(90deg, transparent, rgba(148,163,184,.1), transparent);
           animation: shimmer 1.2s infinite;
         }
-        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
-        .slot-head { display:flex; align-items:center; justify-content:flex-end; gap:8px; } /* bỏ chỗ cho nhãn vị trí */
+        .slot-head { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
         .status-badge { font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid; white-space:nowrap; }
 
         .slot-body { display:flex; flex-direction:column; gap:6px; }
