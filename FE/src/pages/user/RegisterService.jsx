@@ -16,7 +16,7 @@ export default function RegisterService() {
 
     // Icon logic theo loại phí
     const getFeeIcon = (type) => {
-        const key = type.toLowerCase();
+        const key = String(type || "").toLowerCase();
         if (key.includes("mileage")) return "🚗";
         if (key.includes("swap")) return "🔄";
         if (key.includes("penalty") || key.includes("late")) return "⚠️";
@@ -34,7 +34,7 @@ export default function RegisterService() {
                     setPlans(res.data.data);
                 }
             } catch (err) {
-                console.error("❌ Failed to fetch plans:", err);
+                console.error("❌ Failed to fetch plans:", err?.response?.data || err);
                 alert("Failed to load plans!");
             } finally {
                 setLoading(false);
@@ -51,38 +51,54 @@ export default function RegisterService() {
             setPlanDetail(res.data?.data);
             setShowModal(true);
         } catch (err) {
-            console.error("❌ Failed to fetch plan details:", err);
+            console.error("❌ Failed to fetch plan details:", err?.response?.data || err);
             alert("Cannot load plan details!");
         } finally {
             setDetailLoading(false);
         }
     };
 
-    // Đăng ký gói thuê
+    // ✅ Đăng ký gói thuê — sửa payload đúng schema BE (bọc trong requestDto)
     const register = async () => {
         if (!selected) return alert("Please choose a plan first!");
 
         const token = localStorage.getItem("token");
-        const driverId = localStorage.getItem("userId");
+        const userId = localStorage.getItem("userId");
+
+        if (!token || !userId) {
+            alert("⚠️ Please log in again!");
+            navigate("/login");
+            return;
+        }
+        const payload = { driverId: { userId }, planId: selected.planId };
 
         try {
-            await api.post(
-                "/Transaction/transaction-user-list",
-                {
-                    driverId,
-                    planId: selected.planId,
-                    amount: selected.price,
-                    fee: 0,
-                    transactionType: "Register",
+            const res = await api.post("/Transaction/transaction-register", payload, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
                 },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            });
 
+            // BE hiện chỉ trả message thành công
             alert(`✅ Registered for ${selected.planName} successfully!`);
             navigate("/user/transaction");
         } catch (err) {
-            console.error("❌ Registration error:", err.response?.data || err);
-            alert("❌ Registration failed!");
+            const v = err?.response?.data;
+            // Gom lỗi validation (nếu có)
+            let msg =
+                (v?.title && `${v.title}`) ||
+                v?.message ||
+                err?.message ||
+                "Registration failed!";
+            if (v?.errors && typeof v.errors === "object") {
+                const details = Object.entries(v.errors)
+                    .map(([k, arr]) => `${k}: ${(arr || []).join(", ")}`)
+                    .join("\n");
+                msg += `\n${details}`;
+            }
+            console.error("❌ Registration error:", err?.response?.data || err);
+            alert(`❌ ${msg}`);
         }
     };
 
@@ -126,16 +142,10 @@ export default function RegisterService() {
                                         className={`border-b hover:bg-yellow-50 transition ${selected?.planId === p.planId ? "bg-yellow-100" : ""
                                             }`}
                                     >
-                                        <td className="p-3 font-semibold text-gray-800">
-                                            {p.planName}
-                                        </td>
+                                        <td className="p-3 font-semibold text-gray-800">{p.planName}</td>
                                         <td>{p.numberBattery}</td>
-                                        <td>
-                                            {p.milleageBaseUsed > 0
-                                                ? p.milleageBaseUsed
-                                                : "Unlimited"}
-                                        </td>
-                                        <td>{p.price.toLocaleString()}</td>
+                                        <td>{p.milleageBaseUsed > 0 ? p.milleageBaseUsed : "Unlimited"}</td>
+                                        <td>{Number(p.price || 0).toLocaleString("vi-VN")}</td>
                                         <td className="space-x-2">
                                             <button
                                                 onClick={() => handleViewPlanDetail(p.planId)}
@@ -146,8 +156,8 @@ export default function RegisterService() {
                                             <button
                                                 onClick={() => setSelected(p)}
                                                 className={`px-3 py-1 rounded-full ${selected?.planId === p.planId
-                                                        ? "bg-yellow-400 font-semibold"
-                                                        : "bg-yellow-200 hover:bg-yellow-300"
+                                                    ? "bg-yellow-400 font-semibold"
+                                                    : "bg-yellow-200 hover:bg-yellow-300"
                                                     }`}
                                             >
                                                 {selected?.planId === p.planId ? "Selected" : "Choose"}
@@ -165,8 +175,8 @@ export default function RegisterService() {
                         onClick={register}
                         disabled={!selected}
                         className={`px-6 py-2 rounded-lg font-semibold ${selected
-                                ? "bg-blue-600 text-white hover:bg-blue-700"
-                                : "bg-gray-400 text-gray-100 cursor-not-allowed"
+                            ? "bg-blue-600 text-white hover:bg-blue-700"
+                            : "bg-gray-400 text-gray-100 cursor-not-allowed"
                             }`}
                     >
                         🚀 Confirm Registration
@@ -191,7 +201,7 @@ export default function RegisterService() {
                         <div className="mb-4">
                             <p>
                                 <strong>Price:</strong>{" "}
-                                {planDetail.plans.price.toLocaleString()}₫
+                                {Number(planDetail.plans.price || 0).toLocaleString("vi-VN")}₫
                             </p>
                             <p>
                                 <strong>Batteries:</strong> {planDetail.plans.numberBattery}
@@ -217,7 +227,7 @@ export default function RegisterService() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {planDetail.planFees.map((fee, index) => (
+                                {(planDetail.planFees || []).map((fee, index) => (
                                     <tr key={index} className="border">
                                         <td className="text-lg">{getFeeIcon(fee.typeOfFee)}</td>
                                         <td>{fee.typeOfFee}</td>
