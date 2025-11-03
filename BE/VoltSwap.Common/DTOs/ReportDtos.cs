@@ -6,9 +6,24 @@ using System.Threading.Tasks;
 
 namespace VoltSwap.Common.DTOs
 {
-    public class UserReportRequest
+    public class StaffReportRequest
     {
         public string StaffId { get; set; }
+        public String DriverId { get; set; }
+        public int ReportTypeId { get; set; }
+        public string ReportNote { get; set; }
+        public DateTime CreateAt { get; set; }
+    }
+    public class UserReportRequest
+    {
+     
+        public String DriverId { get; set; }
+        public int ReportTypeId { get; set; }
+        public string ReportNote { get; set; }
+    }
+    public class UserReportRespone
+    {
+
         public String DriverId { get; set; }
         public int ReportTypeId { get; set; }
         public string ReportNote { get; set; }
@@ -27,7 +42,7 @@ namespace VoltSwap.Common.DTOs
         public string StaffId { get; set; }
         public String DriverId { get; set; }
         public String DriverName { get; set; }
-        public string ReportType { get; set; }
+        public int  ReportType { get; set; }
         public string ReportNote { get; set; }
         public DateTime CreateAt { get; set; }
         public string ReportStatus { get; set; }

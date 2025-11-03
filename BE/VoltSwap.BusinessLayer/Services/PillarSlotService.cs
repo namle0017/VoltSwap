@@ -21,6 +21,7 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<StationStaff> _stationStaffRepo;
         private readonly IGenericRepositories<Battery> _batRepo;
         private readonly IGenericRepositories<BatterySwapStation> _stationRepo;
+        private readonly IGenericRepositories<Subscription> _subRepo;
         private readonly IBatteryService _batService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
@@ -29,6 +30,7 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<User> userRepo,
             IGenericRepositories<PillarSlot> slotRepo,
             IGenericRepositories<StationStaff> stationStaffRepo,
+            IGenericRepositories<Subscription> subRepo,
             IGenericRepositories<Battery> batRepo,
             IGenericRepositories<BatterySwapStation> stationRepo,
             IBatteryService batService,
@@ -38,6 +40,9 @@ namespace VoltSwap.BusinessLayer.Services
             _userRepo = userRepo;
             _slotRepo = slotRepo;
             _batRepo = batRepo;
+            _stationRepo = stationRepo;
+            _batService = batService;
+            _subRepo = subRepo;
             _stationStaffRepo = stationStaffRepo;
             _stationRepo = stationRepo;
             _batService = batService;
@@ -186,7 +191,7 @@ namespace VoltSwap.BusinessLayer.Services
                 };
             }
 
-            var battery = await _unitOfWork.Batteries.FindingBatteryInventoryById(requestDto.BatteryWareHouseId,stationstaff.BatterySwapStationId);
+            var battery = await _unitOfWork.Batteries.FindingBatteryInventoryById(requestDto.BatteryWareHouseId, stationstaff.BatterySwapStationId);
             if (battery == null)
             {
                 return new ServiceResult
@@ -233,8 +238,8 @@ namespace VoltSwap.BusinessLayer.Services
             return result;
 
         }
-         //Bin: xem các slot đã có booking và khóa 
-         public async Task<ServiceResult> GetLockedPillarSlotByStaffId(UserRequest requestDto)
+        //Bin: xem các slot đã có booking và khóa 
+        public async Task<ServiceResult> GetLockedPillarSlotByStaffId(UserRequest requestDto)
         {
             var stationStaff = await _stationStaffRepo.GetAllQueryable()
                                 .Where(st => st.UserStaffId == requestDto.UserId)
@@ -244,7 +249,7 @@ namespace VoltSwap.BusinessLayer.Services
                                 .Where(ps => ps.BatterySwapPillar.BatterySwapStationId == stationStaff.BatterySwapStationId
                                    && ps.AppointmentId != null)
                                 .ToListAsync();
-            var dtoList = lockedSlots .Select(slot => new LockedPillarSlotDto
+            var dtoList = lockedSlots.Select(slot => new LockedPillarSlotDto
             {
                 SlotId = slot.SlotId,
                 StaitonId = slot.BatterySwapPillar.BatterySwapStationId,
@@ -259,5 +264,69 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = dtoList,
             };
         }
+
+        //Bin: hàm để Lock pin khi booking xog
+        public async Task<List<PillarSlotDto>> LockSlotsAsync(string stationId, string subscriptionId,string bookingId)
+        {
+            var result = new List<PillarSlotDto>();
+
+            // 1. Tìm subId có đúng không
+            var subscription = await _subRepo.GetByIdAsync(subscriptionId);
+            if (subscription == null)
+                return result;
+
+            // 2. Lấy số pin có trong subId đó
+            var requiredBatteries =
+                await _unitOfWork.Subscriptions.GetBatteryCountBySubscriptionIdAsync(subscriptionId);
+            if (requiredBatteries <= 0)
+                return result;
+
+            // 3. Lấy các pillar có trong trạm
+            var pillars = await _unitOfWork.Pillars.GetAllAsync(
+                p => p.BatterySwapStationId == stationId
+            );
+
+            foreach (var pillar in pillars)
+            {
+                // 4. Lấy các slot phù hợp có trong trụ
+                var availableSlots = await _unitOfWork.PillarSlots
+                    .GetAvailableSlotsByPillarAsync(pillar.BatterySwapPillarId);
+
+                if (availableSlots.Count >= requiredBatteries)
+                {
+                    var slotsToLock = availableSlots
+                        .Take(requiredBatteries)
+                        .ToList();
+
+                    foreach (var slot in slotsToLock)
+                    {
+                        slot.PillarStatus = "Lock";
+                        slot.AppointmentId = bookingId;
+
+                        await _unitOfWork.PillarSlots.UpdateAsync(slot);
+                        await _unitOfWork.SaveChangesAsync();
+
+                        result.Add(new PillarSlotDto
+                        {
+                            SlotId = slot.SlotId,
+                            BatteryId = slot.BatteryId,
+                            SlotNumber = slot.SlotNumber,
+                            StationId = stationId,
+                            PillarId = slot.BatterySwapPillarId,
+                            PillarStatus = slot.PillarStatus,
+                            BatteryStatus = slot.Battery.BatteryStatus,
+                            BatterySoc = slot.Battery.Soc,
+                            BatterySoh = slot.Battery.Soh
+                        });
+                    }
+
+                    break;
+                }
+            }
+
+            return result;
+        }
+
+
     }
 }

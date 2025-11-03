@@ -10,7 +10,7 @@ using VoltSwap.DAL.Models;
 
 namespace VoltSwap.DAL.Repositories
 {
-    public class PillarRepository : GenericRepositories<Battery>, IPillarRepository
+    public class PillarRepository : GenericRepositories<BatterySwapPillar>,  IPillarRepository
     {
         private readonly VoltSwapDbContext _context;
 

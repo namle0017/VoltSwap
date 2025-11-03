@@ -84,7 +84,7 @@ namespace VoltSwap.API.Controllers
             {
                 return BadRequest(ModelState);
             }
-            var result = await _batSwapService.StaffTransferBattery(requestDto);
+            var result = await _batSwapService.StaffSwapBattery(requestDto);
 
             return StatusCode(result.Status, new { message = result.Message });
         }

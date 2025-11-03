@@ -65,5 +65,37 @@ namespace VoltSwap.API.Controllers
             var result = await _reportService.GetCustomerReportForStaff(request);
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
+
+        [HttpPost("Driver-create-report")]
+        public  async Task<IActionResult> CreateReport([FromBody] UserReportRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _reportService.DriverCreateReport(request);
+            return StatusCode(result.Status, new
+                                            { 
+                                                message = result.Message,
+                                                data = result.Data
+                                            });
+
+        }
+
+        [HttpGet("get-report-list")]
+        public async Task<IActionResult> GetReportType()
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _reportService.ReportTypeList();
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+                data = result.Data
+            });
+
+        }
     }
 }

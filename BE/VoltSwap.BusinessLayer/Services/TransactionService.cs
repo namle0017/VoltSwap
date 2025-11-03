@@ -139,6 +139,14 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm này để hiển thị lên transaction mà user cần trả thông qua TransactionReponse
         public async Task<ServiceResult> GetTransactionDetailAsync(string transactionId)
         {
+            var prevMonth = DateTime.UtcNow.AddMonths(-1).ToLocalTime().Month;
+            var currYear = DateTime.UtcNow.ToLocalTime().Year;
+            if (prevMonth == 12)
+            {
+                currYear = DateTime.UtcNow.AddYears(-1).ToLocalTime().Year;
+            }
+
+            //Lấy transaction theo transID
             var transaction = await _transRepo.GetByIdAsync(t => t.TransactionId == transactionId);
             if (transaction == null)
             {
@@ -148,18 +156,36 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "Can't find this transaction."
                 };
             }
+            //2. Lấy số lần booking trong tháng đó
+            var getNumberOfAppointment = await _unitOfWork.Bookings.GetAllQueryable()
+                                                .Where(app => app.SubscriptionId == transaction.SubscriptionId
+                                                && app.DateBooking.Month == prevMonth
+                                                && app.DateBooking.Year == currYear)
+                                                .CountAsync();
+            //3. Lấy Plan dựa trên subId
+            var getPlan = await _unitOfWork.Subscriptions.GetAllQueryable()
+                                            .Where(sub => sub.SubscriptionId == transaction.SubscriptionId)
+                                            .Include(sub => sub.Plan)
+                                            .FirstOrDefaultAsync();
 
+            //4. Lấy tên của user
+            var getUserName = await _unitOfWork.Users.GetAllQueryable()
+                                        .FirstOrDefaultAsync(us => us.UserId == transaction.UserDriverId);
 
-
-            var transactionResponse = new TransactionReponse
+            var transactionResponse = new TransactionDetailResponse
             {
-                TransactionId = transaction.TransactionId,
-                Amount = transaction.TotalAmount,
-                PaymentStatus = transaction.Status,
-                BankName = "Vietcombank",
-                TransactionContext = transaction.TransactionContext,
-                PaymentAccount = "123456789"
+                TransactionId = transactionId,
+                TransactionType = transaction.TransactionType,
+                SubscriptionId = transaction.SubscriptionId,
+                PlanName = getPlan.Plan.PlanName,
+                DriverId = transaction.UserDriverId,
+                DriverName = getUserName.UserName,
+                Status = transaction.Status,
+                NumberOfBooking = getNumberOfAppointment,
+                TotalFee = transaction.Fee,
+                TotalAmount = transaction.TotalAmount,
             };
+
             return new ServiceResult
             {
                 Status = 200,
@@ -277,10 +303,10 @@ namespace VoltSwap.BusinessLayer.Services
         private async Task<int> UpdateStatusExpiredTransaction()
         {
             var currentDate = DateTime.UtcNow.ToLocalTime();
-            var transactions = await _transRepo.GetAllAsync(t => t.Status =="Pending");
+            var transactions = await _transRepo.GetAllAsync(t => t.Status == "Pending");
             foreach (var trans in transactions)
             {
-                var getTransDate = trans.CreateAt.Value.Date;
+                var getTransDate = trans.CreateAt?.Date;
                 if (getTransDate >= currentDate.Date.AddDays(4))
                 {
                     trans.Status = "Expired";
@@ -323,39 +349,6 @@ namespace VoltSwap.BusinessLayer.Services
                 Status = 200,
                 Message = "transactions retrieved successfully.",
                 Data = pendingTransactions
-            };
-        }
-
-        public async Task<ServiceResult> UpdateTransactionStatusAsync(ApproveTransactionRequest requestDto)
-        {
-            var transaction = await _transRepo.GetByIdAsync(t => t.TransactionId == requestDto.RequestTransactionId);
-            if (transaction == null)
-            {
-                return new ServiceResult
-                {
-                    Status = 404,
-                    Message = "Transaction not found."
-                };
-            }
-            transaction.CreateAt = DateTime.UtcNow.ToLocalTime();
-            transaction.Status = requestDto.NewStatus;
-            _transRepo.UpdateAsync(transaction);
-            await _unitOfWork.SaveChangesAsync();
-            // Nếu transaction được duyệt (approved), cập nhật trạng thái của subscription tương ứng
-            if (requestDto.NewStatus.Equals("Approved", StringComparison.OrdinalIgnoreCase))
-            {
-                var subscription = await _subRepo.GetByIdAsync(s => s.SubscriptionId == transaction.SubscriptionId);
-                if (subscription != null)
-                {
-                    subscription.Status = "Active";
-                    _subRepo.UpdateAsync(subscription);
-                    await _unitOfWork.SaveChangesAsync();
-                }
-            }
-            return new ServiceResult
-            {
-                Status = 200,
-                Message = "Transaction status updated successfully."
             };
         }
 

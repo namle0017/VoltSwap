@@ -78,6 +78,7 @@ namespace VoltSwap.DAL.Repositories
         public async Task<int> GetBatteryCountBySubscriptionIdAsync(string subscriptionId)
         {
             var batteryCount = await _context.Subscriptions
+                .Include(p => p.Plan)
                 .Where(sub => sub.SubscriptionId == subscriptionId)
                 .Select(sub => sub.Plan.NumberOfBattery)
                 .FirstOrDefaultAsync();

@@ -23,16 +23,6 @@ namespace VoltSwap.Common.DTOs
         public string TransactionContext { get; set; }
         //Nemo: thêm transactionNote để cho lưu các fee hay note nào đó
     }
-
-    public class TransactionReponse
-    {
-        public string TransactionId { get; set; }
-        public decimal Amount { get; set; }
-        public string PaymentStatus { get; set; } = "Pending";
-        public string BankName { get; set; }
-        public string TransactionContext { get; set; }
-        public string PaymentAccount { get; set; }
-    }
     public class TransactionListReponse
     {
         public string TransactionId { get; set; }
@@ -52,11 +42,6 @@ namespace VoltSwap.Common.DTOs
         public DateTime PaymentDate { get; set; }
     }
 
-    public class ApproveTransactionRequest
-    {
-        public string RequestTransactionId { get; set; }
-        public string NewStatus { get; set; }
-    }
 
 
     public class BookingTransactionRequest
@@ -128,13 +113,13 @@ namespace VoltSwap.Common.DTOs
         public string StaffId { get; set; }
     }
 
-    public class CancelPlanResponse
-    {
-        public string SubId { get; set; }
-        public string DriverId { get; set; }
-        public decimal TotalAmount { get; set; }
-        public DateTime PaymentDate { get; set; }
-    }
+    //public class CancelPlanResponse
+    //{
+    //    public string SubId { get; set; }
+    //    public string DriverId { get; set; }
+    //    public decimal TotalAmount { get; set; }
+    //    public DateTime PaymentDate { get; set; }
+    //}
 
 
     public class UpdateTransactionRequest
@@ -145,5 +130,19 @@ namespace VoltSwap.Common.DTOs
     public class ConfirmTransactionRequest
     {
         public string TransactionId { get; set; }
+    }
+
+    public class TransactionDetailResponse
+    {
+        public string TransactionId { get; set; }
+        public string Status { get; set; }
+        public string TransactionType { get; set; }
+        public string SubscriptionId { get; set; }
+        public string DriverName { get; set; }
+        public string DriverId { get; set; }
+        public string PlanName { get; set; }
+        public int NumberOfBooking { get; set; }
+        public decimal? TotalFee { get; set; }
+        public decimal TotalAmount { get; set; }
     }
 }

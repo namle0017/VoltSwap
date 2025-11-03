@@ -1,6 +1,7 @@
 ﻿using Azure.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -19,12 +20,14 @@ namespace VoltSwap.BusinessLayer.Services
     public class BookingService : BaseService, IBookingService
     {
         private readonly IGenericRepositories<Appointment> _bookingRepo;
+        private readonly IPillarSlotService _pillarSlotService;
         private readonly IGenericRepositories<User> _driverRepo;
         private readonly IGenericRepositories<Subscription> _subRepo;
         private readonly IGenericRepositories<Fee> _feeRepo;
         private readonly IPillarSlotRepository _slotRepo;
         private readonly ITransactionService _transService;
         private readonly IGenericRepositories<StationStaff> _stationstaffRepo;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
 
@@ -35,14 +38,18 @@ namespace VoltSwap.BusinessLayer.Services
             IGenericRepositories<Subscription> subRepo,
             IGenericRepositories<Fee> feeRepo,
             IGenericRepositories<StationStaff> stationstaffRepo,
+            IPillarSlotService pillarSlotService,
             IPillarSlotRepository slotRepo,
             ITransactionService transService,
+            IServiceScopeFactory scopeFactory,
             IUnitOfWork unitOfWork,
             IConfiguration configuration
         ) : base(serviceProvider)
         {
+            _pillarSlotService = pillarSlotService;
             _bookingRepo = bookingRepo;
             _driverRepo = driverRepo;
+            _scopeFactory = scopeFactory;
             _subRepo = subRepo;
             _stationstaffRepo = stationstaffRepo;
             _feeRepo = feeRepo;
@@ -60,13 +67,31 @@ namespace VoltSwap.BusinessLayer.Services
             if (appointment == null)
                 return new ServiceResult { Status = 404, Message = "Booking not found" };
 
-            //if (!string.Equals(appointment.Status, "Pending", StringComparison.OrdinalIgnoreCase))
-            //    return new ServiceResult { Status = 409, Message = "Only Not Done bookings can be cancelled" };
 
+            if (string.Equals(appointment.Status, "Done", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ServiceResult
+                {
+                    Status = 409,
+                    Message = "This booking cannot be canceled because it is already completed."
+                };
+            }
 
             appointment.Status = "Canceled";
-            await _slotRepo.UnlockSlotsByAppointmentIdAsync(appointment.AppointmentId);
-            _bookingRepo.Update(appointment);
+
+            var lockedSlots = await _unitOfWork.PillarSlots.UnlockSlotsByAppointmentIdAsync(appointment.AppointmentId);
+
+            if (lockedSlots.Any())
+            {
+                foreach (var slot in lockedSlots)
+                {
+                    slot.PillarStatus = "Unavailable";
+                    slot.AppointmentId = null;
+                    await _unitOfWork.PillarSlots.UpdateAsync(slot);
+                }
+            }
+            await _bookingRepo.UpdateAsync(appointment);
+
             await _unitOfWork.SaveChangesAsync();
 
             return new ServiceResult
@@ -77,48 +102,180 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
+        public async Task<ServiceResult> CancelBookingByUserAsync(CancelBookingRequest request)
+        {
+            var appointment = await _bookingRepo.GetByIdAsync(a => a.AppointmentId == request.BookingId);
+            if (appointment == null)
+                return new ServiceResult { Status = 404, Message = "Booking not found" };
+
+            if (appointment.Status == "Done")
+            {
+                return new ServiceResult
+                {
+                    Status = 409,
+                    Message = "This booking cannot be canceled because it is already completed."
+                };
+            }
+
+
+            var nowVn = DateTime.UtcNow.ToLocalTime();
+
+
+            var bookingDateTime = appointment.DateBooking.ToDateTime(appointment.TimeBooking);
+
+            if (nowVn >= bookingDateTime)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "the scheduled time has passed."
+                };
+            }
+
+
+            appointment.Status = "Canceled";
+
+
+            var lockedSlots = await _unitOfWork.PillarSlots.UnlockSlotsByAppointmentIdAsync(appointment.AppointmentId);
+            if (lockedSlots.Any())
+            {
+                foreach (var slot in lockedSlots)
+                {
+                    slot.PillarStatus = "Unavailable";
+                    slot.AppointmentId = null;
+                    await _unitOfWork.PillarSlots.UpdateAsync(slot);
+                }
+            }
+
+
+            var transaction = await _unitOfWork.Trans.GetByIdAsync(t =>
+                t.SubscriptionId == appointment.SubscriptionId &&
+                t.Status == "Waiting" &&
+                t.TransactionType == "Penalty Fee");
+
+            if (transaction != null)
+            {
+                var bookingFee = await _unitOfWork.Fees.GetByIdAsync(f =>
+                    f.PlanId == transaction.Subscription.PlanId && f.TypeOfFee == "Booking");
+
+                if (bookingFee != null)
+                {
+                    transaction.Fee -= bookingFee.Amount;
+                    transaction.TotalAmount -= bookingFee.Amount;
+
+                    if (transaction.Fee < 0) transaction.Fee = 0;
+                    if (transaction.TotalAmount < 0) transaction.TotalAmount = 0;
+
+                    if (transaction.Fee == 0 && transaction.TotalAmount == 0)
+                    {
+
+                        await _unitOfWork.Trans.RemoveAsync(transaction);
+                    }
+                    else
+                    {
+                        await _unitOfWork.Trans.UpdateAsync(transaction);
+                    }
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Booking cancelled successfully.",
+                Data = new
+                {
+                    appointmentId = appointment.AppointmentId
+                }
+            };
+        }
+
 
         public async Task<ServiceResult> CreateBookingAsync(CreateBookingRequest request)
         {
+
             var subscription = await GetSubscriptionById(request.SubscriptionId);
             if (subscription == null)
             {
-                return new ServiceResult { Status = 404, Message = "Subscription not found" };
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Subscription not found"
+                };
             }
 
-            var getFee = await _unitOfWork.Fees.GetByIdAsync(f => f.PlanId == subscription.PlanId && f.TypeOfFee == "Booking");
+            var existingBooking = await _bookingRepo.GetByIdAsync(b =>
+                b.SubscriptionId == request.SubscriptionId &&
+                b.Status == "Processing"
+            );
 
-            //tạo transaction cho booking
-            var newTransId = await GenerateTransactionId();
-            string transactionContext = $"{subscription.UserDriverId}-BOOKING-{newTransId.Substring(6)}";
-            var newTransaction = new Transaction
+            if (existingBooking != null)
             {
-                TransactionId = newTransId,
-                SubscriptionId = subscription.SubscriptionId,
-                UserDriverId = subscription.UserDriverId,
-                TransactionType = "Booking",
-                Amount = 0,
-                Currency = "VND",
-                TransactionDate = DateTime.UtcNow.ToLocalTime(),
-                PaymentMethod = "Bank transfer",
-                Status = "Pending",
-                Fee = getFee.Amount,
-                TotalAmount = 30000,
-                Note = $"Note for booking {subscription.SubscriptionId}",
-                TransactionContext = transactionContext,
-            };
-            await _unitOfWork.Trans.CreateAsync(newTransaction);
-            await _unitOfWork.SaveChangesAsync();
+                return new ServiceResult
+                {
+                    Status = 409,
+                    Message = "You already have an active booking. Please complete or cancel it before creating a new one."
+                };
+            }
 
+            var getFee = await _unitOfWork.Fees.GetByIdAsync(f =>
+                f.PlanId == subscription.PlanId &&
+                f.TypeOfFee == "Booking"
+            );
+
+            if (getFee == null)
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Don't have fee here!!!"
+                };
+
+
+            var gettrans = await _unitOfWork.Trans.GetByIdAsync(t =>
+                t.SubscriptionId == request.SubscriptionId &&
+                t.TransactionType == "Penalty Fee" &&
+                t.Status == "Waiting"
+            );
+
+            string newTransId = await GenerateTransactionId();
+
+            if (gettrans == null)
+            {
+                string transactionContext = $"{subscription.UserDriverId}-BOOKING-{newTransId.Substring(6)}";
+
+                var newTransaction = new Transaction
+                {
+                    TransactionId = newTransId,
+                    SubscriptionId = subscription.SubscriptionId,
+                    UserDriverId = subscription.UserDriverId,
+                    TransactionType = "Penalty Fee",
+                    Amount = 0,
+                    Currency = "VND",
+                    TransactionDate = DateTime.UtcNow.ToLocalTime(),
+                    PaymentMethod = "Bank transfer",
+                    Status = "Waiting",
+                    Fee = getFee.Amount,
+                    TotalAmount = getFee.Amount,
+                    Note = $"Booking transaction for subscription {subscription.SubscriptionId}",
+                    TransactionContext = transactionContext,
+                };
+
+                await _unitOfWork.Trans.CreateAsync(newTransaction);
+            }
+            else
+            {
+                gettrans.Fee += getFee.Amount;
+                gettrans.TotalAmount += getFee.Amount;
+                await _unitOfWork.Trans.UpdateAsync(gettrans);
+            }
+
+            await _unitOfWork.SaveChangesAsync();
 
             string bookingId = await GenerateBookingId();
 
-            
-
-
             var appointmentDB = new Appointment
             {
-
                 AppointmentId = bookingId,
                 UserDriverId = request.DriverId,
                 BatterySwapStationId = request.StationId,
@@ -128,96 +285,49 @@ namespace VoltSwap.BusinessLayer.Services
                 DateBooking = request.DateBooking,
                 TimeBooking = request.TimeBooking,
                 CreateBookingAt = DateTime.UtcNow.ToLocalTime()
-
-
             };
+
             await _bookingRepo.CreateAsync(appointmentDB);
             await _unitOfWork.SaveChangesAsync();
-            var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
 
 
-            var appointment = new BookingResponse
-            {
-                TransactionId = newTransId,
-                AppointmentId = appointmentDB.AppointmentId,
-                DriverId = appointmentDB.UserDriverId,
-                BatterySwapStationId = appointmentDB.BatterySwapStationId,
-                Note = appointmentDB.Note,
-                SubscriptionId = appointmentDB.SubscriptionId,
-                Status = appointmentDB.Status,
-                DateBooking = appointmentDB.DateBooking,
-                TimeBooking = appointmentDB.TimeBooking,
-                CreateBookingAt = appointmentDB.CreateBookingAt
-            };
+            var lockedSlot = await _pillarSlotService.LockSlotsAsync(
+                request.StationId,
+                request.SubscriptionId,
+                bookingId
+            );
 
-            return new ServiceResult
+            if (lockedSlot == null || !lockedSlot.Any())
             {
-                Status = 201,
-                Message = "Booking created successfully",
-                Data = appointment
-            };
-        }
-        public async Task<ServiceResult> CreateBookingAsync_HC(CreateBookingRequest request)
-        {
-            var subscription = await GetSubscriptionById(request.SubscriptionId);
-            if (subscription == null)
-            {
-                return new ServiceResult { Status = 404, Message = "Subscription not found" };
+
+                appointmentDB.Status = "Canceled";
+                gettrans.Fee -= getFee.Amount;
+                gettrans.TotalAmount -= getFee.Amount;
+                await _unitOfWork.Trans.UpdateAsync(gettrans);
+                await _unitOfWork.Bookings.UpdateAsync(appointmentDB);
+                await _unitOfWork.SaveChangesAsync();
+
+                return new ServiceResult
+                {
+                    Status = 409,
+                    Message = "There is no pillar in this station with enough available batteries to lock for your plan."
+
+                };
             }
 
-            var getFee = await _unitOfWork.Fees.GetByIdAsync(f => f.PlanId == subscription.PlanId && f.TypeOfFee == "Booking");
 
-            //tạo transaction cho booking
-            var newTransId = await GenerateTransactionId();
-            string transactionContext = $"{subscription.UserDriverId}-BOOKING-{newTransId.Substring(6)}";
-            var newTransaction = new Transaction
-            {
-                TransactionId = newTransId,
-                SubscriptionId = subscription.SubscriptionId,
-                UserDriverId = subscription.UserDriverId,
-                TransactionType = "Booking",
-                Amount = 0,
-                Currency = "VND",
-                TransactionDate = DateTime.UtcNow.ToLocalTime(),
-                PaymentMethod = "Bank transfer",
-                Status = "Pending",
-                Fee = getFee.Amount,
-                TotalAmount = 30000,
-                Note = $"Note for booking {subscription.SubscriptionId}",
-                TransactionContext = transactionContext,
-            };
-            await _unitOfWork.Trans.CreateAsync(newTransaction);
-            await _unitOfWork.SaveChangesAsync();
+            var pillarId = lockedSlot
+                .Select(p => p.PillarId)
+                .FirstOrDefault();
+
+            var calculatetime = CalculateCancelCountdownSeconds(appointmentDB);
 
 
-            string bookingId = await GenerateBookingId();
+            ScheduleAutoCancel(appointmentDB.AppointmentId, calculatetime);
 
-           
-
-
-
-            var appointmentDB = new Appointment
-            {
-
-                AppointmentId = bookingId,
-                UserDriverId = request.DriverId,
-                BatterySwapStationId = request.StationId,
-                Note = request.Note,
-                SubscriptionId = request.SubscriptionId,
-                Status = "Pending",
-                DateBooking = request.DateBooking,
-                TimeBooking = request.TimeBooking,
-                CreateBookingAt = DateTime.UtcNow.ToLocalTime()
-
-
-            };
-            await _bookingRepo.CreateAsync(appointmentDB);
-            await _unitOfWork.SaveChangesAsync();
-
-            var locked = await _slotRepo.LockSlotsAsync(request.StationId, request.SubscriptionId, bookingId);
             var appointment = new BookingResponse
             {
-                TransactionId = newTransId,
+                TransactionId = gettrans == null ? newTransId : gettrans.TransactionId,
                 AppointmentId = appointmentDB.AppointmentId,
                 DriverId = appointmentDB.UserDriverId,
                 BatterySwapStationId = appointmentDB.BatterySwapStationId,
@@ -232,10 +342,56 @@ namespace VoltSwap.BusinessLayer.Services
             return new ServiceResult
             {
                 Status = 201,
-                Message = "Booking created successfully",
-                Data = appointment
+                Message = $"Locked {lockedSlot.Count} batteries at pillar {pillarId}.",
+                Data = new
+                {
+                    Booking = appointment,
+                    Time = calculatetime
+                }
             };
         }
+
+
+
+        private static int CalculateCancelCountdownSeconds(Appointment appointment)
+        {
+            var nowUtc = DateTime.UtcNow.ToLocalTime();
+
+            var scheduledUtc = appointment.DateBooking.ToDateTime(appointment.TimeBooking);
+
+            var expireAtUtc = scheduledUtc.AddHours(1);
+
+            var realSecondsRemaining = (expireAtUtc - nowUtc).TotalSeconds;
+
+            var scaledSeconds = realSecondsRemaining * (10.0 / 3600.0);
+
+            if (scaledSeconds <= 0) return 0;
+
+            return (int)Math.Ceiling(scaledSeconds);
+        }
+
+        private void ScheduleAutoCancel(string bookingId, int delaySeconds)
+        {
+            _ = Task.Run(() => AutoCancelAfterDelay(bookingId, delaySeconds));
+        }
+
+        private async Task AutoCancelAfterDelay(string bookingId, int delaySeconds)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var scopedBookingService = scope.ServiceProvider.GetRequiredService<IBookingService>();
+
+                var req = new CancelBookingRequest
+                {
+                    BookingId = bookingId
+                };
+
+                await scopedBookingService.CancelBookingAsync(req);
+            }
+        }
+
 
         //Bin: Staff xem danh sách booking của trạm mình
         public async Task<ServiceResult> GetBookingsByStationAndMonthAsync(ViewBookingRequest request)
@@ -257,7 +413,7 @@ namespace VoltSwap.BusinessLayer.Services
 
                 bookingResponses.Add(new ViewBookingResponse
                 {
-                    BookingId =booking.AppointmentId,
+                    BookingId = booking.AppointmentId,
                     SubcriptionId = booking.SubscriptionId,
                     DriverId = booking.UserDriverId,
                     Date = booking.DateBooking,
@@ -348,9 +504,9 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Nemo: Dùng để check coi là cái sub đó có booking được hoàn thiện chưa
-        private async Task<bool> CheckBookingExist(string subId)
+        public async Task<bool> CheckBookingExist(string subId)
         {
-            return await _bookingRepo.GetAllQueryable().AnyAsync(book => book.Status == "Processing" && book.Status == "Pending" && book.SubscriptionId == subId);
+            return await _bookingRepo.GetAllQueryable().AnyAsync(book => book.Status == "Processing" && book.SubscriptionId == subId);
             //processing là đợi người dùng tới lấy
             //pending là đợi người dùng trả
         }
@@ -503,7 +659,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             return new ServiceResult
             {
-                Status = 201,
+                Status = 200,
                 Message = "Booking created successfully",
                 Data = appointment
             };

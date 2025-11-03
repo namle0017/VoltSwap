@@ -206,9 +206,12 @@ namespace VoltSwap.Common.DTOs
         public string? BatteryIdOut { get; set; }
         public string Status { get; set; }
         public TimeOnly Time { get; set; }
-
-
     }
 
-
+    public class BatteryLockDto
+    {
+        public string PillarId { get; set; }
+        public string BatteryId { get; set; }
+        public int SlotId { get; set; }
+    }
 }
