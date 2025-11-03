@@ -59,6 +59,7 @@ namespace VoltSwap.BusinessLayer.Services
                                 .Include(st => st.BatterySwapStation).FirstOrDefaultAsync();
             var getPillarSlots = await _unitOfWork.Stations.GetBatteriesInPillarByStationIdAsync(pillarSlots.BatterySwapStationId);
             var updateBatterySoc = await _batService.UpdateBatterySocAsync();
+            var getstation = await _unitOfWork.Stations.GetByIdAsync(pillarSlots.BatterySwapStationId);
 
             var dtoList = pillarSlots.BatterySwapStation.BatterySwapPillars
                         .Select(pillar => new StaffPillarSlotDto
@@ -76,7 +77,11 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 Status = 200,
                 Message = "Successfull",
-                Data = dtoList,
+                Data = new
+                {
+                    stationName = getstation.BatterySwapStationName,
+                     PillarList = dtoList,
+                }
             };
         }
 

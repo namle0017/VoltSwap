@@ -110,6 +110,44 @@ namespace VoltSwap.BusinessLayer.Services
         //        }
         //    };
         //}
+
+        public async Task<ServiceResult> GetBatteryBySubcription(string staffId, string subId)
+        {
+            // 1. Check staff & station
+            var staffStation = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(staffId);
+
+            var stationId = staffStation.BatterySwapStationId;
+
+
+            var subscription = await _unitOfWork.Subscriptions.GetByIdAsync(subId);
+    
+            var batteryDtos = GetBatteryInUsingAvailable(subId);
+
+
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Batteries retrieved successfully.",
+                Data = new
+                {
+                    StationId = stationId,
+                    SubscriptionId = subId,
+                    Batteries = batteryDtos
+                }
+            };
+        }
+
+        public async Task<List<BatteryDto>> GetBatteryInUsingAvailable(string subId)
+        {
+            var batteries = await _unitOfWork.BatterySwap.GetBatteryInUsingAsync(subId);
+            var dtoList = batteries.Select(bat => new BatteryDto
+            {
+                BatteryId = bat.BatteryOutId,
+            }).ToList();
+            return dtoList;
+        }
+
         public async Task<ServiceResult> RenewSubcriptionAsync(string DriverId, string SubId)
         {
             var getsub = await _unitOfWork.Subscriptions

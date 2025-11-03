@@ -20,6 +20,7 @@ namespace VoltSwap.Common.DTOs
 
     public class StaffOverviewResponse
     {
+        public string StationName {get; set; }
         public BatteryStatusResponse NumberOfBat { get; set; }
         public int SwapInDat { get; set; }
         public List<StaffReportResponse> RepostList { get; set; }

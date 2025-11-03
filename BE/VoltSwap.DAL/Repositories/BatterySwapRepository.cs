@@ -25,7 +25,7 @@ namespace VoltSwap.DAL.Repositories
             return await _context.BatterySwaps.Where(batHistory => batHistory.SubscriptionId == subId && batHistory.Status == "Using")
                 .ToListAsync();
         }
-
+            
         //Chỗ này là truyền về pillarSlot để biết cục pin được đưa vào đâu
         public async Task<PillarSlot> GetPillarSlot(int batSlotid)
         {

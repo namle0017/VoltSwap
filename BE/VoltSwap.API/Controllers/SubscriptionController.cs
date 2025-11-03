@@ -63,5 +63,21 @@ namespace VoltSwap.API.Controllers
             });
         }
 
+        //Bin: lấy sub của driver
+        [HttpGet("staff-get-battery")]
+        public async Task<IActionResult> GetBatteryUser([FromQuery] string StaffId, string SubscriptionId)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _subService.GetBatteryBySubcription( StaffId,SubscriptionId);
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+                data = result.Data
+            });
+        }
+
     }
 }
