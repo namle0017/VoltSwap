@@ -104,7 +104,9 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<ServiceResult> CancelBookingByUserAsync(CancelBookingRequest request)
         {
-            var appointment = await _bookingRepo.GetByIdAsync(a => a.AppointmentId == request.BookingId);
+            var appointment = await _unitOfWork.Bookings.GetByIdAsync(predicate:
+                a => a.AppointmentId == request.BookingId,
+                asNoTracking: false);
             if (appointment == null)
                 return new ServiceResult { Status = 404, Message = "Booking not found" };
 
@@ -128,12 +130,13 @@ namespace VoltSwap.BusinessLayer.Services
                 return new ServiceResult
                 {
                     Status = 400,
-                    Message = "the scheduled time has passed."
+                    Message = "The scheduled time has passed."
                 };
             }
 
 
             appointment.Status = "Canceled";
+            await _bookingRepo.UpdateAsync(appointment);
 
 
             var lockedSlots = await _unitOfWork.PillarSlots.UnlockSlotsByAppointmentIdAsync(appointment.AppointmentId);
@@ -148,15 +151,18 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
 
-            var transaction = await _unitOfWork.Trans.GetByIdAsync(t =>
+            var transaction = await _unitOfWork.Trans.GetAllQueryable().Where(t =>
                 t.SubscriptionId == appointment.SubscriptionId &&
                 t.Status == "Waiting" &&
-                t.TransactionType == "Penalty Fee");
+                t.TransactionType == "Monthly Fee")
+                .Include(x => x.Subscription)
+                .FirstOrDefaultAsync();
+
 
             if (transaction != null)
             {
-                var bookingFee = await _unitOfWork.Fees.GetByIdAsync(f =>
-                    f.PlanId == transaction.Subscription.PlanId && f.TypeOfFee == "Booking");
+                var bookingFee = await _unitOfWork.Fees.GetAllQueryable().Where(f => f.PlanId == transaction.Subscription.PlanId
+                   && f.TypeOfFee == "Booking").FirstOrDefaultAsync();
 
                 if (bookingFee != null)
                 {
@@ -234,7 +240,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             var gettrans = await _unitOfWork.Trans.GetByIdAsync(t =>
                 t.SubscriptionId == request.SubscriptionId &&
-                t.TransactionType == "Penalty Fee" &&
+                t.TransactionType == "Monthly Fee" &&
                 t.Status == "Waiting"
             );
 

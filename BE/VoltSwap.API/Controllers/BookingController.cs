@@ -53,7 +53,12 @@ namespace VoltSwap.API.Controllers
         public async Task<IActionResult> CancelBooking([FromBody] CancelBookingRequest request)
         {
             var result = await _bookingService.CancelBookingByUserAsync(request);
-            return StatusCode(result.Status, result.Message);
+            return StatusCode(result.Status, new
+            {
+                result.Status,
+                result.Message,
+                result.Data
+            });
         }
 
         //Bin: Staff xem danh sách booking của trạm

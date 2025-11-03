@@ -28,7 +28,6 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<PillarSlot> _slotRepo;
         private readonly IGenericRepositories<BatterySession> _batSessionRepo;
         private readonly IGenericRepositories<BatterySwapPillar> _pillarRepo;
-        private readonly IGenericRepositories<Appointment> _appointmentRepo;
         private readonly IGenericRepositories<Fee> _feeRepo;
         private readonly IBatteryService _batService;
         private readonly IUserService _userService;
@@ -66,7 +65,6 @@ namespace VoltSwap.BusinessLayer.Services
             _transRepo = transRepo;
             _batSwapRepo = batSwapRepo;
             _stationRepo = stationRepo;
-            _appointmentRepo = apppointmentRepo;
             _subRepo = subRepo;
             _slotRepo = slotRepo;
             _batSessionRepo = batSessionRepo;
@@ -426,6 +424,7 @@ namespace VoltSwap.BusinessLayer.Services
                     };
                     //Sau khi tạo ra 1 bảng là returned thì sẽ update lại cục pin 
                     getSlot.BatteryId = item.BatteryId;
+                    getSlot.AppointmentId = null;
                     getSlot.PillarStatus = "Unavailable";
                     updateBat.BatteryStatus = "Charging";
                     updateBat.Soc = random.Next(1, 51);
@@ -632,7 +631,7 @@ namespace VoltSwap.BusinessLayer.Services
                                         .Where(x => x.Status == "Processing" && x.SubscriptionId == requestDto.SubscriptionId).FirstOrDefaultAsync();
                 booking.Status = "Done";
                 // Chỉ lấy các slot đang Lock đúng booking và đúng station
-                await _unitOfWork.Bookings.UpdateAsync(booking);
+                await _appoinmentRepo.UpdateAsync(booking);
                 await _unitOfWork.SaveChangesAsync();
 
             }
@@ -872,11 +871,14 @@ namespace VoltSwap.BusinessLayer.Services
                     {
                         TransactionId = newTrans,
                         SubscriptionId = requestDto.SubId,
+                        TransactionDate = DateTime.UtcNow.ToLocalTime(),
+                        Currency = "VND",
+                        PaymentMethod = "bank",
                         Fee = mileageFee,
                         TotalAmount = mileageFee,
                         Status = "Waiting",
                         CreateAt = DateTime.UtcNow.ToLocalTime(),
-                        Note = "Penalty Fee"
+                        TransactionType = "Penalty Fee"
                     };
 
                     await _unitOfWork.Trans.CreateAsync(transaction);
