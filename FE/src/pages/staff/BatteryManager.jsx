@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // src/pages/staff/BatteryManager.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import api from "@/api/api";
@@ -667,6 +668,7 @@ export default function BatteryManager() {
                 // chuẩn hoá theo JSON mới + đồng thời setStationName
                 const list = normalizePillarsFromServer(res.data, (sn) => {
                     setStationName(sn);
+                    // eslint-disable-next-line no-empty
                     try { localStorage.setItem("stationName", sn); } catch { }
                 });
                 setPillars(list);

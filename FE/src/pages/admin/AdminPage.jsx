@@ -39,7 +39,6 @@ const pick = (obj, paths, fallback = undefined) => {
 };
 
 /** Chuẩn hoá nhiều biến thể payload từ BE về 1 shape thống nhất */
-/** Chuẩn hoá nhiều biến thể payload từ BE về 1 shape thống nhất */
 function normalizeOverview(raw) {
   if (!raw || typeof raw !== "object") return null;
 
