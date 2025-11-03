@@ -5,6 +5,7 @@ import api from "@/api/api";
 const LIST_ENDPOINT = "/Booking/station-booking-list";
 const CREATE_TRANS_EP = "/BatterySwap/create-cancel-plan";
 const CONFIRM_TX_EP = "/Transaction/staff-confirm-transaction";
+const CANCEL_EP = "/Booking/cancel-booking-by-user";
 
 /* ========== Helpers ========== */
 function parseLocalDateTime(dateStr, timeStr) {
@@ -39,8 +40,14 @@ function statusPillClass(text) {
         return "pill successful";
     return "pill pending"; // "Processing"/"Not done"
 }
-const isCancelNote = (note) =>
-    String(note || "").toLowerCase().includes("cancel");
+const isCancelNote = (note) => String(note || "").toLowerCase().includes("cancel");
+const canCancel = (status = "") => {
+    const s = String(status).toLowerCase();
+    if (!s) return true;
+    if (s.includes("cancel")) return false;
+    if (s.includes("done") || s.includes("success") || s.includes("completed")) return false;
+    return true;
+};
 
 /* ========== Normalizer ========== */
 function normalizeBooking(b, idx) {
@@ -68,14 +75,12 @@ export default function Booking() {
     // tracking theo bookingId
     const [creatingIds, setCreatingIds] = React.useState(() => new Set());
     const [confirmingIds, setConfirmingIds] = React.useState(() => new Set());
+    const [cancellingIds, setCancellingIds] = React.useState(() => new Set()); // NEW
     // map bookingId -> transactionId (nhận sau khi create)
     const [txByBooking, setTxByBooking] = React.useState({});
 
     const staffId = React.useMemo(
-        () =>
-            localStorage.getItem("staffId") ||
-            localStorage.getItem("userId") ||
-            "",
+        () => localStorage.getItem("staffId") || localStorage.getItem("userId") || "",
         []
     );
 
@@ -84,16 +89,12 @@ export default function Booking() {
         setError("");
         try {
             if (!staffId) {
-                setError(
-                    "Missing StaffId in localStorage. Please sign in again."
-                );
+                setError("Missing StaffId in localStorage. Please sign in again.");
                 setRows([]);
                 setLoading(false);
                 return;
             }
-            const res = await api.get(LIST_ENDPOINT, {
-                params: { StaffId: staffId },
-            });
+            const res = await api.get(LIST_ENDPOINT, { params: { StaffId: staffId } });
             const list = Array.isArray(res?.data?.data)
                 ? res.data.data
                 : Array.isArray(res?.data)
@@ -102,16 +103,11 @@ export default function Booking() {
             const mapped = list
                 .map(normalizeBooking)
                 .sort(
-                    (a, b) =>
-                        (a.when?.getTime?.() ?? 0) -
-                        (b.when?.getTime?.() ?? 0)
+                    (a, b) => (a.when?.getTime?.() ?? 0) - (b.when?.getTime?.() ?? 0)
                 );
             setRows(mapped);
         } catch (e) {
-            const msg =
-                e?.response?.data?.message ||
-                e?.message ||
-                "Failed to load booking list.";
+            const msg = e?.response?.data?.message || e?.message || "Failed to load booking list.";
             setError(msg);
             setRows([]);
         } finally {
@@ -130,7 +126,7 @@ export default function Booking() {
             alert("Missing data (subId / bookingId / staffId).");
             return;
         }
-        if (creatingIds.has(bk.bookingId)) return; // chống double click
+        if (creatingIds.has(bk.bookingId)) return;
         setCreatingIds((prev) => new Set(prev).add(bk.bookingId));
         try {
             const res = await api.post(CREATE_TRANS_EP, {
@@ -138,23 +134,16 @@ export default function Booking() {
                 bookingId: bk.bookingId,
                 staffId,
             });
-            // Lấy transactionId từ response
             const txId =
                 res?.data?.data?.createRefund?.transactionId ||
                 res?.data?.transactionId ||
                 res?.data?.data?.transactionId ||
                 "";
             if (txId)
-                setTxByBooking((prev) => ({
-                    ...prev,
-                    [bk.bookingId]: txId,
-                }));
+                setTxByBooking((prev) => ({ ...prev, [bk.bookingId]: txId }));
             alert("Transaction created successfully.");
         } catch (e) {
-            const msg =
-                e?.response?.data?.message ||
-                e?.message ||
-                "Failed to create transaction.";
+            const msg = e?.response?.data?.message || e?.message || "Failed to create transaction.";
             alert(msg);
         } finally {
             setCreatingIds((prev) => {
@@ -169,24 +158,54 @@ export default function Booking() {
     const handleConfirmTransaction = async (bk) => {
         const txId = txByBooking[bk.bookingId];
         if (!txId) {
-            alert(
-                "No transactionId yet. Please click 'Create Transaction' first."
-            );
+            alert("No transactionId yet. Please click 'Create Transaction' first.");
             return;
         }
-        if (confirmingIds.has(bk.bookingId)) return; // chống double click
+        if (confirmingIds.has(bk.bookingId)) return;
         setConfirmingIds((prev) => new Set(prev).add(bk.bookingId));
         try {
             await api.post(CONFIRM_TX_EP, { transactionId: txId });
             alert("Transaction confirmed successfully.");
         } catch (e) {
-            const msg =
-                e?.response?.data?.message ||
-                e?.message ||
-                "Failed to confirm transaction.";
+            const msg = e?.response?.data?.message || e?.message || "Failed to confirm transaction.";
             alert(msg);
         } finally {
             setConfirmingIds((prev) => {
+                const n = new Set(prev);
+                n.delete(bk.bookingId);
+                return n;
+            });
+        }
+    };
+
+    // NEW: Cancel Booking: { bookingId }
+    const handleCancelBooking = async (bk) => {
+        if (!bk?.bookingId) {
+            alert("Missing bookingId.");
+            return;
+        }
+        if (!canCancel(bk.status)) {
+            alert("This booking cannot be cancelled.");
+            return;
+        }
+        if (cancellingIds.has(bk.bookingId)) return;
+
+        const ok = window.confirm(
+            `Cancel booking #${bk.bookingId} for ${bk.driverName}?`
+        );
+        if (!ok) return;
+
+        setCancellingIds((prev) => new Set(prev).add(bk.bookingId));
+        try {
+            await api.post(CANCEL_EP, { bookingId: bk.bookingId });
+            alert("Booking cancelled successfully.");
+            // Refresh list để đồng bộ trạng thái từ BE
+            await fetchBookings();
+        } catch (e) {
+            const msg = e?.response?.data?.message || e?.message || "Failed to cancel booking.";
+            alert(msg);
+        } finally {
+            setCancellingIds((prev) => {
                 const n = new Set(prev);
                 n.delete(bk.bookingId);
                 return n;
@@ -200,15 +219,9 @@ export default function Booking() {
             <div className="row-between">
                 <div>
                     <h2 className="h1">Booking</h2>
-                    <p className="muted">
-                        Manage customer bookings and schedules.
-                    </p>
+                    <p className="muted">Manage customer bookings and schedules.</p>
                 </div>
-                <button
-                    className="btn"
-                    onClick={fetchBookings}
-                    disabled={loading}
-                >
+                <button className="btn" onClick={fetchBookings} disabled={loading}>
                     ↻ Refresh
                 </button>
             </div>
@@ -217,11 +230,7 @@ export default function Booking() {
             {error && (
                 <div
                     className="card card-padded mt-3"
-                    style={{
-                        border: "1px solid #fecaca",
-                        background: "#fee2e2",
-                        color: "#991b1b",
-                    }}
+                    style={{ border: "1px solid #fecaca", background: "#fee2e2", color: "#991b1b" }}
                 >
                     {error}
                 </div>
@@ -229,11 +238,7 @@ export default function Booking() {
             {loading && (
                 <div
                     className="card card-padded mt-3"
-                    style={{
-                        border: "1px solid #c7d2fe",
-                        background: "#eef2ff",
-                        color: "#3730a3",
-                    }}
+                    style={{ border: "1px solid #c7d2fe", background: "#eef2ff", color: "#3730a3" }}
                 >
                     Loading bookings…
                 </div>
@@ -251,34 +256,25 @@ export default function Booking() {
                             <th>Time</th>
                             <th>Status</th>
                             <th>Note</th>
-                            <th>Action</th>
+                            <th style={{ minWidth: 340 }}>Action</th>
                         </tr>
                     </thead>
 
                     <tbody>
                         {rows.length === 0 && !loading ? (
                             <tr>
-                                <td
-                                    colSpan={8}
-                                    className="muted"
-                                    style={{
-                                        textAlign: "center",
-                                        padding: "16px",
-                                    }}
-                                >
+                                <td colSpan={8} className="muted" style={{ textAlign: "center", padding: "16px" }}>
                                     No bookings.
                                 </td>
                             </tr>
                         ) : (
                             rows.map((bk) => {
                                 const showCancelFlow = isCancelNote(bk.note);
-                                const creating =
-                                    creatingIds.has(bk.bookingId);
-                                const confirming =
-                                    confirmingIds.has(bk.bookingId);
-                                const hasTxId = Boolean(
-                                    txByBooking[bk.bookingId]
-                                );
+                                const creating = creatingIds.has(bk.bookingId);
+                                const confirming = confirmingIds.has(bk.bookingId);
+                                const cancelling = cancellingIds.has(bk.bookingId);
+                                const hasTxId = Boolean(txByBooking[bk.bookingId]);
+                                const allowCancel = canCancel(bk.status);
 
                                 return (
                                     <tr key={bk.id}>
@@ -288,62 +284,50 @@ export default function Booking() {
                                         <td>{bk.phone}</td>
                                         <td>{fmtTimeAMPM(bk.when)}</td>
                                         <td>
-                                            <span
-                                                className={statusPillClass(
-                                                    bk.status
-                                                )}
-                                            >
-                                                {bk.status}
-                                            </span>
+                                            <span className={statusPillClass(bk.status)}>{bk.status}</span>
                                         </td>
                                         <td>{bk.note || "—"}</td>
-                                        <td
-                                            style={{
-                                                display: "flex",
-                                                gap: 8,
-                                            }}
-                                        >
+                                        <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                            {/* NEW: Cancel button (luôn hiển thị nếu booking có thể cancel) */}
+                                            <button
+                                                className="btn btn-cancel"
+                                                disabled={!allowCancel || cancelling}
+                                                onClick={() => handleCancelBooking(bk)}
+                                                title={allowCancel ? "Cancel this booking" : "This booking cannot be cancelled"}
+                                            >
+                                                {cancelling ? "Cancelling…" : "Cancel Booking"}
+                                            </button>
+
+                                            {/* Flow hoàn tiền riêng khi Note đã là cancel-request */}
                                             {showCancelFlow ? (
                                                 <>
                                                     <button
                                                         className="btn btn-create"
                                                         disabled={creating}
-                                                        onClick={() =>
-                                                            handleCreateTransaction(
-                                                                bk
-                                                            )
-                                                        }
+                                                        onClick={() => handleCreateTransaction(bk)}
                                                         title="Create refund transaction"
                                                     >
-                                                        {creating
-                                                            ? "Creating…"
-                                                            : "Create Transaction"}
+                                                        {creating ? "Creating…" : "Create Transaction"}
                                                     </button>
 
                                                     <button
                                                         className="btn btn-confirm"
-                                                        disabled={
-                                                            !hasTxId ||
-                                                            confirming
-                                                        }
-                                                        onClick={() =>
-                                                            handleConfirmTransaction(
-                                                                bk
-                                                            )
-                                                        }
+                                                        disabled={!hasTxId || confirming}
+                                                        onClick={() => handleConfirmTransaction(bk)}
                                                         title={
                                                             hasTxId
                                                                 ? "Confirm transaction"
                                                                 : "Please create transaction first"
                                                         }
                                                     >
-                                                        {confirming
-                                                            ? "Confirming…"
-                                                            : "Confirm"}
+                                                        {confirming ? "Confirming…" : "Confirm"}
                                                     </button>
                                                 </>
                                             ) : (
-                                                "—"
+                                                <span className="muted" style={{ lineHeight: "36px" }}>
+                                                    {/* không có flow refund khi chưa có yêu cầu cancel */}
+                                                    {/* — */}
+                                                </span>
                                             )}
                                         </td>
                                     </tr>
@@ -360,6 +344,7 @@ export default function Booking() {
         .btn { height:36px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:#fff; }
         .btn-confirm { border-color:#f59e0b; background:#fff7ed; }
         .btn-create  { border-color:#10b981; background:#ecfdf5; }
+        .btn-cancel  { border-color:#ef4444; background:#fef2f2; }
         .btn[disabled] { opacity:.55; cursor:not-allowed; }
         .card-padded { padding:16px 20px; }
 

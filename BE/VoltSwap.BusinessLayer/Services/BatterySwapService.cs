@@ -775,7 +775,7 @@ namespace VoltSwap.BusinessLayer.Services
                 return new ServiceResult { Status = 400, Message = "Invalid station or staff ID" };
 
             var stationId = station.BatterySwapStationId;
-
+            var getsub = await _unitOfWork.Subscriptions.GetByIdAsync(requestDto.SubId);
             //Kiểm tra BatteryOut hợp lệ
             if (string.IsNullOrEmpty(requestDto.BatteryOutId))
                 return new ServiceResult { Status = 400, Message = "BatteryOutId is required" };
@@ -823,10 +823,13 @@ namespace VoltSwap.BusinessLayer.Services
                 TimeSpan diff = currDate.ToDateTime(TimeOnly.MinValue) - getBatteryIn.SwapDate.ToDateTime(TimeOnly.MinValue);
                 //Cập nhật pin vào (pin trả lại trạm)
                 batteryIn.BatterySwapStationId = stationId;
-                batteryIn.BatteryStatus = "Charging";
+                batteryIn.BatteryStatus = "Warehouse";
                 batteryIn.Soc = new Random().Next(20, 100); // giả lập SOC
+                getBatteryIn.Status = "Returned";
                 await _batRepo.UpdateAsync(batteryIn);
 
+                await _unitOfWork.BatterySwap.UpdateAsync(getBatteryIn);
+                await _unitOfWork.SaveChangesAsync();
                 var swapIn = new BatterySwap
                 {
                     SwapHistoryId = await GenerateBatterySwapId(),
@@ -839,6 +842,9 @@ namespace VoltSwap.BusinessLayer.Services
                     CreateAt = DateTime.UtcNow.ToLocalTime(),
                 };
                 await _batSwapRepo.CreateAsync(swapIn);
+
+
+
 
                 //Tạo session cho battery-in
                 var sessions = await GenerateBatterySessionForBattery(requestDto.BatteryInId, diff);
@@ -861,7 +867,7 @@ namespace VoltSwap.BusinessLayer.Services
                     .FirstOrDefaultAsync(t =>
                         t.SubscriptionId == requestDto.SubId &&
                         t.Status == "Waiting" &&
-                        t.TransactionType == "Penalty Fee"
+                        t.TransactionType == "Monthly Fee"
                     );
 
                 if (transaction == null)
@@ -871,14 +877,27 @@ namespace VoltSwap.BusinessLayer.Services
                     {
                         TransactionId = newTrans,
                         SubscriptionId = requestDto.SubId,
+<<<<<<< HEAD
                         TransactionDate = DateTime.UtcNow.ToLocalTime(),
                         Currency = "VND",
                         PaymentMethod = "bank",
+=======
+                        UserDriverId = getsub.UserDriverId,
+                        TransactionDate = DateTime.UtcNow.ToLocalTime(),
+                        TransactionType = "Monthly Fee",
+>>>>>>> aa605eb1e08b50a0ca9fba2640b855949927795a
                         Fee = mileageFee,
                         TotalAmount = mileageFee,
+                        Currency = "VND",
+                        PaymentMethod = "QR",
+
                         Status = "Waiting",
                         CreateAt = DateTime.UtcNow.ToLocalTime(),
+<<<<<<< HEAD
                         TransactionType = "Penalty Fee"
+=======
+                
+>>>>>>> aa605eb1e08b50a0ca9fba2640b855949927795a
                     };
 
                     await _unitOfWork.Trans.CreateAsync(transaction);
@@ -909,7 +928,6 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = $"Swap success — Out: {requestDto.BatteryOutId}, In: {requestDto.BatteryInId ?? "None"}"
             };
         }
-
 
 
 

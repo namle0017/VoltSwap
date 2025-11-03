@@ -179,7 +179,11 @@ export default function SuggestService() {
                     <td>
                       {p.isSuggest ? (
                         <span className="text-green-700 font-semibold">
-                          ✅ Recommended
+                          <i
+                            className="bi bi-check-circle-fill"
+                            style={{ color: "blue" }}
+                          ></i>{" "}
+                          Suggested
                         </span>
                       ) : (
                         <span className="text-gray-500">—</span>
@@ -220,13 +224,17 @@ export default function SuggestService() {
                 : "bg-gray-400 text-gray-100 cursor-not-allowed"
             }`}
           >
-            🚀 Confirm Registration
+            <i
+              className="bi bi-check-circle-fill"
+              style={{ color: "blue" }}
+            ></i>{" "}
+            Confirm Registration
           </button>
           <button
             onClick={() => navigate("/user/service")}
             className="px-6 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 font-semibold"
           >
-            ⬅️ Back
+            <i className="bi bi-arrow-left" style={{ color: "blue" }}></i> Back
           </button>
         </div>
       </div>

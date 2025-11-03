@@ -66,8 +66,11 @@ namespace VoltSwap.BusinessLayer.Services
             var checkStaff = await _unitOfWork.StationStaffs.GetAllQueryable()
                 .FirstOrDefaultAsync(x => x.UserStaffId == requestDto.UserId);
             var checkStaffById = await _unitOfWork.Users.CheckUserActiveById(requestDto.UserId);
+            
             if (checkStaff != null && checkStaffById != null)
             {
+                var getstationStaff = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(requestDto.UserId);
+                var getstation = await _unitOfWork.Stations.GetByIdAsync(getstationStaff.BatterySwapStationId);
                 //2.Chỗ này để lấy số lượng pin trong trạm theo 4 status (maintance, avaialable, Charging và warehouse)
                 var getNumberOfBatStatus = await _stationService.GetNumberOfBatteryStatusAsync(requestDto.UserId);
                 //3. tính số lượng pin đổi hằng ngày
@@ -76,6 +79,7 @@ namespace VoltSwap.BusinessLayer.Services
                 var getReportForStaff = await _reportService.GetReportForStaff(requestDto.UserId);
                 var dtoList = new StaffOverviewResponse
                 {
+                    StationName = getstation.BatterySwapStationName,
                     NumberOfBat = getNumberOfBatStatus,
                     SwapInDat = getNumberOfSwapInDay,
                     RepostList = getReportForStaff,

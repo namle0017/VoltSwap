@@ -37,6 +37,7 @@ builder.Services.AddCors(options =>
     });
 });
 
+
 builder.Services.AddScoped<IVnPayService, VnPayService>();
 builder.Services.AddScoped<VehicleService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
