@@ -29,7 +29,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", b =>
     {
         b.WithOrigins("http://localhost:5173",
-            "https://localhost:5173"
+            "https://localhost:5173",
+            "https://volt-swap.vercel.app"
             )
          .AllowAnyMethod()
          .AllowAnyHeader()
@@ -86,8 +87,23 @@ if (app.Environment.IsDevelopment())
 
 // Configure the HTTP request pipeline.
 
-app.UseRouting();            // 1. Routing trước
-app.UseCors("AllowFrontend"); // Apply CORS policy
+app.UseCors("AllowFrontend");        // ← CORS TRƯỚC
+app.Use(async (context, next) =>
+{
+    if (context.Request.Method == "OPTIONS")
+    {
+        context.Response.Headers["Access-Control-Allow-Origin"] = "https://volt-swap.vercel.app";
+        context.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS";
+        context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With";
+        context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+        context.Response.StatusCode = 200;
+        await context.Response.CompleteAsync();
+        return;
+    }
+
+    await next();
+});
+app.UseRouting();                    // ← Routing sau;
 
 // Disable HTTPS redirection in development to avoid 307 issues with Ngrok
 if (!app.Environment.IsDevelopment())
