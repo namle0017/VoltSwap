@@ -20,11 +20,49 @@ const MONTH_LABELS = [
 const formatNumber = (n) =>
     typeof n === "number" ? n.toLocaleString("vi-VN") : "0";
 
+/* ========= Helpers để chuẩn hoá dữ liệu giống AdminOverview ========= */
+const pick = (obj, paths, fallback = undefined) => {
+    for (const p of paths) {
+        try {
+            const val = p.split(".").reduce((o, k) => (o ?? {})[k], obj);
+            if (val !== undefined && val !== null) return val;
+            // eslint-disable-next-line no-empty
+        } catch (_) { }
+    }
+    return fallback;
+};
+
+function normalizeMonthlySwaps(raw) {
+    // raw là payload /Overview/admin-overview
+    const bsm =
+        pick(raw, ["batterySwapMonthly.batterySwapMonthlyLists", "batterySwapMonthly", "swaps.monthly", "monthlySwaps"], []) || [];
+    const arr = Array.isArray(bsm)
+        ? bsm
+        : Array.isArray(bsm?.batterySwapMonthlyLists)
+            ? bsm.batterySwapMonthlyLists
+            : [];
+
+    return arr.map((m) => {
+        const mNum =
+            Number(m?.month ?? m?.m ?? m?.idx) ||
+            (typeof m?.month === "string"
+                ? Math.max(1, MONTH_LABELS.findIndex((x) => x === m.month) + 1)
+                : 0);
+        const monthLabel =
+            MONTH_LABELS[(Math.max(1, Math.min(12, mNum)) - 1) || 0] || "—";
+        const swaps = Number(
+            m?.batterySwapInMonth ?? m?.count ?? m?.swaps ?? m?.total ?? 0
+        );
+        return { month: monthLabel, swaps };
+    });
+}
+/* ==================================================================== */
+
 export default function Stations() {
     // ===== Chart (Overview) =====
     const [loadingChart, setLoadingChart] = useState(true);
     const [chartErr, setChartErr] = useState("");
-    const [batterySwapMonthly, setBatterySwapMonthly] = useState([]);
+    const [monthlySwapsData, setMonthlySwapsData] = useState([]);
 
     useEffect(() => {
         const load = async () => {
@@ -35,10 +73,9 @@ export default function Stations() {
                 const res = await api.get("Overview/admin-overview", {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
-                const monthly = Array.isArray(res?.data?.data?.batterySwapMonthly)
-                    ? res.data.data.batterySwapMonthly
-                    : [];
-                setBatterySwapMonthly(monthly);
+                const raw = res?.data?.data ?? res?.data ?? null;
+                const normalized = normalizeMonthlySwaps(raw);
+                setMonthlySwapsData(Array.isArray(normalized) ? normalized : []);
             } catch (e) {
                 console.error("Stations chart fetch error:", e?.response?.data || e);
                 setChartErr("Không tải được dữ liệu biểu đồ.");
@@ -49,23 +86,19 @@ export default function Stations() {
         load();
     }, []);
 
-    const monthlySwapsData = useMemo(
-        () =>
-            batterySwapMonthly.map((m) => ({
-                month:
-                    MONTH_LABELS[(Math.max(1, Math.min(12, Number(m?.month))) - 1) || 0],
-                swaps: Number(m?.batterySwapInMonth ?? 0),
-            })),
-        [batterySwapMonthly]
-    );
+    const barEmpty = monthlySwapsData.length === 0;
+
+    const avg = useMemo(() => {
+        if (!monthlySwapsData.length) return 0;
+        const sum = monthlySwapsData.reduce((s, i) => s + (i.swaps || 0), 0);
+        return Math.round(sum / monthlySwapsData.length);
+    }, [monthlySwapsData]);
 
     const CustomBarTooltip = ({ active, payload, label }) =>
         active && payload?.length ? (
             <div className="bg-white p-3 rounded-lg shadow-lg border">
                 <p className="font-semibold">{label}</p>
-                <p className="text-sm text-gray-600">
-                    {formatNumber(payload[0].value)} swaps
-                </p>
+                <p className="text-sm text-gray-600">{formatNumber(payload[0].value)} swaps</p>
             </div>
         ) : null;
 
@@ -111,7 +144,7 @@ export default function Stations() {
     }, [loadStations]);
 
     // ===== Inventory for transfer (BE) =====
-    const [inventory, setInventory] = useState([]);            // list pin đã flatten
+    const [inventory, setInventory] = useState([]); // list pin đã flatten
     const [inventoryStations, setInventoryStations] = useState([]); // các trạm có pin (source options)
     const [loadingInv, setLoadingInv] = useState(true);
     const [invErr, setInvErr] = useState("");
@@ -165,16 +198,16 @@ export default function Stations() {
 
     // ===== Allocation state =====
     const [fromStation, setFromStation] = useState(""); // filter nguồn (optional)
-    const [toStation, setToStation] = useState("");     // bắt buộc chọn đích
-    const [reason, setReason] = useState("");           // Reason optional
+    const [toStation, setToStation] = useState(""); // bắt buộc chọn đích
+    const [reason, setReason] = useState(""); // Reason optional
     const [transferring, setTransferring] = useState(false);
 
     const [selectedBatteryIds, setSelectedBatteryIds] = useState(new Set());
 
     // ===== NEW: Search & Pagination for inventory =====
-    const [searchText, setSearchText] = useState("");       // NEW: search battery/status/station
-    const [page, setPage] = useState(1);                    // NEW
-    const [pageSize, setPageSize] = useState(10);           // NEW
+    const [searchText, setSearchText] = useState(""); // NEW: search battery/status/station
+    const [page, setPage] = useState(1); // NEW
+    const [pageSize, setPageSize] = useState(10); // NEW
 
     // reset page khi filter/search đổi
     useEffect(() => {
@@ -195,12 +228,7 @@ export default function Stations() {
                 const st = String(b.status || "").toLowerCase();
                 const sid = String(b.stationId || "").toLowerCase();
                 const sname = String(b.stationName || "").toLowerCase();
-                return (
-                    id.includes(q) ||
-                    st.includes(q) ||
-                    sid.includes(q) ||
-                    sname.includes(q)
-                );
+                return id.includes(q) || st.includes(q) || sid.includes(q) || sname.includes(q);
             });
         }
         return list;
@@ -343,34 +371,46 @@ export default function Stations() {
                 ) : chartErr ? (
                     <div className="text-red-600 text-center py-8">{chartErr}</div>
                 ) : (
-                    <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                                data={monthlySwapsData}
-                                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis
-                                    dataKey="month"
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fontSize: 12, fill: "#6b7280" }}
-                                />
-                                <YAxis
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fontSize: 12, fill: "#6b7280" }}
-                                />
-                                <Tooltip content={<CustomBarTooltip />} />
-                                <Bar
-                                    dataKey="swaps"
-                                    fill="#3B82F6"
-                                    radius={[4, 4, 0, 0]}
-                                    className="hover:opacity-80 transition-opacity duration-200"
-                                />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                    <>
+                        <div className="h-80">
+                            {barEmpty ? (
+                                <div className="h-full flex items-center justify-center text-sm text-gray-500">
+                                    No monthly swap data.
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={monthlySwapsData}
+                                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                        <XAxis
+                                            dataKey="month"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fontSize: 12, fill: "#6b7280" }}
+                                        />
+                                        <YAxis
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fontSize: 12, fill: "#6b7280" }}
+                                        />
+                                        <Tooltip content={<CustomBarTooltip />} />
+                                        <Bar
+                                            dataKey="swaps"
+                                            fill="#3B82F6"
+                                            radius={[4, 4, 0, 0]}
+                                            className="hover:opacity-80 transition-opacity duration-200"
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
+                        <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+                            <span>Average: {formatNumber(avg)} swaps/month</span>
+                            <span className="text-green-600 font-medium">↗ up-to-date</span>
+                        </div>
+                    </>
                 )}
             </div>
 
@@ -390,11 +430,13 @@ export default function Stations() {
                             onChange={(e) => setFromStation(e.target.value)}
                         >
                             <option value="">Tất cả trạm</option>
-                            {(inventoryStations.length ? inventoryStations : stationOptions).map((st) => (
-                                <option key={st.stationId} value={st.stationId}>
-                                    {st.stationName} ({st.stationId})
-                                </option>
-                            ))}
+                            {(inventoryStations.length ? inventoryStations : stationOptions).map(
+                                (st) => (
+                                    <option key={st.stationId} value={st.stationId}>
+                                        {st.stationName} ({st.stationId})
+                                    </option>
+                                )
+                            )}
                         </select>
                     </div>
                     <div>
@@ -530,8 +572,8 @@ export default function Stations() {
                         {/* NEW: Pagination controls */}
                         <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
                             <div className="text-sm text-gray-600">
-                                Tổng: <b>{inventoryFiltered.length}</b> pin • Trang{" "}
-                                <b>{page}</b>/<b>{totalPages}</b>
+                                Tổng: <b>{inventoryFiltered.length}</b> pin • Trang <b>{page}</b>/
+                                <b>{totalPages}</b>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -576,10 +618,7 @@ export default function Stations() {
                         className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-60"
                         onClick={handleTransfer}
                         disabled={
-                            transferring ||
-                            loadingInv ||
-                            selectedBatteryIds.size === 0 ||
-                            !toStation
+                            transferring || loadingInv || selectedBatteryIds.size === 0 || !toStation
                         }
                     >
                         {transferring ? "Scheduling..." : "Schedule Battery Transfer"}
