@@ -13,6 +13,6 @@ namespace VoltSwap.BusinessLayer.IServices
     {
         Task<ServiceResult> GetPillarSlotByStaffId(UserRequest requestDto);
         Task<List<PillarSlot>> GetBatteriesInPillarByPillarIdAsync(String pillarId);
-        Task<ServiceResult> LockSlotsAsync(string stationId, string subscriptionId, string bookingId);
+        Task<List<PillarSlotDto>> LockSlotsAsync(string stationId, string subscriptionId, string bookingId);
     }
 }

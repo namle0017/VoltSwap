@@ -608,9 +608,11 @@ namespace VoltSwap.BusinessLayer.Services
         // 1. đầu tiên fe cần trả vô là những battery nào được lấy ra, 
         public async Task<ServiceResult> SwapOutBattery(BatterySwapOutListRequest requestDto)
         {
+            //1. Check coi là có cục pin nào được trả ra không
             if (requestDto?.BatteryDtos == null || !requestDto.BatteryDtos.Any())
                 return new ServiceResult { Status = 400, Message = "No batteries to swap out" };
 
+            //2. Check SubId đã đúng chưa
             var subId = requestDto.AccessRequest?.SubscriptionId ?? string.Empty;
             var stationId = requestDto.AccessRequest?.StationId ?? string.Empty;
             if (string.IsNullOrEmpty(subId) || string.IsNullOrEmpty(stationId))
@@ -619,11 +621,11 @@ namespace VoltSwap.BusinessLayer.Services
             // danh sách slotId FE gửi
             var requestedSlotIds = requestDto.BatteryDtos.Select(x => x.SlotId).Distinct().ToList();
 
-            // booking (nếu có)
+            //3. Kiểm tra booking (nếu có)
             bool checkBooking = await _bookService.CheckBookingExist(requestDto.SubscriptionId);
 
             var swappedBatteries = new List<string>();
-
+            //4. Nếu booking là có thì sẽ bắt đầu đổi status của appointment
             if (checkBooking == true)
             {
                 var booking = await _unitOfWork.Bookings.GetAllQueryable()
@@ -640,7 +642,7 @@ namespace VoltSwap.BusinessLayer.Services
                 var pillarEntity = await _slotRepo.GetByIdAsync(x => x.SlotId == batteryDto.SlotId);
                 var batteryEntity = await _batRepo.GetByIdAsync(b => b.BatteryId == batteryDto.BatteryId);
 
-                if (pillarEntity != null && batteryEntity != null && pillarEntity.PillarStatus == "Unavailable")
+                if (pillarEntity != null && batteryEntity != null && (pillarEntity.PillarStatus == "Unavailable" || pillarEntity.PillarStatus == "Lock"))
                 {
                     batteryEntity.BatterySwapStationId = null;
                     batteryEntity.BatteryStatus = "Using";
@@ -664,8 +666,6 @@ namespace VoltSwap.BusinessLayer.Services
                     await _batSwapRepo.CreateAsync(swapOut);
                     await _batRepo.UpdateAsync(batteryEntity);
                     await _slotRepo.UpdateAsync(pillarEntity);
-
-
                 }
 
             }

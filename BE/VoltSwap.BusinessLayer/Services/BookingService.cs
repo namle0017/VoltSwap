@@ -102,8 +102,6 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
-
-
         public async Task<ServiceResult> CancelBookingByUserAsync(CancelBookingRequest request)
         {
             var appointment = await _bookingRepo.GetByIdAsync(a => a.AppointmentId == request.BookingId);
@@ -170,7 +168,7 @@ namespace VoltSwap.BusinessLayer.Services
 
                     if (transaction.Fee == 0 && transaction.TotalAmount == 0)
                     {
-    
+
                         await _unitOfWork.Trans.RemoveAsync(transaction);
                     }
                     else
@@ -199,11 +197,13 @@ namespace VoltSwap.BusinessLayer.Services
 
             var subscription = await GetSubscriptionById(request.SubscriptionId);
             if (subscription == null)
+            {
                 return new ServiceResult
                 {
                     Status = 404,
                     Message = "Subscription not found"
                 };
+            }
 
             var existingBooking = await _bookingRepo.GetByIdAsync(b =>
                 b.SubscriptionId == request.SubscriptionId &&
@@ -299,7 +299,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             if (lockedSlot == null || !lockedSlot.Any())
             {
-     
+
                 appointmentDB.Status = "Canceled";
                 gettrans.Fee -= getFee.Amount;
                 gettrans.TotalAmount -= getFee.Amount;
@@ -318,11 +318,11 @@ namespace VoltSwap.BusinessLayer.Services
 
             var pillarId = lockedSlot
                 .Select(p => p.PillarId)
-                .FirstOrDefault(); 
+                .FirstOrDefault();
 
             var calculatetime = CalculateCancelCountdownSeconds(appointmentDB);
 
-  
+
             ScheduleAutoCancel(appointmentDB.AppointmentId, calculatetime);
 
             var appointment = new BookingResponse
@@ -352,7 +352,8 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
 
-        private static int CalculateCancelCountdownSeconds(Appointment appointment )
+
+        private static int CalculateCancelCountdownSeconds(Appointment appointment)
         {
             var nowUtc = DateTime.UtcNow.ToLocalTime();
 
