@@ -69,10 +69,11 @@ namespace VoltSwap.BusinessLayer.Services
 
 
         //Nemo: Lấy các thông tin về report cho Fe
-        public async Task<IServiceResult> ReportTypeList()
+        public async Task<IServiceResult> ReportTypeListForDriver()
         {
             var getReportType = await _unitOfWork.ReportType.GetAllQueryable()
-                                    .Where(re => re.Status == "active")
+                                    .Where(re => re.Status == "active" &&
+                                                ( re.TargetRole == "Driver" || re.TargetRole == null ))
                                     .Select(re => new ReportTypeDto
                                     {
                                         ReportTypeId = re.ReportTypeId,
@@ -85,7 +86,32 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = getReportType,
             };
         }
+        public async Task<IServiceResult> ReportTypeListForStaff()
+        {
+            var getReportType = await _unitOfWork.ReportType.GetAllQueryable()
+                                    .Where(re => re.Status == "active" &&
+                                                ( re.TargetRole == "Staff" || re.TargetRole == null ))
+                                    .Select(re => new ReportTypeDto
+                                    {
+                                        ReportTypeId = re.ReportTypeId,
+                                        ReportType = re.ReportTypeName,
+                                    }).ToListAsync();
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Get report type successfull",
+                Data = getReportType,
+            };
+        }
+        //staff xem  các report được giao
+        public async Task<ServiceResult> StaffViewReport(UserRequest request) 
+        {
+            var getstaff = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.UserId);
 
+            var get
+            
+
+        }
         public async Task<ServiceResult> AdminAsignStaff(StaffAssignedRequest request)
         {
             var report = await _reportRepo.GetByIdAsync(request.ReportId);

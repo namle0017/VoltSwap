@@ -32,5 +32,7 @@ namespace VoltSwap.DAL.Repositories
                             .OrderByDescending(x => x.CreateAt)
                             .ToListAsync();
         }
+
+
     }
 }

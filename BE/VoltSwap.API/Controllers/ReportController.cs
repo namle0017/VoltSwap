@@ -82,14 +82,29 @@ namespace VoltSwap.API.Controllers
 
         }
 
-        [HttpGet("get-report-list")]
+        [HttpGet("get-driver-report-list")]
         public async Task<IActionResult> GetReportType()
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
-            var result = await _reportService.ReportTypeList();
+            var result = await _reportService.ReportTypeListForDriver();
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+                data = result.Data
+            });
+
+        }
+        [HttpGet("get-staff-report-list")]
+        public async Task<IActionResult> GetStaffReportType()
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _reportService.ReportTypeListForStaff();
             return StatusCode(result.Status, new
             {
                 message = result.Message,

@@ -23,7 +23,7 @@ public partial class Subscription
 
     public string Status { get; set; }
 
-    public DateTime? CreateAt { get; set; }
+    public DateTime CreateAt { get; set; }
 
     public string PreviousSubscriptionId { get; set; }
 
