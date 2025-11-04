@@ -13,7 +13,7 @@ export default function Support() {
   useEffect(() => {
     const fetchReportTypes = async () => {
       try {
-        const res = await api.get("/Report/get-report-list");
+        const res = await api.get("/Report/get-driver-report-list");
         const data = res.data?.data || [];
         setReportTypes(data);
       } catch (err) {
