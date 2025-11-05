@@ -142,7 +142,7 @@ export default function Service() {
     );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#01E6FF] to-[#78FC92] py-12 px-6 flex justify-center items-start">
+    <div className="min-h-screen bg-gradient-to-br from-[#01E6FF] to-[#78FC92] py-6 px-6 flex justify-center items-center">
       <div className="max-w-6xl w-full grid md:grid-cols-2 gap-8 bg-white/60 backdrop-blur-lg p-8 rounded-3xl shadow-2xl border border-white/30">
         {/* LEFT: Subscription Card */}
         <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100 flex flex-col">
