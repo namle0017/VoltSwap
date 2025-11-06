@@ -10,11 +10,11 @@ const sections = [
     { to: "/staff/overview", label: "Overview", icon: "bi-house" },
     { to: "/staff/inventory", label: "Inventory", icon: "bi-box" },
     { to: "/staff/assist", label: "Manual Assist", icon: "bi-tools" },
-    { to: "/staff/swap", label: "Battery Swap", icon: "bi-battery-charging" },
+    { to: "/staff/swap", label: "Battery Swap", icon: "bi bi-battery-full" },
     { to: "/staff/booking", label: "Booking", icon: "bi-calendar-check" },
     { to: "/staff/admin-request", label: "Admin Request", icon: "bi-file-earmark-text" },
     { to: "/staff/support", label: "Customer Support", icon: "bi-chat-dots" },
-    { to: "/staff/battery-mgmt", label: "Battery Manager", icon: "bi-gear" },
+    { to: "/staff/battery-mgmt", label: "Battery Manager", icon: " bi-battery-charging" },
 ];
 
 /* Small, accessible confirm dialog */

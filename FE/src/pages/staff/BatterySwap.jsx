@@ -73,7 +73,6 @@ export default function BatterySwap() {
     const [err, setErr] = useState("");
     const [search, setSearch] = useState("");
     const [sortDir, setSortDir] = useState("asc"); // asc | desc
-    const [showDebug, setShowDebug] = useState(false);
 
     // UserId FE must send
     const userId = (localStorage.getItem("userId") || "").trim();
@@ -164,12 +163,7 @@ export default function BatterySwap() {
                     >
                         ↻ {loading ? "Loading..." : "Refresh"}
                     </button>
-                    <button
-                        className="swap-btn ghost"
-                        onClick={() => setShowDebug((v) => !v)}
-                    >
-                        {showDebug ? "Hide Debug" : "Show Debug"}
-                    </button>
+
                 </div>
             </div>
 
@@ -262,19 +256,7 @@ export default function BatterySwap() {
                 </table>
             </div>
 
-            {/* Optional debug */}
-            {showDebug && (
-                <pre
-                    className="mt-3 small"
-                    style={{ whiteSpace: "pre-wrap" }}
-                >
-                    {JSON.stringify(
-                        { route: ROUTE, userId, raw: rows },
-                        null,
-                        2
-                    )}
-                </pre>
-            )}
+
 
             {/* Local styles (scoped) */}
             <style>{`
