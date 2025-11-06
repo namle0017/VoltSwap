@@ -155,7 +155,7 @@ export default function CustomerSupport() {
             <div className="rounded-2xl border bg-white shadow-sm">
                 <div className="px-4 py-3 border-b flex items-center justify-between">
                     <div className="font-semibold flex items-center gap-2">
-                        <span role="img" aria-label="headset">🎧</span>
+                        <span role="img" aria-label="headset"></span>
                         Open Tickets
                     </div>
                     <div className="text-xs text-slate-500">

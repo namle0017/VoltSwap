@@ -375,7 +375,7 @@ export default function ManualAssist() {
                 <div style={grid2}>
                     <div className="card">
                         <h3 style={{ marginTop: 0 }}>
-                            Step 3A. Receive Customer Battery (Pin In)
+                            Step 3 A. Receive Customer Battery (Pin In)
                         </h3>
                         <label>
                             Customer Battery ID
@@ -431,7 +431,7 @@ export default function ManualAssist() {
             {/* ===== STEP 3B: PIN OUT ===== */}
             {validated && errorType === "pinOut" && (
                 <div className="card" style={{ marginTop: 16 }}>
-                    <h3 style={{ marginTop: 0 }}>Step 3B. Give Battery to Customer</h3>
+                    <h3 style={{ marginTop: 0 }}>Step 3 Give Battery to Customer</h3>
                     <label>
                         Out Battery ID
                         <div style={{ display: "flex", gap: 8 }}>
@@ -459,10 +459,7 @@ export default function ManualAssist() {
                             </button>
                         </div>
                     </label>
-                    <p className="small muted" style={{ marginTop: 6 }}>
-                        * Only batteries with status <b>warehouse</b> are shown in
-                        warehouse picker.
-                    </p>
+
                 </div>
             )}
 
@@ -573,7 +570,7 @@ export default function ManualAssist() {
                                     ))
                                     : filteredBatteries.length === 0 ? (
                                         <div className="muted small">
-                                            No matching batteries (only status <b>warehouse</b> is shown).
+                                            No matching batteries .
                                         </div>
                                     ) : (
                                         filteredBatteries.map((b) => {
