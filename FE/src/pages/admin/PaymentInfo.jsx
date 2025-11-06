@@ -340,11 +340,6 @@ export default function PaymentInfo() {
                         </tbody>
                     </table>
                 </div>
-
-                <div className="mt-3 text-xs text-gray-500">
-                    Gợi ý: Nút <b>Create</b> ở góc trên sẽ xuất hóa đơn <b>hàng loạt</b> cho các giao dịch đang <b>Waiting</b>.
-                    Nếu muốn tiêu chí khác, sửa biến <code>eligible</code> trong hàm <code>handleCreateAllInvoices</code>.
-                </div>
             </div>
         </div>
     );

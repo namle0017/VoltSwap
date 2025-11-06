@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // src/pages/user/Service.jsx
 import React, { useEffect, useState, useMemo } from "react";
 import api from "@/api/api";
@@ -275,24 +276,22 @@ export default function Service() {
                 hint="Remaining swaps in your plan"
                 chip={swapTone === "danger" ? "Low" : swapTone === "warn" ? "Watch" : "OK"}
               />
-              <StatTile
-                tone="muted"
-                icon="speedometer2"
-                label="Distance traveled"
-                value={formatNumberVN(current.current_miligate, { max: 2 })}  // ✅ số
-                unit="km"                                                     // ✅ đơn vị tách dòng
+              <StatTile tone="brand"
+                icon="speedometer2" label="Distance traveled"
+                value={formatAmountVN(current.current_miligate)}  // giống Billing: 23.457
+                unit="km"                                         // đơn vị ở dòng dưới
                 hint="Total distance recorded"
                 chip="Odometer"
               />
 
               <StatTile
                 tone="brand"
-                icon="speedometer2"
-                label="Distance traveled"
-                value={formatAmountVN(current.current_miligate)}  // giống Billing: 23.457
-                unit="km"                                         // đơn vị ở dòng dưới
-                hint="Total distance recorded"
-                chip="Odometer"
+                icon="wallet2"
+                label="Total charge"
+                value={formatAmountVN(current.subFee)}   // chỉ số
+                unit="VND"                               // đơn vị tách riêng (dòng dưới)
+                hint="Plan fee / billing"
+                chip="Billing"
               />
 
 
