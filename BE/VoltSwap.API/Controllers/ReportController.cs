@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.BusinessLayer.Services;
@@ -16,6 +17,7 @@ namespace VoltSwap.API.Controllers
             _reportService = reportService;
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("get-report")]
         public async Task<IActionResult> GetStaffList()
         {
@@ -27,6 +29,7 @@ namespace VoltSwap.API.Controllers
             return StatusCode(200, new { message = "Done", data = result });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("get-contact")]
         public async Task<IActionResult> GetContact(String driverId)
         {
@@ -35,7 +38,7 @@ namespace VoltSwap.API.Controllers
         }
 
 
-
+        [Authorize(Roles = "Admin")]
         [HttpPost("assign-staff")]
         public async Task<IActionResult> AssignStaff([FromBody] StaffAssignedRequest requestDto)
         {
@@ -47,6 +50,7 @@ namespace VoltSwap.API.Controllers
             return StatusCode(200, new { message = "Assign staff successfully" });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("get_staff-list")]
         public async Task<IActionResult> GetStaffListAsync()
         {
@@ -54,7 +58,7 @@ namespace VoltSwap.API.Controllers
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
 
-
+        [Authorize(Roles = "Staff")]
         [HttpGet("customer-reports")]
         public async Task<IActionResult> CustomerReportList([FromQuery] UserRequest request)
         {
@@ -66,6 +70,7 @@ namespace VoltSwap.API.Controllers
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
 
+        [Authorize(Roles = "Driver")]
         [HttpPost("Driver-create-report")]
         public  async Task<IActionResult> CreateReport([FromBody] UserReportRequest request)
         {
@@ -82,6 +87,7 @@ namespace VoltSwap.API.Controllers
 
         }
 
+        [Authorize(Roles = "Admin,Driver,Staff")]
         [HttpGet("get-report-list")]
         public async Task<IActionResult> GetReportType()
         {

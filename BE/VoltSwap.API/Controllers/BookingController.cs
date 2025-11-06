@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.Common.DTOs;
-using VoltSwap.BusinessLayer.IServices;
 
 namespace VoltSwap.API.Controllers
 {
@@ -17,6 +18,7 @@ namespace VoltSwap.API.Controllers
             _bookingService = bookingService;
         }
 
+        [Authorize(Roles = "Driver")]
         [HttpPost("create-booking")]
         public async Task<IActionResult> CreateBooking([FromBody] CreateBookingRequest request)
         {
@@ -28,7 +30,7 @@ namespace VoltSwap.API.Controllers
                 result.Data
             });
         }
-
+        [Authorize(Roles = "Driver")]
         //Nemo: Hàm để booking để huỷ gói
         [HttpPost("booking-cancel-plan")]
         public async Task<IActionResult> CreateBookingCancelPlan([FromBody] CreateBookingRequest request)
@@ -41,13 +43,15 @@ namespace VoltSwap.API.Controllers
                 result.Data
             });
         }
+
+        [Authorize(Roles = "Admin,Driver,Staff")]
         [HttpPost("expire-check")]
         public async Task<IActionResult> ExpireCheck([FromBody] CancelBookingRequest request)
         {
             var result = await _bookingService.CancelBookingAsync(request);
             return StatusCode(result.Status, result.Message);
         }
-
+        [Authorize(Roles = "Driver")]
         //Bin:hủy booking bởi người dùng
         [HttpPost("cancel-booking-by-user")]
         public async Task<IActionResult> CancelBooking([FromBody] CancelBookingRequest request)
@@ -62,6 +66,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: Staff xem danh sách booking của trạm
+        [Authorize(Roles = "Staff")]
         [HttpGet("station-booking-list")]
         public async Task<IActionResult> GetBookingListByStationId([FromQuery] ViewBookingRequest request)
         {

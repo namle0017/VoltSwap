@@ -39,8 +39,7 @@ namespace VoltSwap.BusinessLayer.Services
         {
             var reports = await _reportRepo.GetAllAsync() ?? new List<Report>();
             return reports
-                .OrderBy(rp => rp.Status == "Processing")
-                .ThenByDescending(rp => rp.CreateAt)
+                .OrderByDescending(rp => rp.CreateAt)
                 .ToList();
         }
 

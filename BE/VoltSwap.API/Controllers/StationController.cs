@@ -1,4 +1,5 @@
 ﻿using Azure.Core;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VoltSwap.BusinessLayer.IServices;
@@ -17,6 +18,7 @@ namespace VoltSwap.API.Controllers
             _stationService = stationService;
         }
 
+        [Authorize(Roles = "Admin,Driver")]
         [HttpGet("station-list")]
         public async Task<IActionResult> StationList()
         {
@@ -28,6 +30,7 @@ namespace VoltSwap.API.Controllers
             }); ;
         }
 
+        [Authorize(Roles = "Admin,Driver")]
         [HttpGet("station-active")]
         public async Task<IActionResult> GetActiveStation()
         {
@@ -36,6 +39,7 @@ namespace VoltSwap.API.Controllers
         }
 
         // Bin: Lấy danh sách pin trong kho của trạm theo StaffId
+        [Authorize(Roles = "Staff")]
         [HttpGet("station-inventory")]
         public async Task<IActionResult> GetBatteriesInventoryByStationId([FromQuery] StaffRequest request)
         {

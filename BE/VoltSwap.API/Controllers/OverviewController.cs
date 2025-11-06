@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using VoltSwap.BusinessLayer.IServices;
@@ -16,7 +17,7 @@ namespace VoltSwap.API.Controllers
         {
             _overviewService = overviewService;
         }
-
+        [Authorize(Roles = "Staff")]
         [HttpGet("staff-overview")]
         public async Task<IActionResult> StaffOverview([FromQuery] UserRequest request)
         {
@@ -29,6 +30,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Nemo: Admin-overview
+        [Authorize(Roles = "Admin")]
         [HttpGet("admin-overview")]
         public async Task<IActionResult> AdminOverview()
         {

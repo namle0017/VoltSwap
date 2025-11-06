@@ -434,7 +434,6 @@ namespace VoltSwap.BusinessLayer.Services
 
                     await _slotRepo.UpdateAsync(getSlot);
                     await _batRepo.UpdateAsync(updateBat);
-                    await _unitOfWork.SaveChangesAsync();
                 }
 
             }
@@ -877,27 +876,15 @@ namespace VoltSwap.BusinessLayer.Services
                     {
                         TransactionId = newTrans,
                         SubscriptionId = requestDto.SubId,
-<<<<<<< HEAD
-                        TransactionDate = DateTime.UtcNow.ToLocalTime(),
-                        Currency = "VND",
-                        PaymentMethod = "bank",
-=======
                         UserDriverId = getsub.UserDriverId,
                         TransactionDate = DateTime.UtcNow.ToLocalTime(),
                         TransactionType = "Monthly Fee",
->>>>>>> aa605eb1e08b50a0ca9fba2640b855949927795a
                         Fee = mileageFee,
                         TotalAmount = mileageFee,
                         Currency = "VND",
                         PaymentMethod = "QR",
-
                         Status = "Waiting",
                         CreateAt = DateTime.UtcNow.ToLocalTime(),
-<<<<<<< HEAD
-                        TransactionType = "Penalty Fee"
-=======
-                
->>>>>>> aa605eb1e08b50a0ca9fba2640b855949927795a
                     };
 
                     await _unitOfWork.Trans.CreateAsync(transaction);

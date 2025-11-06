@@ -268,10 +268,11 @@ namespace VoltSwap.BusinessLayer.Services
             //1. Update Status của các Transaction quá hạn
             var updateStatusTrans = await UpdateStatusExpiredTransaction();
             //2. Tìm tất cả các transaction có expired và pending và cả waiting
-            var transactions = await _transRepo.GetAllAsync(t => t.Status == "Pending"
-                                        && t.Status == "Waiting"
-                                        && t.Status == "Expired"
-                                        && t.Status == "Failed");
+            var transactions = await _transRepo.GetAllQueryable()
+                                        .Where(t => t.Status == "Pending"
+                                        || t.Status == "Waiting"
+                                        || t.Status == "Expired"
+                                        || t.Status == "Failed").ToListAsync();
             if (transactions == null || !transactions.Any())
             {
                 return new ServiceResult

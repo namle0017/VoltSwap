@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
@@ -19,6 +20,7 @@ namespace VoltSwap.API.Controllers
 
 
         //Cái này là của lấy thông tin của người dùng, user và admin thấy được
+        [Authorize(Roles = "Admin,Driver")]
         [HttpGet("user-information")]
         public async Task<IActionResult> GetUserUpdateInformation([FromQuery] UserRequest requestDto)
         {
@@ -33,6 +35,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Cái này để update thông tin của người dùng
+        [Authorize(Roles = "Admin,Driver")]
         [HttpPut("update-user-information")]
         public async Task<IActionResult> UpdateUserInformation(DriverUpdate requestDto)
         {
@@ -51,7 +54,7 @@ namespace VoltSwap.API.Controllers
                             });
         }
 
-
+        [Authorize(Roles = "Admin")]
         [HttpGet("staff-information")]
         public async Task<IActionResult> GetStaffUpdateInformation([FromQuery] UserRequest requestDto)
         {
@@ -71,7 +74,7 @@ namespace VoltSwap.API.Controllers
         }
 
 
-
+        [Authorize(Roles = "Admin")]
         [HttpPut("update-staff-information")]
         public async Task<IActionResult> UpdateStaffInformation(StaffUpdate requestDto)
         {
@@ -91,6 +94,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: xóa người dùng (staff, driver)
+        [Authorize(Roles = "Admin")]
         [HttpPost("delete-user")]
         public async Task<IActionResult> DeleteUserById([FromBody] UserRequest requestDto)
         {
@@ -109,6 +113,7 @@ namespace VoltSwap.API.Controllers
 
 
         // Bin: Lấy danh sách nhân viên của trạm 
+        [Authorize(Roles = "Admin")]
         [HttpGet("staff-list")]
         public async Task<IActionResult> GetStaffListByStationId()
         {
@@ -122,6 +127,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: Tạo staff mới 
+        [Authorize(Roles = "Admin")]
         [HttpPut("create-staff")]
         public async Task<IActionResult> CreateStaff( StaffCreateRequest request)
         {
@@ -135,6 +141,7 @@ namespace VoltSwap.API.Controllers
         }
 
         // Bin: Lấy danh sách tài xế
+        [Authorize(Roles = "Admin")]
         [HttpGet("driver-list")]
         public async Task<IActionResult> GetDriverList()
         {
@@ -147,7 +154,8 @@ namespace VoltSwap.API.Controllers
                             });
         }
 
-        //Bin: xem detail của tài xế 
+        //Bin: xem detail của tài xế
+        [Authorize(Roles = "Admin")]
         [HttpGet("driver-detail")]
         public async Task<IActionResult> GetDriverDetailById([FromQuery] UserRequest requestDto)
         {
