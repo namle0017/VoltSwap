@@ -4,12 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
 import { fetchComplaints, fetchStaffList, assignStaff } from "@/api/complaintsApi";
+import api from "@/api/api";
 
 const STATUS = {
     OPEN: "Open",
     ASSIGNED: "Assigned",
     RESOLVED: "Resolved",
 };
+
+// tạo id ổn định & duy nhất nếu thiếu reportId
+function makeComplaintId(r, idx) {
+    const rid = r?.reportId ?? r?.id ?? r?.reportCode ?? null;
+    if (rid) return `CMP-${String(rid)}`;
+    const stamp = `${r?.createAt ?? r?.createdAt ?? ""}|${r?.userDriverId ?? r?.userId ?? ""}|${r?.stationName ?? ""}|${idx}`;
+    const safe = stamp.toString().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_|.-]/g, "");
+    return `CMP-${safe}`;
+}
 
 const ComplaintsManagement = () => {
     const [search, setSearch] = useState("");
@@ -30,6 +40,10 @@ const ComplaintsManagement = () => {
     const [assignSubmitting, setAssignSubmitting] = useState(false);
     const [responseModal, setResponseModal] = useState(null); // { complaintId }
 
+    // Contact email cache + loading
+    const [contactByDriver, setContactByDriver] = useState({}); // { [driverId]: email }
+    const [contactLoading, setContactLoading] = useState({});    // { [driverId]: boolean }
+
     // ==== Effects: fetch complaints on mount ====
     useEffect(() => {
         (async () => {
@@ -37,27 +51,33 @@ const ComplaintsManagement = () => {
             setComplaintsError("");
             try {
                 const list = await fetchComplaints();
-                const normalized = list.map((r) => ({
-                    id: `CMP-${r.reportId}`,
-                    reportId: r.reportId,
-                    title: r.note || "(No title)",
-                    customerName: r.userDriverId || "Unknown Driver",
-                    customerEmail: "",
-                    createdAt: r.createAt?.slice(0, 10) ?? "",
-                    station: r.stationName || "",
-                    content: r.note || "",
-                    status:
-                        (r.status === "Processing" && STATUS.ASSIGNED) ||
-                        (r.status === "Resolved" && STATUS.RESOLVED) ||
-                        STATUS.OPEN,
-                    assignedTo: r.userStaffId ? { id: r.userStaffId, name: r.userStaffId } : null,
-                    timeline: [
-                        {
-                            time: (r.createAt || "").replace("T", " ").slice(0, 16),
-                            text: "Report created",
-                        },
-                    ],
-                }));
+                const normalized = (Array.isArray(list) ? list : []).map((r, idx) => {
+                    const id = makeComplaintId(r, idx);
+                    const reportId = r?.reportId ?? r?.id ?? r?.reportCode ?? null;
+
+                    return {
+                        id,                         // duy nhất & ổn định
+                        reportId,                   // nguyên gốc để gọi BE
+                        driverId: r?.userDriverId || "",   // ✅ dùng để lấy contact email
+                        title: r?.note || "(No title)",
+                        customerName: r?.userDriverId || "Unknown Driver",
+                        customerEmail: "",                 // sẽ fill khi nhấn Show Email
+                        createdAt: r?.createAt?.slice(0, 10) ?? "",
+                        station: r?.stationName || "",
+                        content: r?.note || "",
+                        status:
+                            (r?.status === "Processing" && STATUS.ASSIGNED) ||
+                            (r?.status === "Resolved" && STATUS.RESOLVED) ||
+                            STATUS.OPEN,
+                        assignedTo: r?.userStaffId ? { id: r.userStaffId, name: r.userStaffId } : null,
+                        timeline: [
+                            {
+                                time: (r?.createAt || "").replace("T", " ").slice(0, 16),
+                                text: "Report created",
+                            },
+                        ],
+                    };
+                });
                 setComplaints(normalized);
             } catch (e) {
                 setComplaintsError(
@@ -85,11 +105,73 @@ const ComplaintsManagement = () => {
                 c.title.toLowerCase().includes(s) ||
                 c.customerName.toLowerCase().includes(s) ||
                 c.id.toLowerCase().includes(s) ||
-                String(c.reportId).includes(s);
+                String(c.reportId ?? "").toLowerCase().includes(s);
             const matchStatus = statusFilter === "all" || c.status.toLowerCase() === statusFilter;
             return matchSearch && matchStatus;
         });
     }, [complaints, search, statusFilter]);
+
+    // ===== Contact email =====
+    const getContactEmail = async (driverId) => {
+        if (!driverId) return null;
+
+        // cache hit
+        if (contactByDriver[driverId]) return contactByDriver[driverId];
+
+        try {
+            const token = localStorage.getItem("token");
+            const res = await api.get("/Report/get-contact", {
+                params: { driverId }, // ✅ QUAN TRỌNG: truyền qua params
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            // BE trả: { status, message, data: "email@..." }
+            const email = typeof res?.data?.data === "string" ? res.data.data : null;
+            if (email) {
+                setContactByDriver((m) => ({ ...m, [driverId]: email }));
+                return email;
+            }
+            return null;
+        } catch (e) {
+            console.error("get-contact error:", e?.response?.data || e);
+            return null;
+        }
+    };
+
+    const onShowEmail = async (c) => {
+        const driverId = String(c?.driverId || "").trim();
+        if (!driverId) {
+            alert("Không có driverId để lấy email.");
+            return;
+        }
+        setContactLoading((m) => ({ ...m, [driverId]: true }));
+        try {
+            const email =
+                c.customerEmail ||
+                contactByDriver[driverId] ||
+                (await getContactEmail(driverId));
+
+            if (!email) {
+                alert("Không lấy được email liên hệ cho driver này.");
+                return;
+            }
+
+            // cache & cập nhật item hiện tại để hiển thị
+            setContactByDriver((m) => ({ ...m, [driverId]: email }));
+            setComplaints((prev) =>
+                prev.map((x) => (x.id === c.id ? { ...x, customerEmail: email } : x))
+            );
+        } finally {
+            setContactLoading((m) => ({ ...m, [driverId]: false }));
+        }
+    };
+
+    const copyEmail = async (email) => {
+        try {
+            await navigator.clipboard.writeText(email);
+        } catch {
+            // ignore
+        }
+    };
 
     // ==== Actions ====
     const openAssign = async (complaintId) => {
@@ -99,7 +181,7 @@ const ComplaintsManagement = () => {
             setStaffsError("");
             try {
                 const list = await fetchStaffList();
-                setStaffs(list);
+                setStaffs(Array.isArray(list) ? list : []);
             } catch (e) {
                 setStaffsError(e?.response?.data?.message || e?.message || "Không tải được danh sách nhân viên.");
             } finally {
@@ -110,24 +192,37 @@ const ComplaintsManagement = () => {
 
     const handleAssign = async (staffId) => {
         if (!assignModal?.complaintId) return;
+        const current = complaints.find((c) => c.id === assignModal.complaintId);
+        if (!current) return;
+        if (!current.reportId) {
+            alert("Thiếu reportId – không thể assign.");
+            return;
+        }
+
         setAssignSubmitting(true);
         try {
+            // KHÔNG ép Number để tránh NaN: giữ đúng kiểu BE trả
             const assigned = await assignStaff({
-                reportId: Number(complaints.find((c) => c.id === assignModal.complaintId)?.reportId),
+                reportId: current.reportId,
                 staffId,
             });
+
+            // Nếu BE không trả name, lấy từ list staffs
+            const fallback = staffs.find((s) => String(s.staffId) === String(staffId));
+            const staffName = assigned?.staffName || fallback?.staffName || String(staffId);
+
             setComplaints((prev) =>
                 prev.map((c) =>
-                    c.id === assignModal.complaintId
+                    c.id === current.id
                         ? {
                             ...c,
                             status: STATUS.ASSIGNED,
-                            assignedTo: { id: assigned.staffId, name: assigned.staffName },
+                            assignedTo: { id: staffId, name: staffName },
                             timeline: [
                                 ...c.timeline,
                                 {
                                     time: new Date().toISOString().slice(0, 16).replace("T", " "),
-                                    text: `Assigned to ${assigned.staffName} (${assigned.staffId})`,
+                                    text: `Assigned to ${staffName} (${staffId})`,
                                 },
                             ],
                         }
@@ -188,7 +283,6 @@ const ComplaintsManagement = () => {
     // ==== Render ====
     return (
         <PageTransition>
-            {/* ❌ BỎ SIDEBAR: thay h-screen + md:ml-64 bằng layout full-width gọn gàng */}
             <div className="min-h-screen bg-gray-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     {/* Header & Filters */}
@@ -254,90 +348,113 @@ const ComplaintsManagement = () => {
                         <div className="text-red-600">{complaintsError}</div>
                     ) : (
                         <div className="space-y-6">
-                            {filtered.map((c, idx) => (
-                                <motion.div
-                                    key={c.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.04 }}
-                                    className="bg-white rounded-xl shadow-md border p-5"
-                                >
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-gray-900">
-                                                <i className="bi bi-chat-left-text mr-2" />
-                                                {c.title}
-                                            </h3>
-                                            <div className="text-sm text-gray-600">
-                                                ReportID: <span className="font-medium">{c.reportId}</span> ·{" "}
-                                                <span>{c.createdAt}</span>
+                            {filtered.map((c, idx) => {
+                                const driverId = String(c.driverId || "");
+                                const email = c.customerEmail || contactByDriver[driverId] || "";
+                                const isLoadingEmail = contactLoading[driverId];
+
+                                return (
+                                    <motion.div
+                                        key={c.id} // ✅ unique & stable
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: idx * 0.04 }}
+                                        className="bg-white rounded-xl shadow-md border p-5"
+                                    >
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-semibold text-gray-900">
+                                                    <i className="bi bi-chat-left-text mr-2" />
+                                                    {c.title}
+                                                </h3>
+                                                <div className="text-sm text-gray-600">
+                                                    ReportID: <span className="font-medium">{c.reportId ?? "—"}</span> ·{" "}
+                                                    <span>{c.createdAt}</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <span
-                                            className={`px-3 py-1 rounded-full text-xs font-medium ${badge(c.status)}`}
-                                        >
-                                            {c.status}
-                                        </span>
-                                    </div>
-
-                                    <p className="mt-4 text-gray-700">{c.content}</p>
-
-                                    {c.assignedTo && (
-                                        <div className="mt-2 text-sm text-indigo-700">
-                                            Assigned to:{" "}
-                                            <span className="font-medium">
-                                                {c.assignedTo.name} ({c.assignedTo.id})
+                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${badge(c.status)}`}>
+                                                {c.status}
                                             </span>
                                         </div>
-                                    )}
 
-                                    <div className="mt-4 flex flex-wrap gap-3">
-                                        {c.status !== STATUS.RESOLVED && (
-                                            <motion.button
-                                                className="px-3 py-2 bg-gray-900 text-white rounded-lg"
-                                                whileHover={{ scale: 1.02 }}
-                                                onClick={() => openAssign(c.id)}
-                                            >
-                                                <i className="bi bi-person-gear mr-1" />
-                                                Assign Staff
-                                            </motion.button>
+                                        <p className="mt-4 text-gray-700">{c.content}</p>
+
+                                        {/* Email hiển thị tại đây */}
+                                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                                            <span className="text-sm text-gray-600">Contact Email:</span>
+                                            {email ? (
+                                                <>
+                                                    <span className="text-sm font-medium text-gray-900">{email}</span>
+                                                    <button
+                                                        className="px-2 py-1 text-xs border rounded hover:bg-gray-50"
+                                                        onClick={() => copyEmail(email)}
+                                                        title="Copy email"
+                                                    >
+                                                        Copy
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    className="px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-60"
+                                                    onClick={() => onShowEmail(c)}
+                                                    disabled={isLoadingEmail || !driverId}
+                                                    title={driverId ? "Show email" : "Missing driverId"}
+                                                >
+                                                    {isLoadingEmail ? "Loading..." : "Show Email"}
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {c.assignedTo && (
+                                            <div className="mt-2 text-sm text-indigo-700">
+                                                Assigned to:{" "}
+                                                <span className="font-medium">
+                                                    {c.assignedTo.name} ({c.assignedTo.id})
+                                                </span>
+                                            </div>
                                         )}
 
-                                        <motion.a
-                                            href={`mailto:${c.customerEmail || ""}`}
-                                            className="px-3 py-2 bg-white border rounded-lg hover:bg-gray-50"
-                                            whileHover={{ scale: 1.02 }}
-                                        >
-                                            <i className="bi bi-envelope mr-1" />
-                                            Contact Customer
-                                        </motion.a>
+                                        <div className="mt-4 flex flex-wrap gap-3">
+                                            {c.status !== STATUS.RESOLVED && (
+                                                <motion.button
+                                                    className="px-3 py-2 bg-gray-900 text-white rounded-lg"
+                                                    whileHover={{ scale: 1.02 }}
+                                                    onClick={() => openAssign(c.id)}
+                                                >
+                                                    <i className="bi bi-person-gear mr-1" />
+                                                    Assign Staff
+                                                </motion.button>
+                                            )}
 
-                                        {c.status !== STATUS.RESOLVED && (
-                                            <motion.button
-                                                className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                                                whileHover={{ scale: 1.02 }}
-                                                onClick={() => markResolved(c.id)}
-                                            >
-                                                <i className="bi bi-check2-circle mr-1" />
-                                                Mark Resolved
-                                            </motion.button>
-                                        )}
-                                    </div>
+                                            {/* Không còn mailto – đã show email phía trên */}
 
-                                    <div className="mt-5 border-t pt-4">
-                                        <div className="text-sm font-medium text-gray-800 mb-2">Timeline</div>
-                                        <ul className="space-y-1 text-sm text-gray-600">
-                                            {c.timeline.map((t, i) => (
-                                                <li key={i}>
-                                                    <span className="text-gray-400 mr-2">•</span>
-                                                    <span className="font-mono text-xs mr-2">{t.time}</span>
-                                                    {t.text}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                </motion.div>
-                            ))}
+                                            {c.status !== STATUS.RESOLVED && (
+                                                <motion.button
+                                                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                                                    whileHover={{ scale: 1.02 }}
+                                                    onClick={() => markResolved(c.id)}
+                                                >
+                                                    <i className="bi bi-check2-circle mr-1" />
+                                                    Mark Resolved
+                                                </motion.button>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-5 border-t pt-4">
+                                            <div className="text-sm font-medium text-gray-800 mb-2">Timeline</div>
+                                            <ul className="space-y-1 text-sm text-gray-600">
+                                                {c.timeline.map((t, i) => (
+                                                    <li key={`${c.id}-tl-${i}-${t.time || "x"}`}>
+                                                        <span className="text-gray-400 mr-2">•</span>
+                                                        <span className="font-mono text-xs mr-2">{t.time}</span>
+                                                        {t.text}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
 
                             {!filtered.length && (
                                 <div className="text-center text-gray-500">No complaints found.</div>
@@ -386,8 +503,8 @@ const ComplaintsManagement = () => {
                                                 className="w-full border rounded-lg px-3 py-2"
                                                 defaultValue={staffs[0]?.staffId}
                                             >
-                                                {staffs.map((s) => (
-                                                    <option key={s.staffId} value={s.staffId}>
+                                                {staffs.map((s, i) => (
+                                                    <option key={`${s.staffId || i}-${i}`} value={s.staffId}>
                                                         {s.staffName} ({s.staffId}) · {s.stationName}
                                                     </option>
                                                 ))}
@@ -407,7 +524,9 @@ const ComplaintsManagement = () => {
                                     <button
                                         className="px-4 py-2 rounded-lg bg-gray-900 text-white disabled:opacity-50"
                                         disabled={assignSubmitting || loadingStaffs || staffs.length === 0}
-                                        onClick={() => handleAssign(document.getElementById("assign-select").value)}
+                                        onClick={() =>
+                                            handleAssign(document.getElementById("assign-select").value)
+                                        }
                                     >
                                         {assignSubmitting ? "Assigning..." : "Assign"}
                                     </button>
@@ -434,7 +553,10 @@ const ComplaintsManagement = () => {
                             >
                                 <div className="p-5 border-b flex items-center justify-between">
                                     <div className="text-lg font-semibold">Add Response</div>
-                                    <button className="p-2 hover:bg-gray-100 rounded-lg" onClick={() => setResponseModal(null)}>
+                                    <button
+                                        className="p-2 hover:bg-gray-100 rounded-lg"
+                                        onClick={() => setResponseModal(null)}
+                                    >
                                         <i className="bi bi-x-lg" />
                                     </button>
                                 </div>
@@ -447,12 +569,19 @@ const ComplaintsManagement = () => {
                                     />
                                 </div>
                                 <div className="p-5 border-t flex justify-end gap-2">
-                                    <button className="px-4 py-2 rounded-lg border" onClick={() => setResponseModal(null)}>
+                                    <button
+                                        className="px-4 py-2 rounded-lg border"
+                                        onClick={() => setResponseModal(null)}
+                                    >
                                         Cancel
                                     </button>
                                     <button
                                         className="px-4 py-2 rounded-lg bg-primary text-white"
-                                        onClick={() => handleAddResponse(document.getElementById("response-text").value.trim())}
+                                        onClick={() =>
+                                            handleAddResponse(
+                                                document.getElementById("response-text").value.trim()
+                                            )
+                                        }
                                     >
                                         Save
                                     </button>

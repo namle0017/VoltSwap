@@ -35,10 +35,7 @@ export default function NavbarTop() {
     return (
         <nav className="bg-white shadow-md px-6 py-3 flex justify-between items-center border-b">
             {/* 🔋 Logo */}
-            <div
-                className="text-2xl font-bold text-lime-500 cursor-pointer"
-                onClick={() => navigate("/")}
-            >
+            <div className="text-3xl font-lobster font-bold bg-gradient-to-r from-green-400 via-blue-400 to-blue-600 bg-clip-text text-transparent drop-shadow-md">
                 VoltSwap
             </div>
 

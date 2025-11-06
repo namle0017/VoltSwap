@@ -1,345 +1,500 @@
 // src/pages/user/Service.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import api from "@/api/api";
 import { useNavigate } from "react-router-dom";
 
 export default function Service() {
-    const navigate = useNavigate();
-    const [subs, setSubs] = useState([]);
-    const [selected, setSelected] = useState("");
-    const [loading, setLoading] = useState(true);
-    const [showRenewModal, setShowRenewModal] = useState(false);
-    const [apiMessage, setApiMessage] = useState("");
-    const [showCancelModal, setShowCancelModal] = useState(false);
-    const [cancelNote, setCancelNote] = useState("");
-    const [stations, setStations] = useState([]);
-    const [selectedStation, setSelectedStation] = useState("");
-    // 🧭 Load danh sách subscription đang dùng
-    useEffect(() => {
-        const fetchSubs = async () => {
-            try {
-                const token = localStorage.getItem("token");
-                const userId = localStorage.getItem("userId");
+  const navigate = useNavigate();
+  const [subs, setSubs] = useState([]);
+  const [selected, setSelected] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [apiMessage, setApiMessage] = useState("");
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelNote, setCancelNote] = useState("");
+  const [stations, setStations] = useState([]);
+  const [selectedStation, setSelectedStation] = useState("");
+  const [showAllBats, setShowAllBats] = useState(false); // UI-only
 
-                const res = await api.get(
-                    `/Subscription/subscription-user-list?DriverId=${userId}`,
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
+  function formatNumberVN(n, { min = 0, max = 2 } = {}) {
+    const num =
+      typeof n === "string" ? Number(n.replace(/[^\d.-]/g, "")) || 0 : Number(n || 0);
+    return num.toLocaleString("vi-VN", {
+      minimumFractionDigits: min,
+      maximumFractionDigits: max,
+    });
+  }
 
-                const data = Array.isArray(res.data?.data) ? res.data.data : [];
-                setSubs(data);
-                setSelected(data[0]?.subId || "");
-            } catch (err) {
-                // 🌟 Lấy message từ BE trả về (dynamic)
-                const apiMessage = err?.response?.data?.message;
 
-                if (apiMessage) {
-                    setSubs([]);
-                    setApiMessage(apiMessage);
-                } else {
-                    console.error("❌ Unexpected error:", err);
-                    alert("⚠️ Could not load subscriptions.");
-                }
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchSubs();
-    }, []);
-    const loadStations = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const res = await api.get("/Station/station-list", {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            const data = Array.isArray(res.data.data) ? res.data.data : [];
-            setStations(data);
-            setSelectedStation(data[0]?.stationId || ""); // chọn mặc định
-        } catch (err) {
-            console.error("❌ Failed to load stations:", err);
-            alert("Failed to load stations!");
-        }
-    };
-    const current = subs.find((s) => s.subId === selected);
-    // 🔄 Hủy gói dịch vụ
-    const handleCancelSubscription = async () => {
-        if (!selectedStation) return alert("Please select a station!");
-
-        const driverId = localStorage.getItem("userId");
+  useEffect(() => {
+    const fetchSubs = async () => {
+      try {
         const token = localStorage.getItem("token");
-
-        const payload = {
-            stationId: selectedStation,
-            driverId,
-            note: cancelNote,
-            subscriptionId: current.subId,
-            dateBooking: new Date().toISOString().split("T")[0],
-            timeBooking: new Date().toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-            }),
-        };
-
-        try {
-            await api.post("/Booking/booking-cancel-plan", payload, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            alert("✅ Subscription canceled successfully!");
-            setShowCancelModal(false);
-            navigate("/user/transaction");
-        } catch (err) {
-            console.error("❌ Cancel failed:", err.response?.data || err);
-            alert(err.response?.data?.message || "Failed to cancel!");
-        }
-    };
-    // ♻️ Renew plan
-    const handleRenew = async () => {
-        if (!current) return alert("No active subscription to renew!");
-        const driverId = localStorage.getItem("userId");
-        const token = localStorage.getItem("token");
-
-        try {
-            await api.post(
-                "/Subscription/renew",
-                {
-                    driverId: driverId,
-                    subId: current.subId,
-                },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            alert("✅ Subscription renewed successfully!");
-            navigate("/user/transaction");
-        } catch (error) {
-            console.error("❌ Renew failed:", error);
-            alert("Failed to renew subscription!");
-        } finally {
-            setShowRenewModal(false);
-        }
-    };
-
-    if (loading)
-        return (
-            <div className="flex justify-center items-center min-h-screen">
-                <div className="h-10 w-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-            </div>
+        const userId = localStorage.getItem("userId");
+        const res = await api.get(
+          `/Subscription/subscription-user-list?DriverId=${userId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
+        const data = Array.isArray(res.data?.data) ? res.data.data : [];
+        setSubs(data);
+        setSelected(data[0]?.subId || "");
+      } catch (err) {
+        const msg = err?.response?.data?.message;
+        if (msg) {
+          setSubs([]);
+          setApiMessage(msg);
+        } else {
+          console.error("❌ Unexpected error:", err);
+          alert("⚠️ Could not load subscriptions.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSubs();
+  }, []);
 
-    // 🧩 Nếu chưa có gói nào -> hiện form register
-    if (!current)
-        return (
-            <div className="text-center bg-white p-8 rounded-2xl shadow-md border max-w-xl mx-auto mt-16">
-                <h3 className="text-xl font-semibold mb-2">{apiMessage}</h3>
-                <p className="text-gray-600 mb-5">
-                    Register now to enjoy battery swaps and exclusive benefits.
-                </p>
-                <button
-                    onClick={() => navigate("/user/service/register")}
-                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-                >
-                    ➕ Register new Service
-                </button>
-            </div>
-        );
+  const loadStations = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await api.get("/Station/station-list", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = Array.isArray(res.data.data) ? res.data.data : [];
+      setStations(data);
+      setSelectedStation(data[0]?.stationId || "");
+    } catch (err) {
+      console.error("❌ Failed to load stations:", err);
+      alert("Failed to load stations!");
+    }
+  };
 
+  const current = subs.find((s) => s.subId === selected);
+
+  // ===== Emphasis helpers (UI only) =====
+  const remaining = Number(current?.remaining_swap ?? 0);
+  const swapTone = remaining <= 3 ? "danger" : remaining <= 10 ? "warn" : "brand";
+
+  const daysLeft = useMemo(() => {
+    const end = current?.endDate ? new Date(current.endDate) : null;
+    if (!end || isNaN(end)) return null;
+    const today = new Date();
+    const ms = end.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0);
+    return Math.ceil(ms / (1000 * 60 * 60 * 24));
+  }, [current?.endDate]);
+
+  const endTone =
+    daysLeft == null ? "muted" : daysLeft <= 7 ? "danger" : daysLeft <= 14 ? "warn" : "muted";
+
+  const handleCancelSubscription = async () => {
+    if (!selectedStation) return alert("Please select a station!");
+    const driverId = localStorage.getItem("userId");
+    const token = localStorage.getItem("token");
+    const payload = {
+      stationId: selectedStation,
+      driverId,
+      note: cancelNote,
+      subscriptionId: current.subId,
+      dateBooking: new Date().toISOString().split("T")[0],
+      timeBooking: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+    };
+    try {
+      await api.post("/Booking/booking-cancel-plan", payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      alert("✅ Subscription canceled successfully!");
+      setShowCancelModal(false);
+      navigate("/user/transaction");
+    } catch (err) {
+      console.error("❌ Cancel failed:", err.response?.data || err);
+      alert(err.response?.data?.message || "Failed to cancel!");
+    }
+  };
+
+  if (loading)
     return (
-        <div className="p-6 bg-gray-50 min-h-screen">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                📦 Subscription
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* LEFT CARD - CURRENT PLAN */}
-                <div
-                    className="p-6 rounded-2xl shadow-lg text-gray-800"
-                    style={{
-                        background: "linear-gradient(135deg, #01e6ffff 0%, #78fc92ff 100%)",
-                    }}
-                >
-                    <h3 className="text-lg text-gray-700 mb-1">Current subscription</h3>
-                    <h2 className="text-3xl font-bold text-blue-900 mb-2">
-                        {current.planName}
-                    </h2>
-                    <div className="mb-4">
-                        <label className="block text-gray-700 font-semibold mb-1">
-                            Select Subscription:
-                        </label>
-                        <select
-                            value={selected}
-                            onChange={(e) => setSelected(e.target.value)}
-                            className="w-full border px-3 py-2 rounded-lg bg-white"
-                        >
-                            {subs.map((s) => (
-                                <option key={s.subId} value={s.subId}>
-                                    {s.subId} — {s.planName}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="flex justify-between items-center mb-4">
-                        <div>
-                            <p className="text-gray-600 text-sm">Status</p>
-                            <p className="font-semibold text-green-700 capitalize">
-                                {current.planStatus || "Active"}
-                            </p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-gray-600 text-sm">End Date</p>
-                            <p className="font-semibold text-gray-800">
-                                {current.endDate || "—"}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white bg-opacity-30 rounded-xl p-3 mb-4">
-                        <p className="font-semibold">Battery Usage</p>
-                        <p className="text-sm text-gray-700">
-                            Remaining swaps: {current.remaining_swap} | Mileage:{" "}
-                            {current.current_miligate} km
-                        </p>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        {/* <button
-              onClick={() => navigate("/user/service/change")}
-              className="w-full bg-black text-white rounded-lg py-2 hover:bg-gray-900 transition mb-1 flex items-center justify-center gap-2"
-            >
-              <span>🔁</span> Change Plan →
-            </button>
-
-            <button
-              onClick={() => setShowRenewModal(true)}
-              className="w-full bg-blue-600 text-white rounded-lg py-2 hover:bg-blue-700 transition flex items-center justify-center gap-2"
-            >
-              <span>♻️</span> Renew Plan
-            </button> */}
-                        <button
-                            onClick={() => {
-                                setShowCancelModal(true);
-                                loadStations();
-                            }}
-                            className="bg-red-600 text-white w-full py-2 rounded-lg hover:bg-red-700"
-                        >
-                            ❌ Cancel Subscription
-                        </button>
-                        <button
-                            onClick={() => navigate("/user/service/register")}
-                            className="w-full bg-indigo-500 text-white rounded-lg py-2 hover:bg-indigo-600 transition flex items-center justify-center gap-2"
-                        >
-                            <span>➕</span> Register new Service
-                        </button>
-                    </div>
-                </div>
-
-                {/* RIGHT CARD - STATISTICS */}
-                <div className="p-6 bg-white rounded-2xl shadow-lg">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-700">
-                        Usage Statistics
-                    </h3>
-
-                    <div className="space-y-4">
-                        <div className="p-4 rounded-xl bg-blue-50 text-center">
-                            <p className="text-3xl font-bold text-blue-600">
-                                {current.remaining_swap}
-                            </p>
-                            <p className="text-gray-600 text-sm">Swaps remaining</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-green-50 text-center">
-                            <p className="text-3xl font-bold text-green-600">
-                                {current.current_miligate} km
-                            </p>
-                            <p className="text-gray-600 text-sm">Distance traveled</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-purple-50 text-center">
-                            <p className="text-3xl font-bold text-purple-600">
-                                {Number(current.subFee).toLocaleString("vi-VN")}VND
-                            </p>
-                            <p className="text-gray-600 text-sm">Total Charge</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {/* 🔹 Modal xác nhận Cancel */}
-            {showCancelModal && (
-                <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50">
-                    <div className="bg-white rounded-2xl p-6 w-[90%] max-w-md shadow-xl">
-                        <h3 className="text-xl font-bold mb-3 text-red-600">
-                            Cancel Subscription
-                        </h3>
-
-                        <label className="block text-gray-700 font-medium mb-2">
-                            Select Station
-                        </label>
-                        <select
-                            className="w-full border rounded-lg p-2 mb-4"
-                            value={selectedStation}
-                            onChange={(e) => setSelectedStation(e.target.value)}
-                        >
-                            {stations.map((st) => (
-                                <option key={st.stationId} value={st.stationId}>
-                                    {st.stationName}
-                                </option>
-                            ))}
-                        </select>
-
-                        <label className="block text-gray-700 font-medium mb-2">
-                            Reason (optional)
-                        </label>
-                        <textarea
-                            className="w-full border rounded-lg p-2 mb-4"
-                            placeholder="Enter note..."
-                            value={cancelNote}
-                            onChange={(e) => setCancelNote(e.target.value)}
-                        />
-
-                        <div className="flex justify-center gap-4">
-                            <button
-                                onClick={() => setShowCancelModal(false)}
-                                className="px-5 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleCancelSubscription}
-                                className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                            >
-                                Confirm
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {/* 🔹 Modal xác nhận Renew */}
-            {showRenewModal && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50">
-                    <div className="bg-white rounded-2xl p-6 w-[90%] max-w-md shadow-2xl text-center">
-                        <h3 className="text-xl font-semibold text-gray-800 mb-3">
-                            Renew Subscription
-                        </h3>
-                        <p className="text-gray-600 mb-6">
-                            Do you want to renew your current plan{" "}
-                            <strong>{current.planName}</strong>?
-                        </p>
-                        <div className="flex justify-center gap-4">
-                            <button
-                                onClick={() => setShowRenewModal(false)}
-                                className="px-5 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleRenew}
-                                className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                            >
-                                Confirm
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+      <div className="flex justify-center items-center min-h-screen bg-white">
+        <div className="h-10 w-10 border-4 border-[var(--brand-end)] border-t-transparent rounded-full animate-spin" />
+      </div>
     );
+
+  if (!current)
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="max-w-xl mx-auto mt-20 bg-white p-8 rounded-2xl shadow-sm border">
+          <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium bg-[var(--brand-50)] text-[var(--brand-end)] mb-3">
+            <i className="bi bi-box-seam" />
+            Subscription
+          </div>
+          <h3 className="text-2xl font-semibold mb-2 text-gray-900">
+            {apiMessage || "No active subscription"}
+          </h3>
+          <p className="text-gray-600 mb-6">
+            Register now to enjoy battery swaps and exclusive benefits.
+          </p>
+          <button
+            onClick={() => navigate("/user/service/register")}
+            className="px-6 py-2.5 rounded-xl text-white brand-gradient hover:opacity-95 transition font-medium"
+          >
+            <span className="inline-flex items-center gap-2">
+              <i className="bi bi-plus-circle" />
+              Register new Service
+            </span>
+          </button>
+        </div>
+      </div>
+    );
+
+  // Right-side battery pills data
+  const batteryIds =
+    Array.isArray(current?.batteryDtos) && current.batteryDtos.length > 0
+      ? current.batteryDtos.map((b) => b.batteryId)
+      : [];
+  const MAX_SHOW = 6;
+  const showList = showAllBats ? batteryIds : batteryIds.slice(0, MAX_SHOW);
+  const overflow = Math.max(0, batteryIds.length - MAX_SHOW);
+
+  return (
+    <div className="bg-white min-h-screen">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl brand-gradient text-white grid place-items-center shadow-sm">
+              <i className="bi bi-box-seam text-lg" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                <span className="text-brand-gradient">Subscription</span>
+              </h2>
+              <p className="text-gray-500 text-sm">Manage your current plan &amp; usage details</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* LEFT: Current Plan */}
+          <div className="bg-white border rounded-2xl shadow-sm p-6">
+            <div className="mb-5">
+              <p className="text-sm text-gray-500 mb-1">Current subscription</p>
+              <h3 className="text-2xl font-bold text-gray-900">{current.planName}</h3>
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Subscription</label>
+              <select
+                value={selected}
+                onChange={(e) => setSelected(e.target.value)}
+                className="w-full border rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-end)]"
+              >
+                {subs.map((s) => (
+                  <option key={s.subId} value={s.subId}>
+                    {s.subId} — {s.planName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Emphasis blocks (vertical) */}
+            <div className="space-y-3 mb-6">
+              <EmphasisBox tone={statusTone(current?.planStatus)}>
+                <p className="text-xs uppercase tracking-wide text-gray-500">Status</p>
+                <p className="mt-1 inline-flex items-center gap-2 text-sm font-semibold">
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${String(current?.planStatus || "Active").toLowerCase() === "active"
+                      ? "bg-emerald-500"
+                      : "bg-rose-500"
+                      }`}
+                  />
+                  {current?.planStatus || "Active"}
+                </p>
+              </EmphasisBox>
+
+              <EmphasisBox tone={endTone}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500">End date</p>
+                    <p className="mt-1 font-semibold text-gray-900">{current.endDate || "—"}</p>
+                  </div>
+                  {typeof daysLeft === "number" && daysLeft <= 14 && (
+                    <span
+                      className={`mt-1 text-[11px] px-2 py-0.5 rounded-full border ${daysLeft <= 7
+                        ? "bg-rose-50 border-rose-200 text-rose-700"
+                        : "bg-amber-50 border-amber-200 text-amber-700"
+                        }`}
+                      title={`${daysLeft} days left`}
+                    >
+                      {daysLeft <= 7 ? "Expiring soon" : "Coming up"}
+                    </span>
+                  )}
+                </div>
+              </EmphasisBox>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {/* Cancel: dịu màu, rõ icon */}
+              <button
+                onClick={() => {
+                  setShowCancelModal(true);
+                  loadStations();
+                }}
+                className="w-full py-2.5 rounded-xl font-medium border border-rose-300 text-rose-600 hover:bg-rose-50 transition"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <i className="bi bi-x-circle" />
+                  Cancel Subscription
+                </span>
+              </button>
+
+              {/* Register new Service: gradient brand */}
+              <button
+                onClick={() => navigate("/user/service/register")}
+                className="w-full py-2.5 rounded-xl font-medium text-white brand-gradient hover:opacity-95 transition"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <i className="bi bi-plus-circle" />
+                  Register new Service
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* RIGHT: Usage Statistics */}
+          <div className="bg-white border rounded-2xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Usage statistics</h3>
+              <span className="text-xs text-gray-500">Last update: {new Date().toLocaleTimeString()}</span>
+            </div>
+
+            {/* 3 main stats with emphasis */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <StatTile
+                tone={swapTone}
+                icon="arrow-repeat"
+                label="Swaps remaining"
+                value={remaining}
+                hint="Remaining swaps in your plan"
+                chip={swapTone === "danger" ? "Low" : swapTone === "warn" ? "Watch" : "OK"}
+              />
+              <StatTile
+                tone="muted"
+                icon="speedometer2"
+                label="Distance traveled"
+                value={formatNumberVN(current.current_miligate, { max: 2 })}  // ✅ số
+                unit="km"                                                     // ✅ đơn vị tách dòng
+                hint="Total distance recorded"
+                chip="Odometer"
+              />
+
+              <StatTile
+                tone="brand"
+                icon="speedometer2"
+                label="Distance traveled"
+                value={formatAmountVN(current.current_miligate)}  // giống Billing: 23.457
+                unit="km"                                         // đơn vị ở dòng dưới
+                hint="Total distance recorded"
+                chip="Odometer"
+              />
+
+
+
+            </div>
+
+            {/* Batteries assigned + Plan status */}
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EmphasisBox tone="muted">
+                <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Batteries assigned</p>
+                {batteryIds.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {showList.map((id) => (
+                      <span key={id} className="px-2.5 py-1 rounded-full border bg-white text-gray-700 text-xs">
+                        <i className="bi bi-battery-full mr-1" />
+                        {id}
+                      </span>
+                    ))}
+                    {overflow > 0 && !showAllBats && (
+                      <button
+                        onClick={() => setShowAllBats(true)}
+                        className="px-2.5 py-1 rounded-full border text-[var(--brand-end)] bg-white text-xs hover:bg-[var(--brand-50)]"
+                      >
+                        +{overflow} more
+                      </button>
+                    )}
+                    {showAllBats && batteryIds.length > MAX_SHOW && (
+                      <button
+                        onClick={() => setShowAllBats(false)}
+                        className="px-2.5 py-1 rounded-full border text-[var(--brand-end)] bg-white text-xs hover:bg-[var(--brand-50)]"
+                      >
+                        Hide
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">No batteries assigned</p>
+                )}
+              </EmphasisBox>
+
+              <EmphasisBox tone={statusTone(current?.planStatus)}>
+                <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Plan status</p>
+                <div className="inline-flex items-center gap-2">
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${String(current?.planStatus || "Active").toLowerCase() === "active"
+                      ? "bg-emerald-500"
+                      : "bg-rose-500"
+                      }`}
+                  />
+                  <span className="text-sm font-medium text-gray-900">{current?.planStatus || "Active"}</span>
+                  <span className="text-gray-400">·</span>
+                  <span className="text-sm text-gray-600">End: {current.endDate || "—"}</span>
+                </div>
+              </EmphasisBox>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal: Cancel */}
+      {showCancelModal && (
+        <Modal onClose={() => setShowCancelModal(false)} title="Cancel Subscription" tone="danger">
+          <div className="space-y-4">
+            <FieldLabel>Select Station</FieldLabel>
+            <select
+              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-end)]"
+              value={selectedStation}
+              onChange={(e) => setSelectedStation(e.target.value)}
+            >
+              {stations.map((st) => (
+                <option key={st.stationId} value={st.stationId}>
+                  {st.stationName}
+                </option>
+              ))}
+            </select>
+
+            <FieldLabel>Reason (optional)</FieldLabel>
+            <textarea
+              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-end)]"
+              placeholder="Enter note..."
+              value={cancelNote}
+              onChange={(e) => setCancelNote(e.target.value)}
+              rows={4}
+            />
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setShowCancelModal(false)} className="px-4 py-2 rounded-xl border text-gray-700 hover:bg-gray-50">
+                Close
+              </button>
+              <button onClick={handleCancelSubscription} className="px-4 py-2 rounded-xl text-white bg-rose-600 hover:bg-rose-700">
+                Confirm
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
 }
+
+/* ====================== UI helpers ====================== */
+function statusTone(status) {
+  const s = String(status || "active").toLowerCase();
+  return s === "active" ? "success" : "danger";
+}
+
+function EmphasisBox({ children, tone = "muted" }) {
+  const cls = toneToClasses(tone, true);
+  return <div className={`rounded-xl p-4 border ${cls}`}>{children}</div>;
+}
+
+function toneToClasses(tone, outlined = false) {
+  switch (tone) {
+    case "brand":
+      return outlined ? "border-[var(--brand-end)]/40 bg-[var(--brand-50)]" : "bg-[var(--brand-50)]";
+    case "success":
+      return outlined ? "border-emerald-300 bg-emerald-50" : "bg-emerald-50";
+    case "warn":
+      return outlined ? "border-amber-300 bg-amber-50" : "bg-amber-50";
+    case "danger":
+      return outlined ? "border-rose-300 bg-rose-50" : "bg-rose-50";
+    default:
+      return outlined ? "border-gray-200 bg-white" : "bg-white";
+  }
+}
+
+function StatTile({ label, value, unit, hint, icon = "circle", chip, tone = "muted" }) {
+  const classes = toneToClasses(tone, true);
+  return (
+    <div className={`rounded-2xl p-4 border ${classes} overflow-hidden`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="h-9 w-9 rounded-xl brand-gradient text-white grid place-items-center shrink-0">
+          <i className={`bi bi-${icon}`} />
+        </div>
+        {chip && (
+          <span
+            className={`text-[11px] px-2 py-0.5 rounded-full border ${tone === "danger"
+              ? "bg-rose-50 border-rose-200 text-rose-700"
+              : tone === "warn"
+                ? "bg-amber-50 border-amber-200 text-amber-700"
+                : tone === "brand"
+                  ? "bg-[var(--brand-50)] border-[var(--brand-end)]/30 text-[var(--brand-end)]"
+                  : "bg-white border-gray-200 text-gray-600"
+              }`}
+          >
+            {chip}
+          </span>
+        )}
+      </div>
+
+      <div className="min-w-0 max-w-full">
+        <p
+          className={`leading-tight break-words ${tone === "danger"
+            ? "text-rose-600"
+            : tone === "warn"
+              ? "text-amber-600"
+              : tone === "brand"
+                ? "text-[var(--brand-end)]"
+                : "text-gray-900"
+            }`}
+        >
+          {/* amount lớn ở dòng trên, tự co không tràn */}
+          <span className="block text-[clamp(1.35rem,2.8vw,2rem)] font-extrabold whitespace-nowrap tracking-tight">
+            {value}
+          </span>
+          {/* unit nhỏ ở dòng dưới */}
+          {unit && (
+            <span className="block text-sm font-semibold text-gray-800 mt-0.5">
+              {unit}
+            </span>
+          )}
+        </p>
+      </div>
+
+      <p className="text-gray-700 text-sm mt-1">{label}</p>
+      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+
+
+function FieldLabel({ children }) {
+  return <label className="block text-sm font-medium text-gray-700 mb-1">{children}</label>;
+}
+
+function Modal({ children, title, onClose, tone = "default" }) {
+  const toneBar =
+    tone === "danger" ? "bg-rose-100 text-rose-700" : "bg-[var(--brand-50)] text-[var(--brand-end)]";
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white w-[90%] max-w-md rounded-2xl shadow-2xl border overflow-hidden">
+        <div className={`px-5 py-3 text-sm font-medium ${toneBar}`}>{title}</div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+
+}
+function formatAmountVN(n) {
+  const num = typeof n === "string" ? Number(n.replace(/[^\d.-]/g, "")) || 0 : Number(n || 0);
+  return num.toLocaleString("vi-VN", { maximumFractionDigits: 0 });
+}
+

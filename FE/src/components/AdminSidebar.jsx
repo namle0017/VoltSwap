@@ -11,7 +11,7 @@ const menu = [
     { name: "Customers", path: "/admin/customers", icon: "bi bi-people-fill" },
     { name: "Complaints", path: "/admin/complaints", icon: "bi bi-chat-left-text-fill" },
     { name: "Reports", path: "/admin/reports", icon: "bi bi-file-earmark-bar-graph" },
-    { name: "Employees", path: "/admin/employees", icon: "bi bi-person-gear" },
+    { name: "Staff", path: "/admin/employees", icon: "bi bi-person-gear" },
     { name: "Stations", path: "/admin/stations", icon: "bi bi-fuel-pump-fill" },
     { name: "Subscriptions", path: "/admin/subscriptions", icon: "bi bi-box-seam" },
     { name: "Payments", path: "/admin/payments", icon: "bi bi-credit-card-2-front-fill" },

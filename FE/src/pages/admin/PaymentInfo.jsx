@@ -2,17 +2,42 @@
 import React, { useEffect, useState } from "react";
 import api from "@/api/api";
 
+const LIST_EP = "/Transaction/admin-transaction-list";
+const CREATE_EP = "/Transaction/admin-create-transaction";
+const DETAIL_EP = "/Transaction/transaction-detail";            // ?requestTransactionId=...
+const RECREATE_EP = "/Transaction/recreate-transaction";        // PATCH ?transactionId=...
+
 export default function PaymentInfo() {
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [creatingAll, setCreatingAll] = useState(false);
 
+    // Detail state
+    const [showDetail, setShowDetail] = useState(false);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [detailError, setDetailError] = useState("");
+    const [detail, setDetail] = useState(null);
+    const [selectedTxId, setSelectedTxId] = useState("");
+
+    // Recreate guard
+    const [recreatingIds, setRecreatingIds] = useState(() => new Set());
+
     const formatVND = (value) =>
-        Number(value || 0).toLocaleString("vi-VN", {
-            style: "currency",
-            currency: "VND",
-        });
+        Number(value || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
+    const statusPill = (status) => {
+        const s = String(status || "").toLowerCase();
+        if (s === "approved" || s === "success") return "bg-green-100 text-green-700";
+        if (s === "waiting" || s === "pending") return "bg-yellow-100 text-yellow-700";
+        if (s === "denied" || s === "failed" || s === "fail") return "bg-red-100 text-red-700";
+        return "bg-gray-100 text-gray-700";
+    };
+
+    const isFailed = (status) => {
+        const s = String(status || "").toLowerCase();
+        return s === "failed" || s === "fail" || s === "denied";
+    };
 
     const loadTransactions = async () => {
         try {
@@ -40,7 +65,85 @@ export default function PaymentInfo() {
         loadTransactions();
     }, []);
 
-    // Tạo hóa đơn cho TẤT CẢ giao dịch đủ điều kiện (ví dụ: trạng thái Waiting)
+    // ===== DETAIL: fetch one transaction =====
+    const openDetail = async (transactionId) => {
+        if (!transactionId) return;
+        setSelectedTxId(transactionId);
+        setShowDetail(true);
+        setDetailLoading(true);
+        setDetailError("");
+        setDetail(null);
+        try {
+            const token = localStorage.getItem("token");
+            const res = await api.get(DETAIL_EP, {
+                params: { requestTransactionId: transactionId },
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            const payload = res?.data?.data ?? null;
+
+            const normalized = payload
+                ? {
+                    transactionId: payload.transactionId || transactionId,
+                    status: payload.status || "—",
+                    transactionType: payload.transactionType || "—",
+                    subscriptionId: payload.subscriptionId || "—",
+                    driverName: payload.driverName || "—",
+                    driverId: payload.driverId || "—",
+                    planName: payload.planName || "—",
+                    numberOfBooking:
+                        typeof payload.numberOfBooking === "number" ? payload.numberOfBooking : 0,
+                    totalFee:
+                        typeof payload.totalFee === "number" ? payload.totalFee : Number(payload.fee || 0),
+                    totalAmount:
+                        typeof payload.totalAmount === "number"
+                            ? payload.totalAmount
+                            : Number(payload.amount || 0),
+                }
+                : null;
+
+            setDetail(normalized);
+        } catch (err) {
+            console.error("❌ transaction-detail error:", err?.response?.data || err);
+            setDetailError(
+                err?.response?.data?.message || err?.message || "Không thể tải chi tiết giao dịch."
+            );
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
+    // ===== RECREATE: PATCH ?transactionId=... (chỉ cho failed) =====
+    const handleRecreate = async (transactionId) => {
+        if (!transactionId) return;
+        if (recreatingIds.has(transactionId)) return;
+
+        setRecreatingIds((prev) => new Set(prev).add(transactionId));
+        try {
+            const token = localStorage.getItem("token");
+            await api.patch(RECREATE_EP, null, {
+                params: { transactionId },
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            alert(`✅ Đã recreate transaction ${transactionId}.`);
+            await loadTransactions();
+        } catch (err) {
+            console.error("❌ recreate-transaction error:", err?.response?.data || err);
+            const msg =
+                err?.response?.data?.message ||
+                err?.response?.data?.title ||
+                err?.message ||
+                "Recreate thất bại.";
+            alert("❌ " + msg);
+        } finally {
+            setRecreatingIds((prev) => {
+                const n = new Set(prev);
+                n.delete(transactionId);
+                return n;
+            });
+        }
+    };
+
+    // Bulk create invoices (Waiting)
     const handleCreateAllInvoices = async () => {
         const eligible = payments.filter(
             (p) => String(p.paymentStatus || "").toLowerCase() === "waiting"
@@ -179,6 +282,8 @@ export default function PaymentInfo() {
                                     const formattedDate = p.paymentDate
                                         ? new Date(p.paymentDate).toLocaleDateString("vi-VN")
                                         : "—";
+                                    const canRecreate = isFailed(p.paymentStatus);
+                                    const recreating = recreatingIds.has(p.transactionId);
 
                                     return (
                                         <tr
@@ -206,6 +311,28 @@ export default function PaymentInfo() {
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-gray-600">{formattedDate}</td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => openDetail(p.transactionId)}
+                                                        className="px-3 py-1.5 text-sm rounded-lg border hover:bg-gray-50"
+                                                        title="Xem chi tiết"
+                                                    >
+                                                        <i className="bi bi-eye me-1" /> View
+                                                    </button>
+
+                                                    {canRecreate && (
+                                                        <button
+                                                            onClick={() => handleRecreate(p.transactionId)}
+                                                            disabled={recreating}
+                                                            className="px-3 py-1.5 text-sm rounded-lg border text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-60"
+                                                            title="Recreate transaction (failed)"
+                                                        >
+                                                            {recreating ? "Recreating…" : (<><i className="bi bi-arrow-clockwise me-1" /> Recreate</>)}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
                                         </tr>
                                     );
                                 })

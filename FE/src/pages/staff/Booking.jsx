@@ -5,6 +5,7 @@ import api from "@/api/api";
 const LIST_ENDPOINT = "/Booking/station-booking-list";
 const CREATE_TRANS_EP = "/BatterySwap/create-cancel-plan";
 const CONFIRM_TX_EP = "/Transaction/staff-confirm-transaction";
+const CANCEL_EP = "/Booking/cancel-booking-by-user";
 
 /* ========== Helpers ========== */
 function parseLocalDateTime(dateStr, timeStr) {
@@ -40,6 +41,13 @@ function statusPillClass(text) {
     return "pill pending"; // "Processing"/"Not done"
 }
 const isCancelNote = (note) => String(note || "").toLowerCase().includes("cancel");
+const canCancel = (status = "") => {
+    const s = String(status).toLowerCase();
+    if (!s) return true;
+    if (s.includes("cancel")) return false;
+    if (s.includes("done") || s.includes("success") || s.includes("completed")) return false;
+    return true;
+};
 
 /* ========== Normalizer ========== */
 function normalizeBooking(b, idx) {
@@ -67,6 +75,7 @@ export default function Booking() {
     // tracking theo bookingId
     const [creatingIds, setCreatingIds] = React.useState(() => new Set());
     const [confirmingIds, setConfirmingIds] = React.useState(() => new Set());
+    const [cancellingIds, setCancellingIds] = React.useState(() => new Set()); // NEW
     // map bookingId -> transactionId (nhận sau khi create)
     const [txByBooking, setTxByBooking] = React.useState({});
 
@@ -80,7 +89,7 @@ export default function Booking() {
         setError("");
         try {
             if (!staffId) {
-                setError("Thiếu StaffId trong localStorage. Vui lòng đăng nhập lại.");
+                setError("Missing StaffId in localStorage. Please sign in again.");
                 setRows([]);
                 setLoading(false);
                 return;
@@ -93,10 +102,12 @@ export default function Booking() {
                     : [];
             const mapped = list
                 .map(normalizeBooking)
-                .sort((a, b) => (a.when?.getTime?.() ?? 0) - (b.when?.getTime?.() ?? 0));
+                .sort(
+                    (a, b) => (a.when?.getTime?.() ?? 0) - (b.when?.getTime?.() ?? 0)
+                );
             setRows(mapped);
         } catch (e) {
-            const msg = e?.response?.data?.message || e?.message || "Không thể tải danh sách booking.";
+            const msg = e?.response?.data?.message || e?.message || "Failed to load booking list.";
             setError(msg);
             setRows([]);
         } finally {
@@ -112,10 +123,10 @@ export default function Booking() {
     // Create Transaction: { subId, bookingId, staffId }
     const handleCreateTransaction = async (bk) => {
         if (!bk?.subcriptionId || !bk?.bookingId || !staffId) {
-            alert("Thiếu dữ liệu (subId/bookingId/staffId).");
+            alert("Missing data (subId / bookingId / staffId).");
             return;
         }
-        if (creatingIds.has(bk.bookingId)) return; // chống double click
+        if (creatingIds.has(bk.bookingId)) return;
         setCreatingIds((prev) => new Set(prev).add(bk.bookingId));
         try {
             const res = await api.post(CREATE_TRANS_EP, {
@@ -123,16 +134,16 @@ export default function Booking() {
                 bookingId: bk.bookingId,
                 staffId,
             });
-            // Lấy transactionId từ response
             const txId =
                 res?.data?.data?.createRefund?.transactionId ||
                 res?.data?.transactionId ||
                 res?.data?.data?.transactionId ||
                 "";
-            if (txId) setTxByBooking((prev) => ({ ...prev, [bk.bookingId]: txId }));
-            alert("Tạo transaction thành công.");
+            if (txId)
+                setTxByBooking((prev) => ({ ...prev, [bk.bookingId]: txId }));
+            alert("Transaction created successfully.");
         } catch (e) {
-            const msg = e?.response?.data?.message || e?.message || "Tạo transaction thất bại.";
+            const msg = e?.response?.data?.message || e?.message || "Failed to create transaction.";
             alert(msg);
         } finally {
             setCreatingIds((prev) => {
@@ -147,19 +158,54 @@ export default function Booking() {
     const handleConfirmTransaction = async (bk) => {
         const txId = txByBooking[bk.bookingId];
         if (!txId) {
-            alert("Chưa có transactionId. Vui lòng bấm 'Create Transaction' trước.");
+            alert("No transactionId yet. Please click 'Create Transaction' first.");
             return;
         }
-        if (confirmingIds.has(bk.bookingId)) return; // chống double click
+        if (confirmingIds.has(bk.bookingId)) return;
         setConfirmingIds((prev) => new Set(prev).add(bk.bookingId));
         try {
             await api.post(CONFIRM_TX_EP, { transactionId: txId });
-            alert("Xác nhận transaction thành công.");
+            alert("Transaction confirmed successfully.");
         } catch (e) {
-            const msg = e?.response?.data?.message || e?.message || "Xác nhận transaction thất bại.";
+            const msg = e?.response?.data?.message || e?.message || "Failed to confirm transaction.";
             alert(msg);
         } finally {
             setConfirmingIds((prev) => {
+                const n = new Set(prev);
+                n.delete(bk.bookingId);
+                return n;
+            });
+        }
+    };
+
+    // NEW: Cancel Booking: { bookingId }
+    const handleCancelBooking = async (bk) => {
+        if (!bk?.bookingId) {
+            alert("Missing bookingId.");
+            return;
+        }
+        if (!canCancel(bk.status)) {
+            alert("This booking cannot be cancelled.");
+            return;
+        }
+        if (cancellingIds.has(bk.bookingId)) return;
+
+        const ok = window.confirm(
+            `Cancel booking #${bk.bookingId} for ${bk.driverName}?`
+        );
+        if (!ok) return;
+
+        setCancellingIds((prev) => new Set(prev).add(bk.bookingId));
+        try {
+            await api.post(CANCEL_EP, { bookingId: bk.bookingId });
+            alert("Booking cancelled successfully.");
+            // Refresh list để đồng bộ trạng thái từ BE
+            await fetchBookings();
+        } catch (e) {
+            const msg = e?.response?.data?.message || e?.message || "Failed to cancel booking.";
+            alert(msg);
+        } finally {
+            setCancellingIds((prev) => {
                 const n = new Set(prev);
                 n.delete(bk.bookingId);
                 return n;
@@ -194,7 +240,7 @@ export default function Booking() {
                     className="card card-padded mt-3"
                     style={{ border: "1px solid #c7d2fe", background: "#eef2ff", color: "#3730a3" }}
                 >
-                    Đang tải bookings…
+                    Loading bookings…
                 </div>
             )}
 
@@ -210,7 +256,7 @@ export default function Booking() {
                             <th>Time</th>
                             <th>Status</th>
                             <th>Note</th>
-                            <th>Action</th>
+                            <th style={{ minWidth: 340 }}>Action</th>
                         </tr>
                     </thead>
 
@@ -218,7 +264,7 @@ export default function Booking() {
                         {rows.length === 0 && !loading ? (
                             <tr>
                                 <td colSpan={8} className="muted" style={{ textAlign: "center", padding: "16px" }}>
-                                    Không có lịch đặt nào.
+                                    No bookings.
                                 </td>
                             </tr>
                         ) : (
@@ -226,7 +272,9 @@ export default function Booking() {
                                 const showCancelFlow = isCancelNote(bk.note);
                                 const creating = creatingIds.has(bk.bookingId);
                                 const confirming = confirmingIds.has(bk.bookingId);
+                                const cancelling = cancellingIds.has(bk.bookingId);
                                 const hasTxId = Boolean(txByBooking[bk.bookingId]);
+                                const allowCancel = canCancel(bk.status);
 
                                 return (
                                     <tr key={bk.id}>
@@ -239,14 +287,25 @@ export default function Booking() {
                                             <span className={statusPillClass(bk.status)}>{bk.status}</span>
                                         </td>
                                         <td>{bk.note || "—"}</td>
-                                        <td style={{ display: "flex", gap: 8 }}>
+                                        <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                            {/* NEW: Cancel button (luôn hiển thị nếu booking có thể cancel) */}
+                                            <button
+                                                className="btn btn-cancel"
+                                                disabled={!allowCancel || cancelling}
+                                                onClick={() => handleCancelBooking(bk)}
+                                                title={allowCancel ? "Cancel this booking" : "This booking cannot be cancelled"}
+                                            >
+                                                {cancelling ? "Cancelling…" : "Cancel Booking"}
+                                            </button>
+
+                                            {/* Flow hoàn tiền riêng khi Note đã là cancel-request */}
                                             {showCancelFlow ? (
                                                 <>
                                                     <button
                                                         className="btn btn-create"
                                                         disabled={creating}
                                                         onClick={() => handleCreateTransaction(bk)}
-                                                        title="Tạo giao dịch hoàn tiền"
+                                                        title="Create refund transaction"
                                                     >
                                                         {creating ? "Creating…" : "Create Transaction"}
                                                     </button>
@@ -255,13 +314,20 @@ export default function Booking() {
                                                         className="btn btn-confirm"
                                                         disabled={!hasTxId || confirming}
                                                         onClick={() => handleConfirmTransaction(bk)}
-                                                        title={hasTxId ? "Xác nhận transaction" : "Create transaction trước"}
+                                                        title={
+                                                            hasTxId
+                                                                ? "Confirm transaction"
+                                                                : "Please create transaction first"
+                                                        }
                                                     >
                                                         {confirming ? "Confirming…" : "Confirm"}
                                                     </button>
                                                 </>
                                             ) : (
-                                                "—"
+                                                <span className="muted" style={{ lineHeight: "36px" }}>
+                                                    {/* không có flow refund khi chưa có yêu cầu cancel */}
+                                                    {/* — */}
+                                                </span>
                                             )}
                                         </td>
                                     </tr>
@@ -278,6 +344,7 @@ export default function Booking() {
         .btn { height:36px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:#fff; }
         .btn-confirm { border-color:#f59e0b; background:#fff7ed; }
         .btn-create  { border-color:#10b981; background:#ecfdf5; }
+        .btn-cancel  { border-color:#ef4444; background:#fef2f2; }
         .btn[disabled] { opacity:.55; cursor:not-allowed; }
         .card-padded { padding:16px 20px; }
 

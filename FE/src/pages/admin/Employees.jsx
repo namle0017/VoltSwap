@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+// src/pages/admin/StaffManagement.jsx
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
@@ -32,28 +33,59 @@ export default function StaffManagement() {
 
     const [selectedStaff, setSelectedStaff] = useState(null);
 
+    // ===== Create Staff Modal state =====
+    const [createOpen, setCreateOpen] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [stations, setStations] = useState([]);
+    const [loadingStations, setLoadingStations] = useState(false);
+    const [createForm, setCreateForm] = useState({
+        staffName: "",
+        staffEmail: "",
+        staffTele: "",
+        staffAddress: "",
+        staffStatus: "Active",
+        stationId: "",
+        shiftStart: "08:00",
+        shiftEnd: "17:00",
+    });
+
+    // ===== UPDATE STAFF modal state =====
+    const [editOpen, setEditOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [editForm, setEditForm] = useState({
+        staffId: "",
+        staffName: "",
+        staffEmail: "",
+        staffTele: "",
+        staffAddress: "",
+        staffStatus: "Active",
+        stationId: "",
+        shiftStart: "08:00",
+        shiftEnd: "17:00",
+    });
+
+    const toHHMMSS = (t) => (t && t.length === 5 ? `${t}:00` : t || "00:00:00");
+    const isValidEmail = (s = "") => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+
     // ===== Load staff list =====
     const loadStaffs = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            // TODO: nếu BE khác path, đổi ở đây
             const res = await api.get("/User/staff-list", {
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
 
             const arr = res?.data?.data ?? [];
-
             const mapped = arr.map((x) => ({
                 staffId: x.staffId ?? x.userId ?? x.employeeId ?? x.id,
-                userId: x.userId ?? x.staffId ?? x.employeeId ?? x.id, // dùng để delete
+                userId: x.userId ?? x.staffId ?? x.employeeId ?? x.id, // dùng để delete & detail
                 name: x.staffName ?? x.fullName ?? x.employeeName ?? x.name,
                 email: x.staffEmail ?? x.email,
                 phone: x.staffPhone ?? x.phone ?? x.telephone,
                 role: x.role ?? x.position ?? "Staff",
                 stationName: x.stationName ?? x.station?.name ?? x.stationId ?? "—",
                 status: x.staffStatus ?? x.status ?? "Active",
-                // thêm vài số liệu nếu có
                 shifts: x.totalShifts ?? x.shifts ?? 0,
             }));
             setStaffs(mapped);
@@ -69,14 +101,47 @@ export default function StaffManagement() {
         loadStaffs();
     }, []);
 
-    // ===== Load staff detail =====
+    // ===== Load stations (dùng cho create & edit) =====
+    const loadStations = async () => {
+        setLoadingStations(true);
+        try {
+            const token = localStorage.getItem("token");
+            const res = await api.get("Station/station-list", {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            const list = Array.isArray(res?.data?.data) ? res.data.data : [];
+            const mapped = list.map((s, i) => ({
+                stationId: s.stationId ?? s.id ?? s.code ?? `STA-${i + 1}`,
+                stationName: s.stationName ?? s.name ?? s.label ?? `Station ${i + 1}`,
+            }));
+            setStations(mapped);
+            if (!createForm.stationId && mapped.length) {
+                setCreateForm((f) => ({ ...f, stationId: mapped[0].stationId }));
+            }
+        } catch (e) {
+            console.error("station-list error", e?.response?.data || e);
+            setStations([]);
+        } finally {
+            setLoadingStations(false);
+        }
+    };
+
+    useEffect(() => {
+        if (createOpen) loadStations();
+    }, [createOpen]);
+
+    // có danh sách trạm khi mở edit
+    useEffect(() => {
+        if (editOpen && !stations.length) loadStations();
+    }, [editOpen]);
+
+    // ===== Load staff detail (ONLY pass UserId) =====
     const openDetail = async (row) => {
         setLoadingDetail(true);
         try {
             const token = localStorage.getItem("token");
-            // TODO: nếu BE khác path/param, đổi ở đây
-            const res = await api.get("/User/staff-detail", {
-                params: { UserId: row.staffId },
+            const res = await api.get("User/staff-information", {
+                params: { UserId: row.userId },
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
 
@@ -84,23 +149,24 @@ export default function StaffManagement() {
             if (!d) throw new Error("No data");
 
             const detail = {
-                staffId: d.staffId ?? d.userId ?? row.staffId,
-                name: d.staffName ?? d.fullName ?? row.name,
-                email: d.staffEmail ?? d.email ?? row.email,
-                phone: d.staffPhone ?? d.phone ?? row.phone ?? "—",
-                role: d.role ?? d.position ?? row.role,
-                stationName:
-                    d.stationName ?? d.station?.name ?? d.stationId ?? row.stationName,
-                status: d.staffStatus ?? d.status ?? row.status,
+                staffId: d.staffId,
+                name: d.staffName,
+                email: d.staffEmail,
+                phone: d.staffTele,
+                address: d.staffAddress,
+                status: d.staffStatus,
+                stationId: d.stationStaff?.stationId || "—",
+                shiftStart: d.stationStaff?.shiftStart || "—",
+                shiftEnd: d.stationStaff?.shiftEnd || "—",
+                role: d.role ?? row.role ?? "Staff",
                 registrationDate: d.registation ?? d.createdAt ?? "—",
-                // optional blocks
                 certifications: d.certifications ?? [],
                 shiftHistory: Array.isArray(d.shiftHistory) ? d.shiftHistory : [],
             };
 
             setSelectedStaff(detail);
         } catch (err) {
-            console.error("staff-detail error", err?.response?.data || err);
+            console.error("staff-information error", err?.response?.data || err);
             alert("❌ Không thể tải chi tiết nhân viên.");
         } finally {
             setLoadingDetail(false);
@@ -116,7 +182,6 @@ export default function StaffManagement() {
         setDeletingId(row.staffId);
         try {
             const token = localStorage.getItem("token");
-            // TODO: nếu BE có endpoint xoá riêng cho staff, đổi ở đây
             await api.post(
                 "/User/delete-user",
                 { userId },
@@ -133,21 +198,195 @@ export default function StaffManagement() {
         }
     };
 
+    // ===== Create staff submit =====
+    const onCreateStaff = async (e) => {
+        e.preventDefault();
+        if (!createForm.staffName.trim()) return alert("Vui lòng nhập tên nhân viên.");
+        if (!createForm.staffEmail.trim()) return alert("Vui lòng nhập email.");
+        if (!createForm.stationId) return alert("Vui lòng chọn trạm.");
+        if (!isValidEmail(createForm.staffEmail)) return alert("Email không hợp lệ.");
+
+        const payload = {
+            staffName: createForm.staffName.trim(),
+            staffEmail: createForm.staffEmail.trim(),
+            staffTele: createForm.staffTele.trim(),
+            staffAddress: createForm.staffAddress.trim(),
+            staffStatus: createForm.staffStatus || "Active",
+            stationStaff: {
+                stationId: createForm.stationId,
+                shiftStart: toHHMMSS(createForm.shiftStart),
+                shiftEnd: toHHMMSS(createForm.shiftEnd),
+            },
+        };
+
+        try {
+            setCreating(true);
+            const token = localStorage.getItem("token");
+            await api.put("/User/create-staff", payload, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+
+            alert("✅ Tạo nhân viên thành công.");
+            setCreateOpen(false);
+            setCreateForm({
+                staffName: "",
+                staffEmail: "",
+                staffTele: "",
+                staffAddress: "",
+                staffStatus: "Active",
+                stationId: stations[0]?.stationId || "",
+                shiftStart: "08:00",
+                shiftEnd: "17:00",
+            });
+            loadStaffs();
+        } catch (err) {
+            console.error("create-staff error", err?.response?.data || err);
+            const v = err?.response?.data;
+            const msg =
+                (typeof v === "object" && (v.message || v.title)) ||
+                (typeof v === "string" && v) ||
+                err.message;
+            alert(`❌ Tạo thất bại.\n${msg || ""}`);
+        } finally {
+            setCreating(false);
+        }
+    };
+
+    // ===== OPEN EDIT (from row) =====
+    const openEditFromRow = async (row) => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await api.get("User/staff-information", {
+                params: { UserId: row.userId ?? row.staffId },
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            const d = res?.data?.data || {};
+
+            setEditForm({
+                staffId: d.staffId ?? row.staffId,
+                staffName: d.staffName ?? row.name ?? "",
+                staffEmail: d.staffEmail ?? row.email ?? "",
+                staffTele: d.staffTele ?? row.phone ?? "",
+                staffAddress: d.staffAddress ?? "",
+                staffStatus: d.staffStatus ?? row.status ?? "Active",
+                stationId: d.stationStaff?.stationId || "",
+                shiftStart: String(d.stationStaff?.shiftStart || "08:00").slice(0, 5),
+                shiftEnd: String(d.stationStaff?.shiftEnd || "17:00").slice(0, 5),
+            });
+            setEditOpen(true);
+        } catch (e) {
+            console.error("openEditFromRow error:", e?.response?.data || e);
+            alert("❌ Không lấy được thông tin nhân viên để sửa.");
+        }
+    };
+
+    // ===== OPEN EDIT (from detail modal) =====
+    const openEditFromDetail = () => {
+        const d = selectedStaff;
+        setEditForm({
+            staffId: d.staffId,
+            staffName: d.name || "",
+            staffEmail: d.email || "",
+            staffTele: d.phone || "",
+            staffAddress: d.address || "",
+            staffStatus: d.status || "Active",
+            stationId: d.stationId || "",
+            shiftStart: String(d.shiftStart || "08:00").slice(0, 5),
+            shiftEnd: String(d.shiftEnd || "17:00").slice(0, 5),
+        });
+        setEditOpen(true);
+    };
+
+    // ===== SUBMIT UPDATE =====
+    const submitUpdateStaff = async (e) => {
+        e?.preventDefault?.();
+
+        const payload = {
+            staffId: editForm.staffId?.trim(),
+            staffName: editForm.staffName?.trim(),
+            staffEmail: editForm.staffEmail?.trim(),
+            staffTele: editForm.staffTele?.trim(),
+            staffAddress: editForm.staffAddress?.trim(),
+            staffStatus: editForm.staffStatus || "Active",
+            stationStaff: {
+                stationId: editForm.stationId || "",
+                shiftStart: toHHMMSS(editForm.shiftStart),
+                shiftEnd: toHHMMSS(editForm.shiftEnd),
+            },
+        };
+
+        if (!payload.staffId) return alert("Thiếu staffId.");
+        if (!payload.staffName) return alert("Vui lòng nhập tên.");
+        if (!payload.staffEmail || !isValidEmail(payload.staffEmail))
+            return alert("Email không hợp lệ.");
+
+        try {
+            setSaving(true);
+            const token = localStorage.getItem("token");
+            await api.put("/User/update-staff-information", payload, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+
+            // cập nhật ngay bảng
+            setStaffs((prev) =>
+                prev.map((s) =>
+                    s.staffId === payload.staffId
+                        ? {
+                            ...s,
+                            name: payload.staffName,
+                            email: payload.staffEmail,
+                            status: payload.staffStatus,
+                            stationName:
+                                stations.find((x) => x.stationId === payload.stationStaff.stationId)
+                                    ?.stationName ?? s.stationName,
+                        }
+                        : s
+                )
+            );
+
+            // cập nhật modal chi tiết (nếu đang mở)
+            setSelectedStaff((prev) =>
+                prev && prev.staffId === payload.staffId
+                    ? {
+                        ...prev,
+                        name: payload.staffName,
+                        email: payload.staffEmail,
+                        phone: payload.staffTele,
+                        address: payload.staffAddress,
+                        status: payload.staffStatus,
+                        stationId: payload.stationStaff.stationId,
+                        shiftStart: payload.stationStaff.shiftStart,
+                        shiftEnd: payload.stationStaff.shiftEnd,
+                    }
+                    : prev
+            );
+
+            alert("✅ Cập nhật nhân viên thành công.");
+            setEditOpen(false);
+        } catch (err) {
+            console.error("update-staff-information error:", err?.response?.data || err);
+            const v = err?.response?.data;
+            const msg =
+                (typeof v === "object" && (v.message || v.title)) ||
+                (typeof v === "string" && v) ||
+                err.message;
+            alert(`❌ Cập nhật thất bại.\n${msg || ""}`);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     // ===== Derived filters =====
     const roleOptions = useMemo(() => {
         const set = new Set(
-            staffs
-                .map((s) => String(s.role || "").trim())
-                .filter((x) => x && x !== "—")
+            staffs.map((s) => String(s.role || "").trim()).filter((x) => x && x !== "—")
         );
         return Array.from(set);
     }, [staffs]);
 
     const stationOptions = useMemo(() => {
         const set = new Set(
-            staffs
-                .map((s) => String(s.stationName || "").trim())
-                .filter((x) => x && x !== "—")
+            staffs.map((s) => String(s.stationName || "").trim()).filter((x) => x && x !== "—")
         );
         return Array.from(set);
     }, [staffs]);
@@ -166,8 +405,7 @@ export default function StaffManagement() {
                 String(s.role || "").toLowerCase() === roleFilter.toLowerCase();
             const matchesStation =
                 stationFilter === "all" ||
-                String(s.stationName || "").toLowerCase() ===
-                stationFilter.toLowerCase();
+                String(s.stationName || "").toLowerCase() === stationFilter.toLowerCase();
 
             return matchesSearch && matchesStatus && matchesRole && matchesStation;
         });
@@ -178,27 +416,32 @@ export default function StaffManagement() {
             <div className="p-8">
                 {/* Header */}
                 <motion.div
-                    className="mb-8 flex items-center justify-between"
+                    className="mb-8 flex flex-wrap gap-2 items-center justify-between"
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                 >
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                            Staff Management
-                        </h1>
-                        <p className="text-gray-600">
-                            Search, filter and manage station staff accounts.
-                        </p>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Staff Management</h1>
+                        <p className="text-gray-600">Search, filter and manage station staff accounts.</p>
                     </div>
-                    <button
-                        onClick={loadStaffs}
-                        disabled={loading}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${loading ? "text-gray-400" : "hover:bg-gray-50"
-                            }`}
-                    >
-                        <i className="bi bi-arrow-clockwise" />
-                        Refresh
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setCreateOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-800"
+                        >
+                            <i className="bi bi-person-plus" />
+                            Create Staff
+                        </button>
+                        <button
+                            onClick={loadStaffs}
+                            disabled={loading}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${loading ? "text-gray-400" : "hover:bg-gray-50"
+                                }`}
+                        >
+                            <i className="bi bi-arrow-clockwise" />
+                            Refresh
+                        </button>
+                    </div>
                 </motion.div>
 
                 {/* Filters */}
@@ -358,6 +601,16 @@ export default function StaffManagement() {
                                                     >
                                                         <i className="bi bi-eye" />
                                                     </button>
+
+                                                    {/* NEW: Edit button */}
+                                                    <button
+                                                        onClick={() => openEditFromRow(s)}
+                                                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                                                        title="Edit staff"
+                                                    >
+                                                        <i className="bi bi-pencil-square" />
+                                                    </button>
+
                                                     <button
                                                         onClick={() => deleteStaff(s)}
                                                         className={`p-2 rounded-lg ${deletingId === s.staffId
@@ -399,17 +652,24 @@ export default function StaffManagement() {
                                 className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
                             >
                                 <div className="p-6 border-b flex justify-between items-center">
-                                    <h2 className="text-2xl font-bold text-gray-900">
-                                        Staff Details
-                                    </h2>
+                                    <h2 className="text-2xl font-bold text-gray-900">Staff Details</h2>
                                     <div className="flex items-center gap-2">
+                                        {/* NEW: Edit from detail */}
+                                        <button
+                                            onClick={openEditFromDetail}
+                                            className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                                            title="Edit staff"
+                                        >
+                                            <i className="bi bi-pencil-square" />
+                                        </button>
+
                                         <button
                                             onClick={() =>
                                                 deleteStaff({
                                                     staffId: selectedStaff.staffId,
                                                     userId:
-                                                        staffs.find((x) => x.staffId === selectedStaff.staffId)
-                                                            ?.userId ?? selectedStaff.staffId,
+                                                        staffs.find((x) => x.staffId === selectedStaff.staffId)?.userId ??
+                                                        selectedStaff.staffId,
                                                     name: selectedStaff.name,
                                                 })
                                             }
@@ -435,31 +695,39 @@ export default function StaffManagement() {
                                     <div className="p-6 space-y-6">
                                         <div className="grid md:grid-cols-2 gap-6">
                                             <div>
-                                                <h3 className="text-lg font-semibold mb-3">
-                                                    Personal Info
-                                                </h3>
+                                                <h3 className="text-lg font-semibold mb-3">Personal Info</h3>
                                                 <InfoRow icon="bi-person" title="Full Name" value={selectedStaff.name} />
                                                 <InfoRow icon="bi-envelope" title="Email" value={selectedStaff.email} />
                                                 <InfoRow icon="bi-telephone" title="Phone" value={selectedStaff.phone || "—"} />
+                                                <InfoRow icon="bi-geo-alt" title="Address" value={selectedStaff.address || "—"} />
                                                 <InfoRow icon="bi-card-checklist" title="Role" value={selectedStaff.role} />
-                                                <InfoRow icon="bi-building" title="Station" value={selectedStaff.stationName} />
                                                 <InfoRow icon="bi-calendar" title="Registration" value={selectedStaff.registrationDate || "—"} />
                                             </div>
                                             <div>
-                                                <h3 className="text-lg font-semibold mb-3">Status</h3>
-                                                <div className="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
+                                                <h3 className="text-lg font-semibold mb-3">Work / Station</h3>
+                                                <div className="p-3 bg-gray-50 rounded-lg flex items-center justify-between mb-3">
                                                     <span className="text-gray-600">Current status</span>
-                                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusBadge(selectedStaff.status)}`}>
+                                                    <span
+                                                        className={`px-3 py-1 rounded-full text-sm font-medium ${statusBadge(
+                                                            selectedStaff.status
+                                                        )}`}
+                                                    >
                                                         {selectedStaff.status}
                                                     </span>
                                                 </div>
+                                                <InfoRow icon="bi-building" title="Station ID" value={selectedStaff.stationId} />
+                                                <InfoRow icon="bi-clock" title="Shift Start" value={selectedStaff.shiftStart} />
+                                                <InfoRow icon="bi-clock-history" title="Shift End" value={selectedStaff.shiftEnd} />
 
                                                 {!!selectedStaff.certifications?.length && (
                                                     <div className="mt-4">
                                                         <div className="text-gray-600 mb-2">Certifications</div>
                                                         <div className="flex flex-wrap gap-2">
                                                             {selectedStaff.certifications.map((c, i) => (
-                                                                <span key={i} className="px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
+                                                                <span
+                                                                    key={i}
+                                                                    className="px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-800"
+                                                                >
                                                                     {c}
                                                                 </span>
                                                             ))}
@@ -488,8 +756,8 @@ export default function StaffManagement() {
                                                             {selectedStaff.shiftHistory.map((sh, idx) => (
                                                                 <tr key={idx} className="border-t">
                                                                     <td className="p-2">{sh.date || "—"}</td>
-                                                                    <td className="p-2">{sh.stationName || "—"}</td>
-                                                                    <td className="p-2">{sh.role || "—"}</td>
+                                                                    <td className="p-2">{sh.stationName || selectedStaff.stationId || "—"}</td>
+                                                                    <td className="p-2">{sh.role || selectedStaff.role || "—"}</td>
                                                                     <td className="p-2">{sh.note || "—"}</td>
                                                                 </tr>
                                                             ))}
@@ -500,6 +768,301 @@ export default function StaffManagement() {
                                         )}
                                     </div>
                                 )}
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* ===== Create Staff Modal ===== */}
+                <AnimatePresence>
+                    {createOpen && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                        >
+                            <motion.div
+                                initial={{ y: 16, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: 16, opacity: 0 }}
+                                className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl"
+                            >
+                                <div className="p-6 border-b flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold">Create Staff</h3>
+                                    <button className="p-2 hover:bg-gray-100 rounded-lg" onClick={() => setCreateOpen(false)}>
+                                        <i className="bi bi-x-lg" />
+                                    </button>
+                                </div>
+
+                                <form className="p-6 grid md:grid-cols-2 gap-4" onSubmit={onCreateStaff}>
+                                    <div className="md:col-span-2 grid md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Full name</label>
+                                            <input
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={createForm.staffName}
+                                                onChange={(e) => setCreateForm((f) => ({ ...f, staffName: e.target.value }))}
+                                                placeholder="Nguyễn Văn A"
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Email</label>
+                                            <input
+                                                type="email"
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={createForm.staffEmail}
+                                                onChange={(e) => setCreateForm((f) => ({ ...f, staffEmail: e.target.value }))}
+                                                placeholder="name@example.com"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Telephone</label>
+                                        <input
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={createForm.staffTele}
+                                            onChange={(e) => setCreateForm((f) => ({ ...f, staffTele: e.target.value }))}
+                                            placeholder="09xx xxx xxx"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Status</label>
+                                        <select
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={createForm.staffStatus}
+                                            onChange={(e) => setCreateForm((f) => ({ ...f, staffStatus: e.target.value }))}
+                                        >
+                                            <option value="Active">Active</option>
+                                            <option value="Inactive">Inactive</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm text-gray-700 mb-1">Address</label>
+                                        <input
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={createForm.staffAddress}
+                                            onChange={(e) => setCreateForm((f) => ({ ...f, staffAddress: e.target.value }))}
+                                            placeholder="123 Street, Ward, District, City"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Station</label>
+                                        <select
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={createForm.stationId}
+                                            onChange={(e) => setCreateForm((f) => ({ ...f, stationId: e.target.value }))}
+                                            required
+                                        >
+                                            {loadingStations ? (
+                                                <option>Loading...</option>
+                                            ) : stations.length ? (
+                                                stations.map((s) => (
+                                                    <option key={s.stationId} value={s.stationId}>
+                                                        {s.stationName} ({s.stationId})
+                                                    </option>
+                                                ))
+                                            ) : (
+                                                <option value="">No stations</option>
+                                            )}
+                                        </select>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Shift start</label>
+                                            <input
+                                                type="time"
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={createForm.shiftStart}
+                                                onChange={(e) => setCreateForm((f) => ({ ...f, shiftStart: e.target.value }))}
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Shift end</label>
+                                            <input
+                                                type="time"
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={createForm.shiftEnd}
+                                                onChange={(e) => setCreateForm((f) => ({ ...f, shiftEnd: e.target.value }))}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="md:col-span-2 flex justify-end gap-2 pt-2">
+                                        <button
+                                            type="button"
+                                            className="px-4 py-2 border rounded-lg"
+                                            onClick={() => setCreateOpen(false)}
+                                            disabled={creating}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-60"
+                                            disabled={creating}
+                                        >
+                                            {creating ? "Creating..." : "Create"}
+                                        </button>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* ===== UPDATE STAFF MODAL ===== */}
+                <AnimatePresence>
+                    {editOpen && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                        >
+                            <motion.div
+                                initial={{ y: 16, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: 16, opacity: 0 }}
+                                className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl"
+                            >
+                                <div className="p-6 border-b flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold">Update Staff</h3>
+                                    <button className="p-2 hover:bg-gray-100 rounded-lg" onClick={() => setEditOpen(false)}>
+                                        <i className="bi bi-x-lg" />
+                                    </button>
+                                </div>
+
+                                <form className="p-6 grid md:grid-cols-2 gap-4" onSubmit={submitUpdateStaff}>
+                                    <div className="md:col-span-2 grid md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Staff ID</label>
+                                            <input className="w-full border rounded-lg px-3 py-2 bg-gray-100" value={editForm.staffId} readOnly />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Full name</label>
+                                            <input
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={editForm.staffName}
+                                                onChange={(e) => setEditForm((f) => ({ ...f, staffName: e.target.value }))}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Email</label>
+                                        <input
+                                            type="email"
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.staffEmail}
+                                            onChange={(e) => setEditForm((f) => ({ ...f, staffEmail: e.target.value }))}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Telephone</label>
+                                        <input
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.staffTele}
+                                            onChange={(e) => setEditForm((f) => ({ ...f, staffTele: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm text-gray-700 mb-1">Address</label>
+                                        <input
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.staffAddress}
+                                            onChange={(e) => setEditForm((f) => ({ ...f, staffAddress: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Status</label>
+                                        <select
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.staffStatus}
+                                            onChange={(e) => setEditForm((f) => ({ ...f, staffStatus: e.target.value }))}
+                                        >
+                                            <option value="Active">Active</option>
+                                            <option value="Inactive">Inactive</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Station</label>
+                                        <select
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.stationId}
+                                            onChange={(e) => setEditForm((f) => ({ ...f, stationId: e.target.value }))}
+                                            required
+                                        >
+                                            {loadingStations ? (
+                                                <option>Loading...</option>
+                                            ) : stations.length ? (
+                                                stations.map((s) => (
+                                                    <option key={s.stationId} value={s.stationId}>
+                                                        {s.stationName} ({s.stationId})
+                                                    </option>
+                                                ))
+                                            ) : (
+                                                <option value="">No stations</option>
+                                            )}
+                                        </select>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Shift start</label>
+                                            <input
+                                                type="time"
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={editForm.shiftStart}
+                                                onChange={(e) => setEditForm((f) => ({ ...f, shiftStart: e.target.value }))}
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Shift end</label>
+                                            <input
+                                                type="time"
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={editForm.shiftEnd}
+                                                onChange={(e) => setEditForm((f) => ({ ...f, shiftEnd: e.target.value }))}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="md:col-span-2 flex justify-end gap-2 pt-2">
+                                        <button
+                                            type="button"
+                                            className="px-4 py-2 border rounded-lg"
+                                            onClick={() => setEditOpen(false)}
+                                            disabled={saving}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-60"
+                                            disabled={saving}
+                                        >
+                                            {saving ? "Saving..." : "Save changes"}
+                                        </button>
+                                    </div>
+                                </form>
                             </motion.div>
                         </motion.div>
                     )}

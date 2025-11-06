@@ -28,8 +28,7 @@ const Hero = () => {
               {/* Left side */}
               <div className="animate-slide-up">
                 <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-                  EV Battery Swap{" "}
-                  <span className="text-primary">Station</span>
+                  EV Battery Swap <span className="text-primary">Station</span>
                   <br />
                   <span className="text-secondary">Management System</span>
                 </h1>
@@ -65,7 +64,9 @@ const Hero = () => {
                     <div className="text-sm text-gray-600">Stations</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-secondary">24/7</div>
+                    <div className="text-2xl font-bold text-secondary">
+                      24/7
+                    </div>
                     <div className="text-sm text-gray-600">Service</div>
                   </div>
                   <div className="text-center">
@@ -87,13 +88,13 @@ const Hero = () => {
                   <div className="absolute -inset-1 rounded-[2rem] bg-gradient-to-r from-blue-500/30 via-cyan-400/30 to-emerald-400/30 blur opacity-70 group-hover:opacity-100 transition" />
 
                   {/* glass card */}
-                  <div className="relative rounded-[2rem] bg-white/80 backdrop-blur-md ring-1 ring-black/5 shadow-2xl overflow-hidden
-                    transform-gpu transition duration-500 group-hover:-translate-y-1 group-hover:rotate-[0.5deg]">
+                  <div
+                    className="relative rounded-[2rem] bg-white/80 backdrop-blur-md ring-1 ring-black/5 shadow-2xl overflow-hidden
+                    transform-gpu transition duration-500 group-hover:-translate-y-1 group-hover:rotate-[0.5deg]"
+                  >
                     {/* image with overlay */}
                     <div className="relative aspect-[16/10]">
                       <picture>
-                        {/* Đặt file webp chất lượng cao vào /assets/hero.webp nếu có */}
-                        <source srcSet={hero.replace(/\.png|\.jpg/i, ".webp")} type="image/webp" />
                         <img
                           src={hero}
                           alt="EV Battery Swap Station"
@@ -121,8 +122,10 @@ const Hero = () => {
 
                   {/* floating trust badge */}
                   <div className="absolute -right-2 -top-2">
-                    <div className="rounded-full bg-white shadow-lg ring-1 ring-black/5 px-3 py-1 text-sm font-medium text-gray-700
-                      animate-[float_6s_ease-in-out_infinite]">
+                    <div
+                      className="rounded-full bg-white shadow-lg ring-1 ring-black/5 px-3 py-1 text-sm font-medium text-gray-700
+                      animate-[float_6s_ease-in-out_infinite]"
+                    >
                       <i className="bi bi-patch-check-fill text-primary me-1" />
                       Trusted by 500+ stations
                     </div>

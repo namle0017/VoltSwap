@@ -15,6 +15,115 @@ const CustomerManagement = () => {
     const [loadingDetail, setLoadingDetail] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
 
+    // === Edit (Update) modal state ===
+    const [editOpen, setEditOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [editForm, setEditForm] = useState({
+        driverId: "",
+        driverName: "",
+        driverEmail: "",
+        driverTele: "",
+        driverAddress: "",
+        driverStatus: "Active",
+    });
+
+    // mở modal Edit từ row bảng
+    const openEditFromRow = (row) => {
+        setEditForm({
+            driverId: row.driverId,
+            driverName: row.name || "",
+            driverEmail: row.email || "",
+            driverTele: "",           // không có trong list -> để rỗng
+            driverAddress: "",        // không có trong list -> để rỗng
+            driverStatus: row.status || "Active",
+        });
+        setEditOpen(true);
+    };
+
+    // mở modal Edit từ detail (đã load đủ thông tin)
+    const openEditFromDetail = () => {
+        const d = selectedCustomer;
+        setEditForm({
+            driverId: d.driverId,
+            driverName: d.name || "",
+            driverEmail: d.email || "",
+            driverTele: d.phone || "",
+            driverAddress: d.address || "", // nếu BE có trả; nếu không sẽ trống
+            driverStatus: d.status || "Active",
+        });
+        setEditOpen(true);
+    };
+
+    // validate cơ bản
+    const isValidEmail = (s = "") => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+
+    const submitUpdateUser = async (e) => {
+        e?.preventDefault?.();
+        const payload = {
+            driverId: editForm.driverId?.trim(),
+            driverName: editForm.driverName?.trim(),
+            driverEmail: editForm.driverEmail?.trim(),
+            driverTele: editForm.driverTele?.trim(),
+            driverAddress: editForm.driverAddress?.trim(),
+            driverStatus: editForm.driverStatus || "Active",
+        };
+
+        if (!payload.driverId) return alert("Thiếu driverId.");
+        if (!payload.driverName) return alert("Vui lòng nhập tên.");
+        if (!payload.driverEmail || !isValidEmail(payload.driverEmail))
+            return alert("Email không hợp lệ.");
+
+        try {
+            setSaving(true);
+            const token = localStorage.getItem("token");
+            await api.put("/User/update-user-information", payload, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+
+            // cập nhật list ngay tại chỗ (không cần reload toàn bộ)
+            setCustomers((prev) =>
+                prev.map((c) =>
+                    c.driverId === payload.driverId
+                        ? {
+                            ...c,
+                            name: payload.driverName,
+                            email: payload.driverEmail,
+                            status: payload.driverStatus,
+                        }
+                        : c
+                )
+            );
+
+            // cập nhật panel chi tiết nếu đang mở
+            setSelectedCustomer((prev) =>
+                prev && prev.driverId === payload.driverId
+                    ? {
+                        ...prev,
+                        name: payload.driverName,
+                        email: payload.driverEmail,
+                        phone: payload.driverTele || prev.phone,
+                        address: payload.driverAddress || prev.address,
+                        status: payload.driverStatus,
+                    }
+                    : prev
+            );
+
+            alert("✅ Cập nhật thông tin khách hàng thành công.");
+            setEditOpen(false);
+        } catch (err) {
+            console.error("update-user-information error:", err?.response?.data || err);
+            const v = err?.response?.data;
+            const msg =
+                (typeof v === "object" && (v.message || v.title)) ||
+                (typeof v === "string" && v) ||
+                err.message;
+            alert(`❌ Cập nhật thất bại.\n${msg || ""}`);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+
     // --- color helpers for package/status ---
     const getPackageBadgeColor = (pkg) => {
         const p = String(pkg || "").toUpperCase();
@@ -336,6 +445,15 @@ const CustomerManagement = () => {
                                                     >
                                                         <i className="bi bi-eye"></i>
                                                     </button>
+
+                                                    <button
+                                                        onClick={() => openEditFromRow(c)}
+                                                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                                                        title="Edit user"
+                                                    >
+                                                        <i className="bi bi-pencil-square"></i>
+                                                    </button>
+
                                                     <button
                                                         onClick={() => deleteDriver(c)}
                                                         className={`p-2 rounded-lg ${deletingId === c.driverId
@@ -487,6 +605,111 @@ const CustomerManagement = () => {
                                         </div>
                                     </div>
                                 )}
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+                <AnimatePresence>
+                    {editOpen && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                        >
+                            <motion.div
+                                initial={{ y: 16, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: 16, opacity: 0 }}
+                                className="bg-white rounded-2xl shadow-2xl w-full max-w-xl"
+                            >
+                                <div className="p-6 border-b flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold">Update Customer</h3>
+                                    <button className="p-2 hover:bg-gray-100 rounded-lg" onClick={() => setEditOpen(false)}>
+                                        <i className="bi bi-x-lg" />
+                                    </button>
+                                </div>
+
+                                <form className="p-6 grid grid-cols-1 gap-4" onSubmit={submitUpdateUser}>
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Driver ID</label>
+                                        <input
+                                            className="w-full border rounded-lg px-3 py-2 bg-gray-100"
+                                            value={editForm.driverId}
+                                            readOnly
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Full Name</label>
+                                        <input
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.driverName}
+                                            onChange={(e) => setEditForm(f => ({ ...f, driverName: e.target.value }))}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Email</label>
+                                        <input
+                                            type="email"
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.driverEmail}
+                                            onChange={(e) => setEditForm(f => ({ ...f, driverEmail: e.target.value }))}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="grid md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Telephone</label>
+                                            <input
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={editForm.driverTele}
+                                                onChange={(e) => setEditForm(f => ({ ...f, driverTele: e.target.value }))}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-700 mb-1">Status</label>
+                                            <select
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                value={editForm.driverStatus}
+                                                onChange={(e) => setEditForm(f => ({ ...f, driverStatus: e.target.value }))}
+                                            >
+                                                <option value="Active">Active</option>
+                                                <option value="Inactive">Inactive</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-700 mb-1">Address</label>
+                                        <input
+                                            className="w-full border rounded-lg px-3 py-2"
+                                            value={editForm.driverAddress}
+                                            onChange={(e) => setEditForm(f => ({ ...f, driverAddress: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    <div className="flex justify-end gap-2 pt-2">
+                                        <button
+                                            type="button"
+                                            className="px-4 py-2 border rounded-lg"
+                                            onClick={() => setEditOpen(false)}
+                                            disabled={saving}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-60"
+                                            disabled={saving}
+                                        >
+                                            {saving ? "Saving..." : "Save changes"}
+                                        </button>
+                                    </div>
+                                </form>
                             </motion.div>
                         </motion.div>
                     )}
