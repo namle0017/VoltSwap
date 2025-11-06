@@ -16,11 +16,10 @@ export default function ManualAssist() {
     const [checkErr, setCheckErr] = useState("");
     const [validated, setValidated] = useState(false);
 
-    // dữ liệu phụ: stationId trả về khi check
+    // phụ (không hiển thị UI nữa)
     const [stationId, setStationId] = useState("");
 
-    // danh sách pin BE trả về sau khi check subscription
-    // => đây là các pin mà khách đã/đang giữ (Pin In)
+    // danh sách pin KH đang giữ (Pin In)
     const [subBatteries, setSubBatteries] = useState([]);
 
     // có pin KH hay không (để disable Pin In nếu không có)
@@ -28,12 +27,15 @@ export default function ManualAssist() {
 
     // ====== Step 2 & 3 shared state ======
     const [errorType, setErrorType] = useState(""); // '' | 'pinIn' | 'pinOut'
-    const [inBatteryId, setInBatteryId] = useState("");  // Customer Battery ID (pin khách trả vào)
-    const [outBatteryId, setOutBatteryId] = useState(""); // Out Battery ID (pin mình đưa cho khách)
+    const [inBatteryId, setInBatteryId] = useState("");   // Customer Battery ID
+    const [outBatteryId, setOutBatteryId] = useState(""); // Out Battery ID
 
     const [submitting, setSubmitting] = useState(false);
-    const [resp, setResp] = useState(null);
+    const [resp, setResp] = useState(null); // giữ để debug nếu cần (không render ra UI)
     const [err, setErr] = useState("");
+
+    // 🎉 Thông báo thành công
+    const [successMsg, setSuccessMsg] = useState("");
 
     async function checkSubscription() {
         if (!subscriptionId.trim() || !staffId.trim()) {
@@ -43,6 +45,7 @@ export default function ManualAssist() {
 
         setCheckingSub(true);
         setCheckErr("");
+        setSuccessMsg(""); // reset banner thành công
         setValidated(false);
         setSubBatteries([]);
         setStationId("");
@@ -51,7 +54,7 @@ export default function ManualAssist() {
         setErrorType("");
 
         try {
-            // ✅ BE yêu cầu GET — params: StaffId + SubscriptionId
+            // ✅ GET — params: StaffId + SubscriptionId
             const res = await api.get("/Subscription/staff-get-battery", {
                 params: {
                     StaffId: staffId,
@@ -59,15 +62,7 @@ export default function ManualAssist() {
                 },
             });
 
-            // ---- Chuẩn hoá theo JSON mới của BE ----
-            // {
-            //   message: "...",
-            //   data: {
-            //     stationId: "STA-21-05-1234",
-            //     subscriptionId: "SUB-49094107",
-            //     batteries: { result: [ {batteryId:"BT-..."} , ... ] }
-            //   }
-            // }
+            // Chuẩn hoá theo JSON BE
             const rawBlock =
                 res?.data?.data?.batteries?.result ??
                 res?.data?.data?.batteries ??
@@ -87,14 +82,13 @@ export default function ManualAssist() {
             const uniqueIds = Array.from(new Set(ids));
             setSubBatteries(uniqueIds);
 
-            // Lưu stationId để show
+            // Lưu stationId để dùng nội bộ (không hiển thị)
             setStationId(res?.data?.data?.stationId || "");
 
-            // Nếu có pin từ khách -> default Pin In, và autofill Customer Battery ID
-            // Nếu không có pin -> default Pin Out
+            // Auto chọn action
             if (uniqueIds.length > 0) {
                 setErrorType("pinIn");
-                setInBatteryId(uniqueIds[0]); // <-- autofill Customer Battery ID
+                setInBatteryId(uniqueIds[0]);
             } else {
                 setErrorType("pinOut");
             }
@@ -120,12 +114,10 @@ export default function ManualAssist() {
         if (!subscriptionId.trim()) return false;
 
         if (errorType === "pinIn") {
-            // Pin In: cần Customer Battery ID + Out Battery ID
-            if (!hasCustomerBatteries) return false; // safety: không cho pinIn nếu BE không có data
+            if (!hasCustomerBatteries) return false;
             if (!inBatteryId.trim()) return false;
             if (!outBatteryId.trim()) return false;
         } else if (errorType === "pinOut") {
-            // Pin Out: chỉ cần Out Battery ID
             if (!outBatteryId.trim()) return false;
         }
 
@@ -145,24 +137,27 @@ export default function ManualAssist() {
         setSubmitting(true);
         setErr("");
         setResp(null);
+        setSuccessMsg(""); // reset
 
         try {
             const payload = {
                 staffId,
                 subId: subscriptionId,
-                batteryOutId: outBatteryId || null, // pin mình đưa khách
-                batteryInId:
-                    errorType === "pinIn"
-                        ? inBatteryId || null // pin khách trả vào
-                        : null,
+                batteryOutId: outBatteryId || null,
+                batteryInId: errorType === "pinIn" ? inBatteryId || null : null,
             };
 
-            // POST hỗ trợ thủ công
-            const res = await api.post(
-                "/BatterySwap/staff-help-customer",
-                payload
-            );
-            setResp(res.data);
+            await api.post("/BatterySwap/staff-help-customer", payload);
+
+            // 👉 Chỉ hiển thị thông báo thành công
+            const msg =
+                errorType === "pinIn"
+                    ? `Đổi pin thành công! Đã nhận pin lỗi (${inBatteryId}) và cấp pin (${outBatteryId}) cho khách.`
+                    : `Đổi pin thành công! Đã cấp pin (${outBatteryId}) cho khách.`;
+            setSuccessMsg(msg);
+
+            // Auto-ẩn sau 4 giây (tuỳ chọn)
+            // setTimeout(() => setSuccessMsg(""), 4000);
         } catch (e) {
             console.error(e);
             setErr(
@@ -176,7 +171,6 @@ export default function ManualAssist() {
     }
 
     /* ================== Warehouse picker ================== */
-    // modal chọn pin trong kho -> chỉ gửi staffId để lấy pin warehouse
     const [openPicker, setOpenPicker] = useState(false);
     const [pickLoading, setPickLoading] = useState(false);
     const [pickErr, setPickErr] = useState("");
@@ -196,17 +190,13 @@ export default function ManualAssist() {
                 params: { staffId },
             });
 
-            const list = Array.isArray(res.data)
-                ? res.data
-                : res.data?.data || [];
+            const list = Array.isArray(res.data) ? res.data : res.data?.data || [];
 
             const mapped = list.map((it) => ({
                 id: it.batteryId || it.id || "",
                 soh: clamp01(it.soh),
                 soc: clamp01(it.soc),
-                capacityKWh: Number(
-                    it.capacity ?? it.capacityKWh ?? 0
-                ),
+                capacityKWh: Number(it.capacity ?? it.capacityKWh ?? 0),
                 status: it.status || "Warehouse",
             }));
             setBatteries(mapped);
@@ -228,13 +218,8 @@ export default function ManualAssist() {
         () =>
             batteries
                 .filter((b) => isWarehouse(b.status))
-                .filter(
-                    (b) =>
-                        Number.isFinite(b.soc) && b.soc >= minSoc
-                )
-                .sort(
-                    (a, b) => (b.soc ?? 0) - (a.soc ?? 0)
-                ),
+                .filter((b) => Number.isFinite(b.soc) && b.soc >= minSoc)
+                .sort((a, b) => (b.soc ?? 0) - (a.soc ?? 0)),
         [batteries, minSoc]
     );
 
@@ -245,13 +230,8 @@ export default function ManualAssist() {
             </h2>
 
             {/* ===== STEP 1: CHECK SUBSCRIPTION ===== */}
-            <div
-                className="card"
-                style={{ marginTop: 12 }}
-            >
-                <h3 style={{ marginTop: 0 }}>
-                    Step 1. Check Subscription
-                </h3>
+            <div className="card" style={{ marginTop: 12 }}>
+                <h3 style={{ marginTop: 0 }}>Step 1. Check Subscription</h3>
 
                 <div style={grid2}>
                     <label>
@@ -259,39 +239,22 @@ export default function ManualAssist() {
                         <input
                             className="input"
                             value={subscriptionId}
-                            onChange={(e) =>
-                                setSubscriptionId(
-                                    e.target.value
-                                )
-                            }
+                            onChange={(e) => {
+                                setSubscriptionId(e.target.value);
+                                setSuccessMsg("");
+                            }}
                             placeholder="e.g. SUB-12345678"
                         />
                     </label>
 
                     <div>
-                        <div
-                            className="small muted"
-                            style={{
-                                marginBottom: 6,
-                            }}
-                        >
-                            * Hidden param: Staff{" "}
-                            <b>{staffId || "—"}</b>
-                        </div>
-
                         <button
                             className="btn btn-primary"
                             type="button"
-                            disabled={
-                                checkingSub ||
-                                !subscriptionId.trim() ||
-                                !staffId.trim()
-                            }
+                            disabled={checkingSub || !subscriptionId.trim() || !staffId.trim()}
                             onClick={checkSubscription}
                         >
-                            {checkingSub
-                                ? "Checking…"
-                                : "Check subscription"}
+                            {checkingSub ? "Checking…" : "Check subscription"}
                         </button>
 
                         {checkErr && (
@@ -300,224 +263,106 @@ export default function ManualAssist() {
                                     color: "#dc2626",
                                     fontWeight: 600,
                                     marginTop: 8,
-                                    whiteSpace:
-                                        "pre-wrap",
+                                    whiteSpace: "pre-wrap",
                                     fontSize: 12,
                                 }}
                             >
                                 ❌ {checkErr}
                             </div>
                         )}
-
-                        {validated && !checkErr && (
-                            <div
-                                style={{
-                                    color: "#059669",
-                                    fontWeight: 600,
-                                    marginTop: 8,
-                                    fontSize: 12,
-                                }}
-                            >
-                                ✅ Subscription OK{" "}
-                                {stationId
-                                    ? `• Station: ${stationId}`
-                                    : ""}
-                            </div>
-                        )}
+                        {/* ĐÃ BỎ: Hidden param + Subscription OK */}
                     </div>
                 </div>
 
-                {validated &&
-                    subBatteries.length > 0 && (
-                        <div
-                            style={{
-                                marginTop: 12,
-                            }}
-                        >
-                            <div
-                                className="small muted"
-                                style={{
-                                    marginBottom: 4,
-                                }}
-                            >
-                                Suggested Battery IDs
-                                (click to fill
-                                "Customer Battery ID"):
-                            </div>
-
-                            <div
-                                style={{
-                                    display:
-                                        "flex",
-                                    flexWrap:
-                                        "wrap",
-                                    gap: 8,
-                                }}
-                            >
-                                {subBatteries.map(
-                                    (id) => (
-                                        <button
-                                            key={id}
-                                            type="button"
-                                            className="btn"
-                                            onClick={() =>
-                                                setInBatteryId(
-                                                    id
-                                                )
-                                            }
-                                            style={{
-                                                fontSize: 12,
-                                                borderColor:
-                                                    inBatteryId ===
-                                                        id
-                                                        ? "#10b981"
-                                                        : undefined,
-                                                background:
-                                                    inBatteryId ===
-                                                        id
-                                                        ? "rgba(16,185,129,.1)"
-                                                        : undefined,
-                                            }}
-                                        >
-                                            {id}
-                                        </button>
-                                    )
-                                )}
-                            </div>
-
-                            <div
-                                className="small muted"
-                                style={{
-                                    marginTop: 4,
-                                }}
-                            >
-                                You can still
-                                edit manually.
-                            </div>
+                {validated && subBatteries.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                        <div className="small muted" style={{ marginBottom: 4 }}>
+                            Suggested Battery IDs (click to fill "Customer Battery ID"):
                         </div>
-                    )}
+
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {subBatteries.map((id) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    className="btn"
+                                    onClick={() => {
+                                        setInBatteryId(id);
+                                        setSuccessMsg("");
+                                    }}
+                                    style={{
+                                        fontSize: 12,
+                                        borderColor:
+                                            inBatteryId === id ? "#10b981" : undefined,
+                                        background:
+                                            inBatteryId === id
+                                                ? "rgba(16,185,129,.1)"
+                                                : undefined,
+                                    }}
+                                >
+                                    {id}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="small muted" style={{ marginTop: 4 }}>
+                            You can still edit manually.
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ===== STEP 2: CHỌN TÌNH HUỐNG ===== */}
             {validated && (
-                <div
-                    className="card"
-                    style={{ marginTop: 16 }}
-                >
-                    <h3 style={{ marginTop: 0 }}>
-                        Step 2. Select Action
-                        Type
-                    </h3>
+                <div className="card" style={{ marginTop: 16 }}>
+                    <h3 style={{ marginTop: 0 }}>Step 2. Select Action Type</h3>
 
                     <div style={grid2}>
-                        <div
-                            style={{
-                                display:
-                                    "flex",
-                                flexDirection:
-                                    "column",
-                                gap: 8,
-                            }}
-                        >
-                            <label
-                                style={{
-                                    display:
-                                        "flex",
-                                    alignItems:
-                                        "center",
-                                    gap: 8,
-                                }}
-                            >
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <input
                                     type="radio"
                                     name="errType"
                                     value="pinIn"
-                                    checked={
-                                        errorType ===
-                                        "pinIn"
-                                    }
-                                    onChange={() =>
-                                        setErrorType(
-                                            "pinIn"
-                                        )
-                                    }
-                                    disabled={
-                                        !hasCustomerBatteries
-                                    } // ❗ Khoá Pin In nếu BE không trả pin
+                                    checked={errorType === "pinIn"}
+                                    onChange={() => {
+                                        setErrorType("pinIn");
+                                        setSuccessMsg("");
+                                    }}
+                                    disabled={!hasCustomerBatteries}
                                 />
-                                Pin In
-                                (customer
-                                returns faulty
-                                battery)
+                                Pin In (customer returns faulty battery)
                             </label>
 
-                            <label
-                                style={{
-                                    display:
-                                        "flex",
-                                    alignItems:
-                                        "center",
-                                    gap: 8,
-                                }}
-                            >
+                            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <input
                                     type="radio"
                                     name="errType"
                                     value="pinOut"
-                                    checked={
-                                        errorType ===
-                                        "pinOut"
-                                    }
-                                    onChange={() =>
-                                        setErrorType(
-                                            "pinOut"
-                                        )
-                                    }
+                                    checked={errorType === "pinOut"}
+                                    onChange={() => {
+                                        setErrorType("pinOut");
+                                        setSuccessMsg("");
+                                    }}
                                 />
-                                Pin Out
-                                (machine
-                                didn’t release
-                                battery)
+                                Pin Out (machine didn’t release battery)
                             </label>
                         </div>
 
-                        <div
-                            className="small muted"
-                            style={{
-                                alignSelf:
-                                    "flex-start",
-                            }}
-                        >
-                            * Choose what
-                            happened so we
-                            know if
-                            customer gave us
-                            a broken battery
-                            (Pin In) or
-                            machine failed
-                            to give them one
-                            (Pin Out).
+                        <div className="small muted" style={{ alignSelf: "flex-start" }}>
+                            * Choose what happened so we know if customer gave us a broken
+                            battery (Pin In) or machine failed to give them one (Pin Out).
                             {!hasCustomerBatteries && (
                                 <span
                                     className="small"
                                     style={{
                                         color: "#b45309",
-                                        display:
-                                            "block",
+                                        display: "block",
                                         marginTop: 6,
                                     }}
                                 >
-                                    Note: No
-                                    customer
-                                    battery found
-                                    for this
-                                    subscription
-                                    — only{" "}
-                                    <b>
-                                        Pin Out
-                                    </b>{" "}
-                                    is
-                                    available.
+                                    Note: No customer battery found for this subscription — only{" "}
+                                    <b>Pin Out</b> is available.
                                 </span>
                             )}
                         </div>
@@ -525,168 +370,39 @@ export default function ManualAssist() {
                 </div>
             )}
 
-            {/* ===== STEP 3A: PIN IN (chỉ render khi chọn Pin In) ===== */}
-            {validated &&
-                errorType ===
-                "pinIn" && (
-                    <div
-                        style={grid2}
-                    >
-                        <div className="card">
-                            <h3
-                                style={{
-                                    marginTop: 0,
-                                }}
-                            >
-                                Step 3A.
-                                Receive
-                                Customer
-                                Battery
-                                (Pin In)
-                            </h3>
-                            <label>
-                                Customer
-                                Battery ID
-                                <input
-                                    className="input"
-                                    value={
-                                        inBatteryId
-                                    }
-                                    onChange={(
-                                        e
-                                    ) =>
-                                        setInBatteryId(
-                                            e
-                                                .target
-                                                .value
-                                        )
-                                    }
-                                    placeholder="e.g. BAT-ERR-001"
-                                />
-                            </label>
-                        </div>
-
-                        <div className="card">
-                            <h3
-                                style={{
-                                    marginTop: 0,
-                                }}
-                            >
-                                Give Battery
-                                to Customer
-                            </h3>
-                            <label>
-                                Out Battery
-                                ID
-                                <div
-                                    style={{
-                                        display:
-                                            "flex",
-                                        gap: 8,
-                                    }}
-                                >
-                                    <input
-                                        className="input"
-                                        value={
-                                            outBatteryId
-                                        }
-                                        onChange={(
-                                            e
-                                        ) =>
-                                            setOutBatteryId(
-                                                e
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                        placeholder="Select from warehouse…"
-                                        aria-label="Out Battery ID"
-                                    />
-                                    <button
-                                        className="btn"
-                                        type="button"
-                                        onClick={() => {
-                                            setOpenPicker(
-                                                true
-                                            );
-                                            loadWarehouse();
-                                        }}
-                                        disabled={
-                                            !staffId.trim()
-                                        }
-                                        title={
-                                            !staffId.trim()
-                                                ? "Missing staffId"
-                                                : ""
-                                        }
-                                    >
-                                        From
-                                        warehouse
-                                    </button>
-                                </div>
-                            </label>
-                            <p
-                                className="small muted"
-                                style={{
-                                    marginTop: 6,
-                                }}
-                            >
-                                * Only
-                                batteries
-                                with status{" "}
-                                <b>
-                                    warehouse
-                                </b>{" "}
-                                are shown
-                                in warehouse
-                                picker.
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-            {/* ===== STEP 3B: PIN OUT ===== */}
-            {validated &&
-                errorType ===
-                "pinOut" && (
-                    <div
-                        className="card"
-                        style={{
-                            marginTop: 16,
-                        }}
-                    >
-                        <h3
-                            style={{
-                                marginTop: 0,
-                            }}
-                        >
-                            Step 3B.
-                            Give Battery
-                            to Customer
+            {/* ===== STEP 3A: PIN IN ===== */}
+            {validated && errorType === "pinIn" && (
+                <div style={grid2}>
+                    <div className="card">
+                        <h3 style={{ marginTop: 0 }}>
+                            Step 3A. Receive Customer Battery (Pin In)
                         </h3>
                         <label>
-                            Out Battery ID
-                            <div
-                                style={{
-                                    display:
-                                        "flex",
-                                    gap: 8,
+                            Customer Battery ID
+                            <input
+                                className="input"
+                                value={inBatteryId}
+                                onChange={(e) => {
+                                    setInBatteryId(e.target.value);
+                                    setSuccessMsg("");
                                 }}
-                            >
+                                placeholder="e.g. BAT-ERR-001"
+                            />
+                        </label>
+                    </div>
+
+                    <div className="card">
+                        <h3 style={{ marginTop: 0 }}>Give Battery to Customer</h3>
+                        <label>
+                            Out Battery ID
+                            <div style={{ display: "flex", gap: 8 }}>
                                 <input
                                     className="input"
-                                    value={
-                                        outBatteryId
-                                    }
-                                    onChange={(
-                                        e
-                                    ) =>
-                                        setOutBatteryId(
-                                            e
-                                                .target
-                                                .value
-                                        )
-                                    }
+                                    value={outBatteryId}
+                                    onChange={(e) => {
+                                        setOutBatteryId(e.target.value);
+                                        setSuccessMsg("");
+                                    }}
                                     placeholder="Select from warehouse…"
                                     aria-label="Out Battery ID"
                                 />
@@ -694,43 +410,61 @@ export default function ManualAssist() {
                                     className="btn"
                                     type="button"
                                     onClick={() => {
-                                        setOpenPicker(
-                                            true
-                                        );
+                                        setOpenPicker(true);
                                         loadWarehouse();
                                     }}
-                                    disabled={
-                                        !staffId.trim()
-                                    }
-                                    title={
-                                        !staffId.trim()
-                                            ? "Missing staffId"
-                                            : ""
-                                    }
+                                    disabled={!staffId.trim()}
+                                    title={!staffId.trim() ? "Missing staffId" : ""}
                                 >
-                                    From
-                                    warehouse
+                                    From warehouse
                                 </button>
                             </div>
                         </label>
-                        <p
-                            className="small muted"
-                            style={{
-                                marginTop: 6,
-                            }}
-                        >
-                            * Only
-                            batteries
-                            with status{" "}
-                            <b>
-                                warehouse
-                            </b>{" "}
-                            are shown in
-                            warehouse
-                            picker.
+                        <p className="small muted" style={{ marginTop: 6 }}>
+                            * Only batteries with status <b>warehouse</b> are shown in
+                            warehouse picker.
                         </p>
                     </div>
-                )}
+                </div>
+            )}
+
+            {/* ===== STEP 3B: PIN OUT ===== */}
+            {validated && errorType === "pinOut" && (
+                <div className="card" style={{ marginTop: 16 }}>
+                    <h3 style={{ marginTop: 0 }}>Step 3B. Give Battery to Customer</h3>
+                    <label>
+                        Out Battery ID
+                        <div style={{ display: "flex", gap: 8 }}>
+                            <input
+                                className="input"
+                                value={outBatteryId}
+                                onChange={(e) => {
+                                    setOutBatteryId(e.target.value);
+                                    setSuccessMsg("");
+                                }}
+                                placeholder="Select from warehouse…"
+                                aria-label="Out Battery ID"
+                            />
+                            <button
+                                className="btn"
+                                type="button"
+                                onClick={() => {
+                                    setOpenPicker(true);
+                                    loadWarehouse();
+                                }}
+                                disabled={!staffId.trim()}
+                                title={!staffId.trim() ? "Missing staffId" : ""}
+                            >
+                                From warehouse
+                            </button>
+                        </div>
+                    </label>
+                    <p className="small muted" style={{ marginTop: 6 }}>
+                        * Only batteries with status <b>warehouse</b> are shown in
+                        warehouse picker.
+                    </p>
+                </div>
+            )}
 
             {/* ===== CONFIRM BUTTON + RESULT ===== */}
             {validated && (
@@ -739,33 +473,23 @@ export default function ManualAssist() {
                         <button
                             className="btn btn-primary"
                             onClick={onConfirm}
-                            disabled={
-                                !canConfirm ||
-                                submitting
-                            }
+                            disabled={!canConfirm || submitting}
                         >
-                            {submitting
-                                ? "Processing…"
-                                : "Confirm & Send Manual Assist"}
+                            {submitting ? "Processing…" : "Confirm & Send Manual Assist"}
                         </button>
                     </div>
 
+                    {/* ❌ Lỗi */}
                     {err && (
                         <div
                             className="card mt-3"
-                            style={{
-                                borderColor:
-                                    "#ef4444",
-                                background:
-                                    "#fef2f2",
-                            }}
+                            style={{ borderColor: "#ef4444", background: "#fef2f2" }}
                         >
                             <div
                                 style={{
                                     color: "#dc2626",
                                     fontWeight: 700,
-                                    whiteSpace:
-                                        "pre-wrap",
+                                    whiteSpace: "pre-wrap",
                                 }}
                             >
                                 ❌ {err}
@@ -773,26 +497,19 @@ export default function ManualAssist() {
                         </div>
                     )}
 
-                    {resp && (
-                        <div className="card mt-3">
-                            <div
-                                style={{
-                                    fontWeight: 700,
-                                    marginBottom: 6,
-                                }}
-                            >
-                                ✅ Response
-                                from BE
-                            </div>
-                            <pre
-                                style={pre}
-                            >
-                                {JSON.stringify(
-                                    resp,
-                                    null,
-                                    2
-                                )}
-                            </pre>
+                    {/* ✅ Thành công */}
+                    {successMsg && (
+                        <div
+                            className="card mt-3"
+                            style={{
+                                borderColor: "#10b981",
+                                background: "#ecfdf5",
+                                color: "#065f46",
+                                fontWeight: 600,
+                                whiteSpace: "pre-wrap",
+                            }}
+                        >
+                            ✅ {successMsg}
                         </div>
                     )}
                 </>
@@ -800,34 +517,13 @@ export default function ManualAssist() {
 
             {/* ===== MODAL KHO PIN ===== */}
             {openPicker && (
-                <div
-                    className="overlay"
-                    onClick={() =>
-                        setOpenPicker(
-                            false
-                        )
-                    }
-                >
-                    <aside
-                        className="drawer"
-                        onClick={(e) =>
-                            e.stopPropagation()
-                        }
-                    >
+                <div className="overlay" onClick={() => setOpenPicker(false)}>
+                    <aside className="drawer" onClick={(e) => e.stopPropagation()}>
                         <header className="drawer-head">
-                            <h4 className="m-0">
-                                Select
-                                Battery
-                                from
-                                Warehouse
-                            </h4>
+                            <h4 className="m-0">Select Battery from Warehouse</h4>
                             <button
                                 className="btn-close"
-                                onClick={() =>
-                                    setOpenPicker(
-                                        false
-                                    )
-                                }
+                                onClick={() => setOpenPicker(false)}
                                 aria-label="Close"
                             >
                                 ×
@@ -836,61 +532,22 @@ export default function ManualAssist() {
 
                         <div
                             className="drawer-body"
-                            style={{
-                                display:
-                                    "flex",
-                                flexDirection:
-                                    "column",
-                                gap: 12,
-                            }}
+                            style={{ display: "flex", flexDirection: "column", gap: 12 }}
                         >
                             <div className="row-between">
                                 <div className="small muted">
-                                    Staff:{" "}
-                                    <b>
-                                        {staffId ||
-                                            "—"}
-                                    </b>
+                                    Staff: <b>{staffId || "—"}</b>
                                 </div>
 
-                                <div
-                                    style={{
-                                        display:
-                                            "flex",
-                                        alignItems:
-                                            "center",
-                                        gap: 8,
-                                    }}
-                                >
-                                    <label className="small muted">
-                                        Min SOC
-                                        filter
-                                    </label>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <label className="small muted">Min SOC filter</label>
                                     <input
                                         type="number"
-                                        min={
-                                            0
-                                        }
-                                        max={
-                                            100
-                                        }
-                                        value={
-                                            minSoc
-                                        }
-                                        onChange={(
-                                            e
-                                        ) =>
-                                            setMinSoc(
-                                                clamp01(
-                                                    e
-                                                        .target
-                                                        .value
-                                                )
-                                            )
-                                        }
-                                        style={{
-                                            width: 72,
-                                        }}
+                                        min={0}
+                                        max={100}
+                                        value={minSoc}
+                                        onChange={(e) => setMinSoc(clamp01(e.target.value))}
+                                        style={{ width: 72 }}
                                         aria-label="Min SOC filter"
                                     />
                                 </div>
@@ -901,176 +558,91 @@ export default function ManualAssist() {
                                     className="card"
                                     style={{
                                         color: "#991b1b",
-                                        background:
-                                            "#fee2e2",
-                                        border:
-                                            "1px solid #fecaca",
+                                        background: "#fee2e2",
+                                        border: "1px solid #fecaca",
                                     }}
                                 >
                                     {pickErr}
                                 </div>
                             )}
 
-                            <div
-                                className="slots-grid"
-                                role="list"
-                                aria-label="Warehouse battery list"
-                            >
+                            <div className="slots-grid" role="list" aria-label="Warehouse battery list">
                                 {pickLoading
-                                    ? Array.from(
-                                        {
-                                            length: 8,
-                                        }
-                                    ).map(
-                                        (
-                                            _,
-                                            i
-                                        ) => (
-                                            <div
-                                                key={
-                                                    i
-                                                }
-                                                className="slot-card skeleton"
-                                            />
-                                        )
-                                    )
-                                    : filteredBatteries.length ===
-                                        0
-                                        ? (
-                                            <div className="muted small">
-                                                No
-                                                matching
-                                                batteries
-                                                (only
-                                                status{" "}
-                                                <b>
-                                                    warehouse
-                                                </b>{" "}
-                                                is
-                                                shown).
-                                            </div>
-                                        )
-                                        : filteredBatteries.map(
-                                            (
-                                                b
-                                            ) => {
-                                                const tone =
-                                                    statusTone(
-                                                        b.status
-                                                    );
-                                                return (
-                                                    <div
-                                                        key={
-                                                            b.id
-                                                        }
-                                                        className="slot-card"
-                                                        role="listitem"
-                                                        style={{
-                                                            borderColor:
-                                                                tone.br,
-                                                            background:
-                                                                "#fff",
-                                                        }}
-                                                    >
-                                                        <div className="slot-head">
-                                                            <span
-                                                                className="status-badge"
-                                                                style={{
-                                                                    background:
-                                                                        tone.bg,
-                                                                    color: tone.fg,
-                                                                    borderColor:
-                                                                        tone.br,
-                                                                }}
-                                                            >
-                                                                {
-                                                                    tone.label
-                                                                }
-                                                            </span>
-                                                        </div>
-
-                                                        <div className="slot-body">
-                                                            <div className="slot-id">
-                                                                {
-                                                                    b.id
-                                                                }
-                                                            </div>
-                                                            <div className="kv">
-                                                                <span>
-                                                                    SOH
-                                                                </span>
-                                                                <b>
-                                                                    {clamp01(
-                                                                        b.soh
-                                                                    )}
-                                                                    %
-                                                                </b>
-                                                            </div>
-                                                            <div className="kv">
-                                                                <span>
-                                                                    SOC
-                                                                </span>
-                                                                <b>
-                                                                    {clamp01(
-                                                                        b.soc
-                                                                    )}
-                                                                    %
-                                                                </b>
-                                                            </div>
-                                                            <div className="socbar">
-                                                                <span
-                                                                    className="socbar-fill"
-                                                                    style={{
-                                                                        width: `${clamp01(
-                                                                            b.soc
-                                                                        )}%`,
-                                                                        background:
-                                                                            tone.br,
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                        </div>
-
-                                                        <div
-                                                            className="slot-foot"
+                                    ? Array.from({ length: 8 }).map((_, i) => (
+                                        <div key={i} className="slot-card skeleton" />
+                                    ))
+                                    : filteredBatteries.length === 0 ? (
+                                        <div className="muted small">
+                                            No matching batteries (only status <b>warehouse</b> is shown).
+                                        </div>
+                                    ) : (
+                                        filteredBatteries.map((b) => {
+                                            const tone = statusTone(b.status);
+                                            return (
+                                                <div
+                                                    key={b.id}
+                                                    className="slot-card"
+                                                    role="listitem"
+                                                    style={{ borderColor: tone.br, background: "#fff" }}
+                                                >
+                                                    <div className="slot-head">
+                                                        <span
+                                                            className="status-badge"
                                                             style={{
-                                                                marginTop: 8,
-                                                                display:
-                                                                    "flex",
-                                                                justifyContent:
-                                                                    "flex-end",
+                                                                background: tone.bg,
+                                                                color: tone.fg,
+                                                                borderColor: tone.br,
                                                             }}
                                                         >
-                                                            <button
-                                                                className="btn"
-                                                                onClick={() => {
-                                                                    setOutBatteryId(
-                                                                        b.id
-                                                                    );
-                                                                    setOpenPicker(
-                                                                        false
-                                                                    );
+                                                            {tone.label}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="slot-body">
+                                                        <div className="slot-id">{b.id}</div>
+                                                        <div className="kv">
+                                                            <span>SOH</span>
+                                                            <b>{clamp01(b.soh)}%</b>
+                                                        </div>
+                                                        <div className="kv">
+                                                            <span>SOC</span>
+                                                            <b>{clamp01(b.soc)}%</b>
+                                                        </div>
+                                                        <div className="socbar">
+                                                            <span
+                                                                className="socbar-fill"
+                                                                style={{
+                                                                    width: `${clamp01(b.soc)}%`,
+                                                                    background: tone.br,
                                                                 }}
-                                                            >
-                                                                Select
-                                                            </button>
+                                                            />
                                                         </div>
                                                     </div>
-                                                );
-                                            }
-                                        )}
+
+                                                    <div
+                                                        className="slot-foot"
+                                                        style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}
+                                                    >
+                                                        <button
+                                                            className="btn"
+                                                            onClick={() => {
+                                                                setOutBatteryId(b.id);
+                                                                setOpenPicker(false);
+                                                                setSuccessMsg("");
+                                                            }}
+                                                        >
+                                                            Select
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
                             </div>
                         </div>
 
                         <footer className="drawer-foot">
-                            <button
-                                className="btn ghost"
-                                onClick={() =>
-                                    setOpenPicker(
-                                        false
-                                    )
-                                }
-                            >
+                            <button className="btn ghost" onClick={() => setOpenPicker(false)}>
                                 Close
                             </button>
                         </footer>
@@ -1091,6 +663,12 @@ export default function ManualAssist() {
         .btn.ghost:hover { background:#f8fafc; }
         .btn-close { background:transparent; border:none; font-size:22px; line-height:1; cursor:pointer; color:#0f172a; }
 
+        .overlay { position:fixed; inset:0; background:rgba(2,6,23,.5); display:flex; align-items:flex-end; }
+        .drawer { width:100%; max-height:88vh; background:#fff; border-radius:16px 16px 0 0; overflow:hidden; box-shadow:0 -8px 24px rgba(2,6,23,.2); }
+        .drawer-head, .drawer-foot { padding:12px 16px; border-bottom:1px solid var(--line); }
+        .drawer-foot { border-top:1px solid var(--line); border-bottom:none; }
+        .drawer-body { padding:12px 16px; }
+
         .slots-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:12px; }
         @media (min-width: 920px) { .slots-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
@@ -1100,6 +678,11 @@ export default function ManualAssist() {
           content:""; position:absolute; inset:0;
           background: linear-gradient(90deg, transparent, rgba(148,163,184,.1), transparent);
           animation: shimmer 1.2s infinite;
+        }
+
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
 
         .slot-head { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
@@ -1120,14 +703,6 @@ const grid2 = {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
     gap: 16,
-};
-
-const pre = {
-    background: "#0f172a",
-    color: "#e5e7eb",
-    padding: 12,
-    borderRadius: 8,
-    overflowX: "auto",
 };
 
 function clamp01(n) {
