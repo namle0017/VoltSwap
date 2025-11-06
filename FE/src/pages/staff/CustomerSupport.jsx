@@ -121,7 +121,6 @@ export default function CustomerSupport() {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h2 className="text-xl font-bold">Customer Support</h2>
-                    <p className="text-sm text-slate-500">Tickets and conversations with customers.</p>
                 </div>
 
                 <div className="flex items-center gap-2">

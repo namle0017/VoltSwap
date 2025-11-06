@@ -144,10 +144,6 @@ export default function BatterySwap() {
             <div className="row-between">
                 <div>
                     <h2 className="h1 m-0">Battery Swap</h2>
-                    <p className="muted">
-                        Battery swap history at the station (based on staff
-                        UserId).
-                    </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <input

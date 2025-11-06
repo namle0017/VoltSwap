@@ -276,9 +276,6 @@ export default function ManualAssist() {
 
                 {validated && subBatteries.length > 0 && (
                     <div style={{ marginTop: 12 }}>
-                        <div className="small muted" style={{ marginBottom: 4 }}>
-                            Suggested Battery IDs (click to fill "Customer Battery ID"):
-                        </div>
 
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                             {subBatteries.map((id) => (
@@ -304,10 +301,6 @@ export default function ManualAssist() {
                                 </button>
                             ))}
                         </div>
-
-                        <div className="small muted" style={{ marginTop: 4 }}>
-                            You can still edit manually.
-                        </div>
                     </div>
                 )}
             </div>
@@ -331,7 +324,7 @@ export default function ManualAssist() {
                                     }}
                                     disabled={!hasCustomerBatteries}
                                 />
-                                Pin In (customer returns faulty battery)
+                                Pin In
                             </label>
 
                             <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -345,26 +338,8 @@ export default function ManualAssist() {
                                         setSuccessMsg("");
                                     }}
                                 />
-                                Pin Out (machine didn’t release battery)
+                                Pin Out
                             </label>
-                        </div>
-
-                        <div className="small muted" style={{ alignSelf: "flex-start" }}>
-                            * Choose what happened so we know if customer gave us a broken
-                            battery (Pin In) or machine failed to give them one (Pin Out).
-                            {!hasCustomerBatteries && (
-                                <span
-                                    className="small"
-                                    style={{
-                                        color: "#b45309",
-                                        display: "block",
-                                        marginTop: 6,
-                                    }}
-                                >
-                                    Note: No customer battery found for this subscription — only{" "}
-                                    <b>Pin Out</b> is available.
-                                </span>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -375,7 +350,7 @@ export default function ManualAssist() {
                 <div style={grid2}>
                     <div className="card">
                         <h3 style={{ marginTop: 0 }}>
-                            Step 3 A. Receive Customer Battery (Pin In)
+                            Step 3 A. Receive Customer Battery
                         </h3>
                         <label>
                             Customer Battery ID
@@ -420,10 +395,6 @@ export default function ManualAssist() {
                                 </button>
                             </div>
                         </label>
-                        <p className="small muted" style={{ marginTop: 6 }}>
-                            * Only batteries with status <b>warehouse</b> are shown in
-                            warehouse picker.
-                        </p>
                     </div>
                 </div>
             )}

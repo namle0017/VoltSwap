@@ -3,26 +3,29 @@ import React, { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
-import "bootstrap-icons/font/bootstrap-icons.css"; // cần có
+import "bootstrap-icons/font/bootstrap-icons.css";
 
-// Map route -> nhãn + icon Bootstrap (KHÔNG để "bi " lặp lại)
+// Map route -> nhãn + icon Bootstrap
+// Lưu ý: KHÔNG để "bi " trong data vì bên dưới đã prepend "bi ".
 const sections = [
     { to: "/staff/overview", label: "Overview", icon: "bi-house" },
     { to: "/staff/inventory", label: "Inventory", icon: "bi-box" },
     { to: "/staff/assist", label: "Manual Assist", icon: "bi-tools" },
-    { to: "/staff/swap", label: "Battery Swap", icon: "bi bi-battery-full" },
+    { to: "/staff/swap", label: "Battery Swap", icon: "bi-battery-full" },
     { to: "/staff/booking", label: "Booking", icon: "bi-calendar-check" },
     { to: "/staff/admin-request", label: "Admin Request", icon: "bi-file-earmark-text" },
     { to: "/staff/support", label: "Customer Support", icon: "bi-chat-dots" },
-    { to: "/staff/battery-mgmt", label: "Battery Manager", icon: " bi-battery-charging" },
+    { to: "/staff/battery-mgmt", label: "Battery Manager", icon: "bi-battery-charging" },
 ];
 
 /* Small, accessible confirm dialog */
 function ConfirmDialog({ open, title, message, onCancel, onConfirm }) {
     const cancelRef = useRef(null);
+
     useEffect(() => {
         if (open) cancelRef.current?.focus();
     }, [open]);
+
     if (!open) return null;
 
     return (
@@ -72,10 +75,14 @@ export default function StaffLayout() {
 
     const doSignOut = () => {
         const CLEAR_KEYS = [
-            "accessToken", "role",
-            "userId", "UserId",
-            "staffId", "StaffId",
-            "stationId", "StationId",
+            "accessToken",
+            "role",
+            "userId",
+            "UserId",
+            "staffId",
+            "StaffId",
+            "stationId",
+            "StationId",
         ];
         CLEAR_KEYS.forEach((k) => localStorage.removeItem(k));
         setConfirmOpen(false);
@@ -83,52 +90,144 @@ export default function StaffLayout() {
     };
 
     return (
-        <div className="staff-shell">
-            {/* Sidebar trái */}
-            <aside className="sidebar">
+        // Layout FULL SCREEN, sidebar cố định, content scroll
+        <div
+            className="staff-shell"
+            style={{
+                display: "flex",
+                height: "100vh",       // chiếm đúng viewport
+                overflow: "hidden",    // chặn scroll toàn trang
+                backgroundColor: "#f5f5fb",
+            }}
+        >
+            {/* Sidebar trái (cố định) */}
+            <aside
+                className="sidebar"
+                style={{
+                    width: 240,
+                    flexShrink: 0,
+                    backgroundColor: "#4b1fa6",
+                    color: "#ffffff",
+                    display: "flex",
+                    flexDirection: "column",
+                    padding: "16px 12px",
+                }}
+            >
                 {/* Brand */}
-                <div className="brand-tile">
-                    <div className="brand-badge flex items-center justify-center">
+                <div
+                    className="brand-tile"
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        marginBottom: 24,
+                    }}
+                >
+                    <div
+                        className="brand-badge"
+                        style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 12,
+                            backgroundColor: "#5c28c9",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                    >
                         <i
-                            className="bi bi-lightning-charge-fill text-yellow-400 text-2xl"
+                            className="bi bi-lightning-charge-fill"
+                            style={{ fontSize: 22, color: "#ffd94a" }}
                             aria-hidden="true"
                         />
                         <span className="sr-only">EVSwap</span>
                     </div>
                     <div>
                         <div style={{ fontWeight: 800, lineHeight: 1 }}>EVSwap</div>
-                        <div className="small" style={{ opacity: 0.8 }}>Staff Portal</div>
+                        <div
+                            style={{
+                                fontSize: 12,
+                                opacity: 0.85,
+                            }}
+                        >
+                            Staff Portal
+                        </div>
                     </div>
                 </div>
 
-                <nav className="nav-list">
+                {/* Nav */}
+                <nav className="nav-list" style={{ flex: 1 }}>
                     {sections.map((s) => (
                         <NavLink
                             key={s.to}
                             to={s.to}
-                            className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
                             title={s.label}
+                            className={({ isActive }) =>
+                                `nav-item ${isActive ? "active" : ""}`
+                            }
+                            style={({ isActive }) => ({
+                                display: "flex",
+                                alignItems: "center",
+                                padding: "10px 12px",
+                                marginBottom: 6,
+                                borderRadius: 12,
+                                fontSize: 14,
+                                fontWeight: 500,
+                                color: isActive ? "#4b1fa6" : "#ffffff",
+                                backgroundColor: isActive ? "#ffffff" : "transparent",
+                                textDecoration: "none",
+                                gap: 10,
+                                transition: "all 0.18s ease",
+                            })}
                         >
-                            <i className={`bi ${s.icon} text-lg`} aria-hidden="true" />
-                            <span className="ml-2">{s.label}</span>
+                            <i
+                                className={`bi ${s.icon}`}
+                                aria-hidden="true"
+                                style={{ fontSize: 18 }}
+                            />
+                            <span>{s.label}</span>
                         </NavLink>
                     ))}
                 </nav>
 
-                {/* Nút Sign out ở sidebar */}
+                {/* Nút Sign out */}
                 <button
                     type="button"
-                    className="mt-4 w-full px-3 py-2 rounded-xl bg-white text-black font-medium shadow flex items-center justify-center"
                     onClick={() => setConfirmOpen(true)}
                     title="Đăng xuất"
+                    className="mt-4 w-full"
+                    style={{
+                        marginTop: 8,
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: 14,
+                        backgroundColor: "#ffffff",
+                        color: "#000000",
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "none",
+                        cursor: "pointer",
+                        boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+                        gap: 8,
+                    }}
                 >
-                    <i className="bi bi-box-arrow-right mr-2" aria-hidden="true" />
-                    Sign out
+                    <i className="bi bi-box-arrow-right" aria-hidden="true" />
+                    <span>Sign out</span>
                 </button>
             </aside>
 
-            {/* Content phải + hiệu ứng chuyển trang */}
-            <main className="staff-content">
+            {/* Content phải: chỉ phần này scroll */}
+            <main
+                className="staff-content"
+                style={{
+                    flex: 1,
+                    padding: "24px 32px",
+                    overflowY: "auto",
+                    overflowX: "hidden",
+                }}
+            >
                 <AnimatePresence mode="wait">
                     <PageTransition key={location.pathname}>
                         <Outlet />
