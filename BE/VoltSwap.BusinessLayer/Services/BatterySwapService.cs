@@ -422,12 +422,14 @@ namespace VoltSwap.BusinessLayer.Services
                         Status = "Returned",
                         CreateAt = DateTime.UtcNow.ToLocalTime(),
                     };
+
                     //Sau khi tạo ra 1 bảng là returned thì sẽ update lại cục pin 
                     getSlot.BatteryId = item.BatteryId;
                     getSlot.AppointmentId = null;
                     getSlot.PillarStatus = "Unavailable";
                     updateBat.BatteryStatus = "Charging";
-                    updateBat.Soc = random.Next(1, 51);
+                    updateBat.Soc = Random.Shared.Next(1, 31);
+                    updateBat.UpdateAt = DateTime.UtcNow.ToLocalTime();
                     updateBat.BatterySwapStationId = requestBatteryList.AccessRequest.StationId;
                     //Update lại cái pin được trả vô
                     await _batSwapRepo.CreateAsync(updateBatSwapIn);
@@ -877,27 +879,17 @@ namespace VoltSwap.BusinessLayer.Services
                     {
                         TransactionId = newTrans,
                         SubscriptionId = requestDto.SubId,
-<<<<<<< HEAD
-                        TransactionDate = DateTime.UtcNow.ToLocalTime(),
-                        Currency = "VND",
-                        PaymentMethod = "bank",
-=======
                         UserDriverId = getsub.UserDriverId,
                         TransactionDate = DateTime.UtcNow.ToLocalTime(),
                         TransactionType = "Monthly Fee",
->>>>>>> aa605eb1e08b50a0ca9fba2640b855949927795a
                         Fee = mileageFee,
                         TotalAmount = mileageFee,
                         Currency = "VND",
                         PaymentMethod = "QR",
 
                         Status = "Waiting",
-                        CreateAt = DateTime.UtcNow.ToLocalTime(),
-<<<<<<< HEAD
-                        TransactionType = "Penalty Fee"
-=======
+                    
                 
->>>>>>> aa605eb1e08b50a0ca9fba2640b855949927795a
                     };
 
                     await _unitOfWork.Trans.CreateAsync(transaction);

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,6 +18,14 @@ namespace VoltSwap.DAL.Repositories
         public ReportTypeRepository(VoltSwapDbContext context) : base(context)
         {
             _context = context;
+        }
+
+        public async Task<string> GetReportTypeName(int reporttypeId)
+        {
+            return await _context.ReportTypes
+                .Where(rt => rt.ReportTypeId == reporttypeId)
+                .Select(rt => rt.ReportTypeName)
+                .FirstOrDefaultAsync();
         }
     }
 }

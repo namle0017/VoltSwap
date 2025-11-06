@@ -19,51 +19,85 @@ namespace VoltSwap.BusinessLayer.Services
     {
         private readonly IGenericRepositories<User> _userRepo;
         private readonly IGenericRepositories<Report> _reportRepo;
+        private readonly IGenericRepositories<ReportType> _reportypetRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
         public ReportService(
             IServiceProvider serviceProvider,
             IGenericRepositories<User> userRepo,
             IGenericRepositories<Report> reportRepo,
+            IGenericRepositories<ReportType> reporttypeRepo,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
         {
             _userRepo = userRepo;
+            _reportypetRepo = reporttypeRepo;
             _reportRepo = reportRepo;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
         }
 
         //Hàm này để list ra danh sách các report hiện tại và sẽ filter theo create_at và status là processing
-        public async Task<List<Report>> GetAllReport()
+        public async Task<List<UserReportRespone>> GetAllReport()
         {
-            var reports = await _reportRepo.GetAllAsync() ?? new List<Report>();
-            return reports
-                .OrderBy(rp => rp.Status == "Processing")
-                .ThenByDescending(rp => rp.CreateAt)
-                .ToList();
+            var reports = await _reportRepo.GetAllQueryable()
+                                            .Include(r => r.ReportType)
+
+                                            .OrderByDescending(rp => rp.Status == "Processing")
+                                            .ThenByDescending(rp => rp.CreateAt).Select(rp => new UserReportRespone
+                                            {
+                                                ReportId = rp.ReportId,
+                                                UserAdminId = rp.UserAdminId,
+                                                UserDriverId = rp.UserDriverId,
+                                                UserStaffId = rp.UserStaffId,
+                                                ReportTypeId = rp.ReportTypeId,
+                                                ReportTypeName = rp.ReportType.ReportTypeName,
+                                                Note = rp.Note,
+                                                Status = rp.Status,
+                                                CreateAt = rp.CreateAt,
+                                                ProcessesAt = rp.ProcessesAt
+                                            }).ToListAsync();
+            return reports;
         }
 
         //hàm này để driver tạo report
         public async Task<ServiceResult> DriverCreateReport(UserReportRequest requestDto)
         {
+            var getreport = await _unitOfWork.ReportType.GetReportTypeName(requestDto.ReportTypeId);
             var result = new Report
             {
                 UserAdminId = await GetAdminId(),
                 UserStaffId = null,
                 UserDriverId = requestDto.DriverId,
+                ReportTypeId = requestDto.ReportTypeId,
                 Note = requestDto.ReportNote,
                 CreateAt = DateTime.UtcNow.ToLocalTime(),
                 Status = "Processing",
                 ProcessesAt = null,
             };
-
             await _reportRepo.CreateAsync(result);
             await _unitOfWork.SaveChangesAsync();
+
+            var respone = new UserReportRespone
+            {
+                ReportId = result.ReportId,
+                UserAdminId = result.UserAdminId,
+                UserStaffId = result.UserStaffId,
+                UserDriverId = result.UserDriverId,
+                ReportTypeId = result.ReportTypeId,
+                ReportTypeName = getreport,
+                Note = result.Note,
+                CreateAt =result.CreateAt,
+                Status = result.Status,
+                ProcessesAt = result.ProcessesAt,
+            };
+
+
             return new ServiceResult
             {
                 Status = 201,
                 Message = "Report created successfully",
+                Data = respone
             };
         }
 
@@ -103,15 +137,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = getReportType,
             };
         }
-        //staff xem  các report được giao
-        public async Task<ServiceResult> StaffViewReport(UserRequest request) 
-        {
-            var getstaff = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.UserId);
 
-            var get
-            
-
-        }
         public async Task<ServiceResult> AdminAsignStaff(StaffAssignedRequest request)
         {
             var report = await _reportRepo.GetByIdAsync(request.ReportId);
@@ -197,6 +223,7 @@ namespace VoltSwap.BusinessLayer.Services
                     DriverId = item.UserDriverId,
                     DriverName = getUserName,
                     ReportType = item.ReportTypeId,
+                    ReportTypeName = item.ReportType.ReportTypeName,
                     ReportNote = item.Note,
                     CreateAt = item.CreateAt,
                     ReportStatus = item.Status,
@@ -227,6 +254,7 @@ namespace VoltSwap.BusinessLayer.Services
                     DriverId = item.UserDriverId,
                     DriverName = getUserName,
                     ReportType = item.ReportTypeId,
+                    ReportTypeName = item.ReportType.ReportTypeName,
                     ReportNote = item.Note,
                     CreateAt = item.CreateAt,
                     ReportStatus = item.Status,

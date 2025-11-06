@@ -306,7 +306,7 @@ namespace VoltSwap.BusinessLayer.Services
             var transactions = await _transRepo.GetAllAsync(t => t.Status == "Pending");
             foreach (var trans in transactions)
             {
-                var getTransDate = trans.CreateAt?.Date;
+                var getTransDate = trans.TransactionDate;
                 if (getTransDate >= currentDate.Date.AddDays(4))
                 {
                     trans.Status = "Expired";
@@ -754,7 +754,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             mess = "Confirm Success.";
             gettrans.Status = "Success";
-            gettrans.CreateAt = DateTime.Now.ToLocalTime();
+            gettrans.TransactionDate = DateTime.Now.ToLocalTime();
             getsub.Status = "Inactive";
             await _subRepo.UpdateAsync(getsub);
             await _transRepo.UpdateAsync(gettrans);
@@ -920,7 +920,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             getTrans.TransactionId = await GenerateTransactionId();
             getTrans.Status = "Pending";
-            getTrans.CreateAt = DateTime.UtcNow.ToLocalTime();
+            getTrans.TransactionDate = DateTime.UtcNow.ToLocalTime();
             getTrans.TransactionContext = await GenerateTransactionConext(transactionContext);
 
             await _transRepo.UpdateAsync(getTrans);

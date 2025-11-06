@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.BusinessLayer.Services;
@@ -31,7 +32,7 @@ namespace VoltSwap.API.Controllers
         public async Task<IActionResult> GetContact(String driverId)
         {
             var results = await _reportService.GetDriverContact(driverId);
-            return Ok(results);
+            return StatusCode(200, new { message = results.Message, data = results.Data });
         }
 
 

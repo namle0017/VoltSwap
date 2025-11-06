@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
@@ -48,30 +49,32 @@ namespace VoltSwap.BusinessLayer.Services
                 {
                     if (feeReq.TypeOfFee.Equals("Excess Mileage", StringComparison.OrdinalIgnoreCase))
                     {
-                        // Xử lý nhiều tier
-                        foreach (var tier in feeReq.Tiers)
-                        {
-                            var fee = await _unitOfWork.Fees.GetByIdAsync(f =>
-                                f.PlanId == plan.PlanId);
+                        var fees = await _unitOfWork.Fees.GetAllQueryable()
+                            .Where(f => f.PlanId == plan.PlanId && f.TypeOfFee == "Excess Mileage")
+                            .OrderBy(f => f.MinValue)
+                            .ToListAsync();
 
-                            if (fee == null) continue;
-                            fee.MinValue = tier.MinValue;
-                            fee.MaxValue = tier.MaxValue;
-                            fee.Amount = tier.Amount;
-                            fee.Unit = tier.Unit;
-                            _unitOfWork.Fees.Update(fee);
+                        for (int i = 0; i < feeReq.Tiers.Count && i < fees.Count; i++)
+                        {
+                            var dbFee = fees[i];
+                            var reqTier = feeReq.Tiers[i];
+
+                            dbFee.MinValue = reqTier.MinValue;
+                            dbFee.MaxValue = reqTier.MaxValue;
+                            dbFee.Amount = reqTier.Amount;
+                            dbFee.Unit = reqTier.Unit;
+
+                            _unitOfWork.Fees.Update(dbFee);
                         }
                     }
                     else
                     {
-                       
                         var fee = await _unitOfWork.Fees.GetByIdAsync(f =>
                             f.PlanId == plan.PlanId &&
                             f.TypeOfFee == feeReq.TypeOfFee);
-
-                        if (fee == null) continue;
-                        fee.Amount = (decimal)feeReq.Amount;
+                        fee.Amount = (decimal)(feeReq.Amount ?? 0);
                         fee.Unit = feeReq.Unit;
+
                         _unitOfWork.Fees.Update(fee);
                     }
                 }
@@ -85,6 +88,8 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = $"Updated fees successfully for group {request.GroupKey}"
             };
         }
+
+
         //Hàm để lấy nhóm plan
         private string GetGroupKey(string? planName)
         {

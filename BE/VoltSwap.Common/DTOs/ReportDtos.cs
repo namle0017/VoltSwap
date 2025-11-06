@@ -24,10 +24,24 @@ namespace VoltSwap.Common.DTOs
     public class UserReportRespone
     {
 
-        public String DriverId { get; set; }
-        public int ReportTypeId { get; set; }
-        public string ReportNote { get; set; }
-        public DateTime CreateAt { get; set; }
+
+        public int ReportId { get; set; }
+        public string UserAdminId { get; set; }
+
+    public string UserStaffId { get; set; }
+
+    public string UserDriverId { get; set; }
+
+    public int ReportTypeId { get; set; }
+    public string ReportTypeName { get; set; }
+
+    public string Note { get; set; }
+
+    public string Status { get; set; }
+
+    public DateTime CreateAt { get; set; }
+
+    public DateTime? ProcessesAt { get; set; }
     }
 
     public class StaffAssignedRequest
@@ -43,6 +57,7 @@ namespace VoltSwap.Common.DTOs
         public String DriverId { get; set; }
         public String DriverName { get; set; }
         public int  ReportType { get; set; }
+        public string  ReportTypeName { get; set; }
         public string ReportNote { get; set; }
         public DateTime CreateAt { get; set; }
         public string ReportStatus { get; set; }

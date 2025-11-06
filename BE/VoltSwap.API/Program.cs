@@ -42,6 +42,7 @@ builder.Services.AddScoped<IVnPayService, VnPayService>();
 builder.Services.AddScoped<VehicleService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<SubscriptionService>();
+builder.Services.AddScoped<FeeService>();
 builder.Services.AddScoped<IPillarSlotRepository, PillarSlotRepository>();
 builder.Services.AddScoped<BookingService>();
 builder.Services.AddScoped<AuthService>();
