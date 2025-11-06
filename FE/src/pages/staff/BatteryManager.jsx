@@ -331,14 +331,12 @@ function DetailPanel({ selected, onRequestRemove }) {
             ) : selected.empty ? (
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
-                    <Row k="Slot No." v={selected.slotNumber} />
                     <Row k="Position" v={selected.pos} />
                     <div className="mt-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm">Empty slot</div>
                 </div>
             ) : (
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
-                    <Row k="Slot No." v={selected.slotNumber} />
                     <Row k="Slot ID (BE)" v={selected.slotId ?? "—"} />
                     <Row k="Position" v={selected.pos} />
                     <Row k="Battery Code" v={selected.code} />
@@ -470,7 +468,6 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                 <div className="p-5 space-y-4">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                         <div><div className="text-slate-500">Pillar</div><div className="font-medium">{slot.pillarId}</div></div>
-                        <div><div className="text-slate-500">Slot No.</div><div className="font-medium">{slot.slotNumber} ({slot.pos})</div></div>
                         <div><div className="text-slate-500">Slot ID (BE)</div><div className="font-medium">{slot.slotId ?? "—"}</div></div>
                         <div><div className="text-slate-500">Staff</div><div className="font-medium">{staffId || "—"}</div></div>
                     </div>
@@ -598,7 +595,6 @@ function RemoveBatteryModal({ open, onClose, slot, staffId, onRemoved }) {
                 <div className="p-5 space-y-3 text-sm">
                     <div className="grid grid-cols-2 gap-3">
                         <div><div className="text-slate-500">Pillar</div><div className="font-medium">{slot.pillarId}</div></div>
-                        <div><div className="text-slate-500">Slot No.</div><div className="font-medium">{slot.slotNumber} ({slot.pos})</div></div>
                         <div><div className="text-slate-500">Slot ID</div><div className="font-medium">{slot.slotId}</div></div>
                         <div><div className="text-slate-500">Battery</div><div className="font-medium">{slot.code}</div></div>
                     </div>
