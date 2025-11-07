@@ -1,161 +1,215 @@
 // src/pages/staff/Overview.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import api from "@/api/api"; // axios instance
+import React from "react";
+import api from "@/api/api";
 
-// ✅ Endpoint & param mới
-const ROUTE = "/Overview/staff-overview"; // GET with ?userId=...
+/* ===== Endpoint =====
+ * GET /Overview/staff-overview?UserId=...
+ * Trả về:
+ * {
+ *   message: "Get successfull",
+ *   data: {
+ *     stationName: "Trạm Hồ Gươm",
+ *     numberOfBat: {
+ *       numberOfBatteryFully: 36,
+ *       numberOfBatteryCharging: 0,
+ *       numberOfBatteryMaintenance: 14,
+ *       numberOfBatteryInWarehouse: 16
+ *     },
+ *     swapInDat: 0,
+ *     repostList: [ ... ]
+ *   }
+ * }
+ */
 
-function StatCard({ icon, label, value, loading }) {
-    return (
-        <div className="rounded-2xl border bg-white shadow-sm p-4 flex items-center gap-3">
-            <div className="text-2xl">{icon}</div>
-            <div>
-                <div className="text-slate-500 text-sm">{label}</div>
-                <div className="text-2xl font-bold">{loading ? "…" : (value ?? 0)}</div>
-            </div>
-        </div>
-    );
-}
+/* ===== Helpers ===== */
+// Ép kiểu an toàn cho số
+const toInt = (v, d = 0) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : d;
+};
 
-function badgeTone(statusRaw) {
-    const s = String(statusRaw || "").toLowerCase();
-    if (s === "done") return "bg-emerald-50 text-emerald-700 border-emerald-200";
-    if (s === "processing") return "bg-amber-50 text-amber-700 border-amber-200";
-    return "bg-slate-50 text-slate-700 border-slate-200";
-}
+// Lấy mảng báo cáo từ cả "repostList" hoặc "reportList" (nếu BE sai chính tả)
+const getReportArray = (data) => {
+    if (!data) return [];
+    if (Array.isArray(data.repostList)) return data.repostList;
+    if (Array.isArray(data.reportList)) return data.reportList;
+    return [];
+};
 
 export default function Overview() {
-    const [loading, setLoading] = useState(true);
-    const [err, setErr] = useState("");
-    const [data, setData] = useState(null);
+    // Lấy userId để call API (BE yêu cầu UserId)
+    const [userId] = React.useState(() => (localStorage.getItem("userId") || "").trim());
 
-    // ✅ Ưu tiên userId (theo yêu cầu), fallback các key khác nếu thiếu
-    const userId = (
-        localStorage.getItem("userId") ||
-        localStorage.getItem("staffId") ||
-        localStorage.getItem("StaffId") ||
-        ""
-    ).trim();
+    // State dữ liệu Overview
+    const [stationName, setStationName] = React.useState(() => localStorage.getItem("stationName") || "Station");
+    const [stats, setStats] = React.useState({
+        fully: 0,
+        charging: 0,
+        maintenance: 0,
+        inWarehouse: 0,
+        swapsToday: 0,
+    });
+    const [reports, setReports] = React.useState([]);
 
-    const fetchOverview = async () => {
+    // UI state
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState("");
+
+    // Gọi API lấy Overview
+    const fetchOverview = React.useCallback(async () => {
+        if (!userId) {
+            setError("Missing userId in localStorage. Please sign in again.");
+            setLoading(false);
+            return;
+        }
+
         try {
-            if (!userId) {
-                setErr("Thiếu userId trong localStorage. Vui lòng đăng nhập lại.");
-                setData(null);
-                setLoading(false);
-                return;
-            }
-            setErr("");
             setLoading(true);
+            setError("");
 
-            // ✅ Gọi đúng: /api/Overview/staff-overview?userId=...
-            const res = await api.get(ROUTE, { params: { userId } });
-            setData(res?.data?.data || null);
+            const res = await api.get("/Overview/staff-overview", { params: { UserId: userId } });
+            const data = res?.data?.data || {};
+
+            // Lưu stationName
+            const sn = data.stationName || "Station";
+            setStationName(sn);
+            try { localStorage.setItem("stationName", sn); } catch { }
+
+            // Map số liệu numberOfBat
+            const nb = data.numberOfBat || {};
+            const nextStats = {
+                fully: toInt(nb.numberOfBatteryFully),
+                charging: toInt(nb.numberOfBatteryCharging),
+                maintenance: toInt(nb.numberOfBatteryMaintenance),
+                inWarehouse: toInt(nb.numberOfBatteryInWarehouse),
+                swapsToday: toInt(data.swapInDat),
+            };
+            setStats(nextStats);
+
+            // Lấy danh sách báo cáo (nếu có)
+            setReports(getReportArray(data));
         } catch (e) {
-            setErr(e?.response?.data?.message || e?.message || "Tải overview thất bại");
-            setData(null);
+            setError(e?.response?.data?.message || e?.message || "Failed to load overview.");
         } finally {
             setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        fetchOverview();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
-    const stats = useMemo(() => {
-        const n = data?.numberOfBat || {};
-        return [
-            { key: "full", icon: "🔋", label: "Fully Charged", value: n.numberOfBatteryFully },
-            { key: "charging", icon: "🔌", label: "Charging", value: n.numberOfBatteryCharging },
-            { key: "maintenance", icon: "🛠️", label: "Maintenance", value: n.numberOfBatteryMaintenance },
-            { key: "warehouse", icon: "📦", label: "In Warehouse", value: n.numberOfBatteryInWarehouse },
-            { key: "swaps", icon: "⚡", label: "Swaps Today", value: data?.swapInDat },
-        ];
-    }, [data]);
-
-    const tickets = useMemo(() => {
-        const list = Array.isArray(data?.repostList) ? data.repostList : [];
-        return list.map((t, i) => ({
-            id: i + 1,
-            type: t.reportType || "Report",
-            note: t.reportNote || "",
-            who: t.driverName || t.staffId || "—",
-            time: t.createAt ? new Date(t.createAt).toLocaleString() : "—",
-            status: t.reportStatus || "Pending",
-        }));
-    }, [data]);
+    React.useEffect(() => {
+        fetchOverview();
+    }, [fetchOverview]);
 
     return (
         <section className="space-y-6">
-            {/* Header */}
+            {/* Header: hiển thị Station name trên đầu (nổi bật) */}
             <header className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <h1 className="text-xl font-bold m-0">Overview</h1>
-                    <p className="text-slate-500 text-sm">Tổng quan trạm & hoạt động trong ngày</p>
+                    {/* Chip station */}
+                    <span className="inline-block px-3 py-1 rounded-full border bg-white text-xs">
+                        {stationName}
+                    </span>
+                    <h1 className="text-xl font-bold mt-2">Overview</h1>
+
+                    <p className="text-sm text-slate-500">
+                        {loading ? "Loading overview…" : "Station health, inventory and reports at a glance."}
+                    </p>
                 </div>
+
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
-                        className="px-3 py-2 rounded-lg border text-sm"
                         onClick={fetchOverview}
+                        className="px-3 py-2 rounded-lg border text-sm disabled:opacity-60"
                         disabled={loading}
-                        title="Làm mới dữ liệu"
+                        title="Refresh overview"
                     >
-                        ↻ {loading ? "Loading..." : "Refresh"}
+                        ↻ Refresh
                     </button>
                 </div>
             </header>
 
             {/* Error */}
-            {!!err && <div className="text-sm text-red-600">{err}</div>}
+            {!!error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">
+                    {error}
+                </div>
+            )}
 
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                {stats.map((s) => (
-                    <StatCard
-                        key={s.key}
-                        icon={s.icon}
-                        label={s.label}
-                        value={s.value}
-                        loading={loading}
-                    />
-                ))}
-            </div>
+            {/* Stats cards */}
+            <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {/* fully */}
+                <div className="rounded-2xl border bg-white p-4 shadow-sm">
+                    <div className="text-xs text-slate-500">Fully Charged</div>
+                    <div className="mt-1 text-2xl font-bold">{stats.fully}</div>
+                </div>
 
-            {/* Tickets / Reports */}
-            <div className="rounded-2xl border bg-white shadow-sm">
-                <div className="px-4 py-3 border-b flex items-center gap-2">
-                    <span>⚠️</span>
-                    <span className="font-semibold">Sự cố / Ticket</span>
+                {/* charging */}
+                <div className="rounded-2xl border bg-white p-4 shadow-sm">
+                    <div className="text-xs text-slate-500">Charging</div>
+                    <div className="mt-1 text-2xl font-bold">{stats.charging}</div>
+                </div>
+
+                {/* maintenance */}
+                <div className="rounded-2xl border bg-white p-4 shadow-sm">
+                    <div className="text-xs text-slate-500">Maintenance</div>
+                    <div className="mt-1 text-2xl font-bold">{stats.maintenance}</div>
+                </div>
+
+                {/* in warehouse */}
+                <div className="rounded-2xl border bg-white p-4 shadow-sm">
+                    <div className="text-xs text-slate-500">In Warehouse</div>
+                    <div className="mt-1 text-2xl font-bold">{stats.inWarehouse}</div>
+                </div>
+
+                {/* swaps today (swapInDat) */}
+                <div className="rounded-2xl border bg-white p-4 shadow-sm">
+                    <div className="text-xs text-slate-500">Swaps Today</div>
+                    <div className="mt-1 text-2xl font-bold">{stats.swapsToday}</div>
+                </div>
+            </section>
+
+            {/* Reports */}
+            <section className="rounded-2xl border bg-white shadow-sm">
+                <div className="px-4 py-3 border-b flex items-center justify-between">
+                    <div className="font-semibold">Recent Reports</div>
+                    <div className="text-xs text-slate-500">{reports.length} items</div>
                 </div>
 
                 {loading ? (
-                    <div className="p-4 text-sm text-slate-500">Đang tải…</div>
-                ) : !tickets.length ? (
-                    <div className="p-4 text-sm text-slate-500">Không có ticket.</div>
+                    <div className="p-4 text-sm text-slate-500">Loading reports…</div>
+                ) : reports.length === 0 ? (
+                    <div className="p-4 text-sm text-slate-500">No reports.</div>
                 ) : (
-                    <div className="divide-y">
-                        {tickets.map((t) => (
-                            <div key={t.id} className="p-4 flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <div className="font-medium">
-                                        {t.type}{t.note ? ` — ${t.note}` : ""}
-                                    </div>
-                                    <div className="text-slate-500 text-sm">{t.who}</div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-0.5 rounded text-xs border ${badgeTone(t.status)}`}>
-                                        {t.status}
-                                    </span>
-                                    <span className="text-slate-500 text-xs">{t.time}</span>
-                                </div>
-                            </div>
-                        ))}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-3 py-2 text-left w-16">No</th>
+                                    <th className="px-3 py-2 text-left">Driver</th>
+                                    {/* <th className="px-3 py-2 text-left">Type</th>  // removed */}
+                                    <th className="px-3 py-2 text-left">Note</th>
+                                    <th className="px-3 py-2 text-left">Created At</th>
+                                    <th className="px-3 py-2 text-left">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {reports.map((r, i) => (
+                                    <tr key={`${r.staffId || i}-${i}`} className="hover:bg-slate-50">
+                                        <td className="px-3 py-2">{i + 1}</td>
+                                        <td className="px-3 py-2">{r.driverName || r.driverId || "—"}</td>
+                                        {/* <td className="px-3 py-2">{r.reportType || "—"}</td> // removed */}
+                                        <td className="px-3 py-2">{r.reportNote || "—"}</td>
+                                        <td className="px-3 py-2">
+                                            {r.createAt ? new Date(r.createAt).toLocaleString() : "—"}
+                                        </td>
+                                        <td className="px-3 py-2">{r.reportStatus || "—"}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 )}
-            </div>
+            </section>
         </section>
     );
 }

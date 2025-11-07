@@ -6,10 +6,11 @@ import "bootstrap-icons/font/bootstrap-icons.css"; // dùng icon Bootstrap
 
 /* ===== Endpoints =====
  * 1) Danh sách pillars (+ stationName): GET /PillarSlot/staff-pillar-slot?UserId=...
- * 2) Slots của 1 pillar:               GET /PillarSlot/battery-in-pillar?pillarId=PI-...
- * 3) Kho pin của trạm:                 GET /Station/station-inventory?StaffId=...
- * 4) Dock pin từ kho vào slot:         POST /PillarSlot/store-battery-inventory-to-pillar-slot
- * 5) Lấy pin ra kho:                   POST /PillarSlot/take-out-slot
+ * 2) Slots của 1 pillar:              GET /PillarSlot/battery-in-pillar?pillarId=PI-...
+ * 3) Kho pin của trạm:                GET /Station/station-inventory?StaffId=...
+ * 4) Dock pin từ kho vào slot:        POST /PillarSlot/store-battery-inventory-to-pillar-slot
+ * 5) Lấy pin ra kho:                  POST /PillarSlot/take-out-slot
+ * (ĐÃ BỎ: lấy pin đưa khách)
  */
 const ROUTES = {
     PILLARS: "/PillarSlot/staff-pillar-slot",
@@ -26,10 +27,10 @@ const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const toPos = (zeroIndex) => `${ROWS[Math.floor(zeroIndex / 4)]}${(zeroIndex % 4) + 1}`;
 
 const socColor = (soc) => {
-    if (soc == null) return "#94a3b8"; // xám khi rỗng
-    if (soc <= 20) return "#dc2626";   // đỏ
-    if (soc <= 50) return "#f59e0b";   // vàng
-    return "#22c55e";                  // xanh lá
+    if (soc == null) return "#94a3b8";   // xám khi rỗng
+    if (soc <= 20) return "#dc2626";     // đỏ
+    if (soc <= 50) return "#f59e0b";     // vàng
+    return "#22c55e";                    // xanh lá
 };
 
 const clampPct = (x) => {
@@ -38,13 +39,6 @@ const clampPct = (x) => {
 };
 
 const isLock = (v) => String(v || "").trim().toLowerCase() === "lock";
-
-// Ưu tiên hiển thị: Slot ID (BE) -> slotNumber -> pos A1..E4
-const slotLabel = (slot) => {
-    if (slot?.slotId != null && slot?.slotId !== "") return String(slot.slotId);
-    if (Number.isFinite(slot?.slotNumber)) return `#${slot.slotNumber}`;
-    return slot?.pos ?? "";
-};
 
 /* ===== Normalizers ===== */
 function normalizePillarsFromServer(payload, setStationName) {
@@ -67,8 +61,7 @@ function normalizePillarsFromServer(payload, setStationName) {
             return {
                 pillarId: id,
                 pillarName: x?.pillarName || "",
-                // Giữ 20 mặc định vì layout cố định 5x4
-                totalSlots: Number(x?.totalSlots ?? x?.slotCount ?? 20) || 20,
+                totalSlots: Number(x?.slotId ?? x?.totalSlots ?? x?.slotCount ?? 20) || 20,
                 summary: {
                     empty: Number(x?.numberOfSlotEmpty ?? x?.empty ?? 0) || 0,
                     red: Number(x?.numberOfSlotRed ?? 0) || 0,
@@ -90,13 +83,14 @@ function normalizePillarsFromServer(payload, setStationName) {
 function normalizeSlotsFromServer(payload, pillarId) {
     const serverList = Array.isArray(payload)
         ? payload
-        : Array.isArray(payload?.data) ? payload.data : [];
+        : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
 
     const slots = Array.from({ length: 20 }, (_, i) => ({
         pillarId,
         index: i,
         slotNumber: i + 1,
-        slotId: null,
         slotId: null,
         code: null,
         pos: toPos(i),
@@ -105,7 +99,7 @@ function normalizeSlotsFromServer(payload, pillarId) {
         empty: true,
         stationId: null,
         batteryStatus: null,
-        pillarStatus: null,
+        pillarStatus: null, // "lock" nếu bị khoá
     }));
 
     for (const s of serverList) {
@@ -119,9 +113,6 @@ function normalizeSlotsFromServer(payload, pillarId) {
         const socRaw = s?.batterySoc ?? s?.soc ?? s?.battery?.soc;
         const sohRaw = s?.batterySoh ?? s?.soh ?? s?.battery?.soh;
 
-        const pillarStatusRaw = s?.pillarStatus ?? s?.slotStatus ?? null; // <-- lấy đúng trụ
-        const isLocked = String(pillarStatusRaw ?? "").trim().toLowerCase() === "lock"; // <-- LOCK theo pillarStatus
-
         slots[idx] = {
             ...slots[idx],
             slotNumber,
@@ -130,10 +121,8 @@ function normalizeSlotsFromServer(payload, pillarId) {
             soc: clampPct(socRaw),
             soh: clampPct(sohRaw),
             stationId: s?.stationId ?? s?.station ?? null,
-            batteryStatus: s?.batteryStatus ?? s?.battery_status ?? null,
-            pillarStatus: pillarStatusRaw,
-            status: s?.status ?? null, // chỉ hiển thị nếu cần
-            isLocked,
+            batteryStatus: s?.batteryStatus ?? s?.status ?? null,
+            pillarStatus: s?.pillarStatus ?? null,
             empty: !code,
         };
     }
@@ -196,8 +185,6 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
         onClick?.();
     };
 
-    const topLeftLabel = slotLabel(data);
-
     return (
         <button
             onClick={handleClick}
@@ -206,10 +193,10 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
         ${selected ? (isMaintenance ? "ring-2 ring-red-500" : locked ? "" : "ring-2 ring-blue-500") : ""}`}
             title={
                 isEmpty
-                    ? `${data.pillarId} • ${topLeftLabel || data.pos} • Empty • SlotId ${data.slotId ?? "—"} • SlotNo ${data.slotNumber}${locked ? " • Locked" : ""}`
-                    : `${data.pillarId} • ${data.code} • ${topLeftLabel || data.pos} • SlotId ${data.slotId ?? "—"} • SlotNo ${data.slotNumber} • SoC ${soc}%`
-                    + (isMaintenance ? " • Maintenance" : "")
-                    + (locked ? " • Locked" : "")
+                    ? `${data.pillarId} • ${data.pos} • Empty • SlotNo ${data.slotNumber}${locked ? " • Locked" : ""}`
+                    : `${data.pillarId} • ${data.code} • ${data.pos} • SlotNo ${data.slotNumber} • SoC ${soc}%` +
+                    (isMaintenance ? " • Maintenance" : "") +
+                    (locked ? " • Locked" : "")
             }
             type="button"
             disabled={locked}
@@ -225,28 +212,28 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
             {/* Nội dung giữa (đã đổi sang icon) */}
             <div className="absolute inset-0 grid place-items-center text-[13px] font-semibold">
                 {locked ? (
+                    // Icon lock giữa ô
                     <i className="bi bi-lock text-2xl text-slate-800" aria-label="Locked" />
                 ) : isEmpty ? (
                     "＋"
                 ) : isMaintenance ? (
+                    // Icon maintenance giữa ô
                     <i className="bi bi-exclamation-triangle text-xl text-red-600" aria-label="Maintenance" />
                 ) : (
                     `${soc}%`
                 )}
             </div>
 
-            {/* Gốc trái trên: HIỂN THỊ SLOT ID (BE) */}
+            {/* Gốc trái trên: vị trí A1..E4 */}
             <div className="absolute left-2 top-2 text-[11px] font-bold text-slate-700">
-                {topLeftLabel}
+                {data.pos}
             </div>
 
             {/* Gốc phải dưới: battery code */}
             {!isEmpty && (
-                <><div className="absolute right-2 bottom-2 text-[11px] font-medium opacity-80">
+                <div className="absolute right-2 bottom-2 text-[11px] font-medium opacity-80">
                     {data.code}
-                </div><div className="absolute right-2 bottom-2 text-[11px] font-medium opacity-80">
-                        {data.code}
-                    </div></>
+                </div>
             )}
 
             {/* Badge Maintenance (có icon) */}
@@ -272,19 +259,21 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
                         role="button"
                         tabIndex={0}
                         className="w-full inline-flex justify-center text-xs px-2 py-1 rounded-md border bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                        onClick={(e) => { e.stopPropagation(); onAdd(data); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onAdd(data);
+                        }}
                         onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onAdd(data); }
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onAdd(data);
+                            }
                         }}
                     >
                         Add Battery
                     </span>
                 </div>
-            )}
-
-            {/* overlay mờ khi locked */}
-            {isLocked && (
-                <div className="absolute inset-0 rounded-xl bg-black/10 pointer-events-none" />
             )}
         </button>
     );
@@ -308,7 +297,7 @@ function DetailPanel({ selected, onRequestRemove }) {
         ? String(selected.batteryStatus).toLowerCase() === "maintenance"
             ? (
                 <span className="inline-flex items-center gap-1">
-                    <i className="bi bi-exclamation-triangle" aria-hidden="true" />
+                    <i className="bi bi-exclamation-triangle text-amber-600" aria-hidden="true" />
                     <span>Maintenance</span>
                 </span>
             )
@@ -335,13 +324,16 @@ function DetailPanel({ selected, onRequestRemove }) {
             ) : selected.empty ? (
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
+                    <Row k="Slot No." v={selected.slotNumber} />
                     <Row k="Position" v={selected.pos} />
                     <div className="mt-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm">Empty slot</div>
                 </div>
             ) : (
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
-                    <Row k="Slot ID" v={selected.slotId ?? "—"} />
+                    <Row k="Slot No." v={selected.slotNumber} />
+                    <Row k="Slot ID (BE)" v={selected.slotId ?? "—"} />
+                    <Row k="Position" v={selected.pos} />
                     <Row k="Battery Code" v={selected.code} />
                     <Row k="SoC" v={`${selected.soc}%`} />
                     <Row k="SoH" v={`${selected.soh}%`} />
@@ -359,19 +351,12 @@ function DetailPanel({ selected, onRequestRemove }) {
                     <div className="pt-3 flex justify-end">
                         <button
                             type="button"
-                            className="px-3 py-2 rounded-lg border bg-red-600 text-white text-sm"
-                            onClick={() => onRequestRemove?.(selected)}
-                            title="Lấy pin ra và đưa về kho"
+                            className={`px-3 py-2 rounded-lg border text-sm ${locked ? "bg-slate-200 text-slate-500 cursor-not-allowed" : "bg-red-600 text-white"}`}
+                            onClick={() => !locked && onRequestRemove?.(selected)}
+                            title={locked ? "Locked. You cannot remove battery." : "Remove battery to warehouse"}
+                            disabled={locked}
                         >
-                            Lấy Pin ra (kho)
-                        </button>
-                        <button
-                            type="button"
-                            className="px-3 py-2 rounded-lg border bg-amber-600 text-white text-sm"
-                            onClick={() => onRequestGive?.(selected)}
-                            title="Lấy pin ra đưa cho khách"
-                        >
-                            Lấy Pin đưa khách
+                            Remove to Warehouse
                         </button>
                     </div>
                 </div>
@@ -466,8 +451,6 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
 
     if (!open || !slot) return null;
 
-    const locked = !!slot?.isLocked; // lock đúng theo status === "lock"
-
     return (
         <div className="fixed inset-0 z-[100]">
             <div className="absolute inset-0 bg-black/40" onClick={() => !busy && onClose?.()} />
@@ -480,15 +463,10 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                 <div className="p-5 space-y-4">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                         <div><div className="text-slate-500">Pillar</div><div className="font-medium">{slot.pillarId}</div></div>
+                        <div><div className="text-slate-500">Slot No.</div><div className="font-medium">{slot.slotNumber} ({slot.pos})</div></div>
                         <div><div className="text-slate-500">Slot ID (BE)</div><div className="font-medium">{slot.slotId ?? "—"}</div></div>
                         <div><div className="text-slate-500">Staff</div><div className="font-medium">{staffId || "—"}</div></div>
                     </div>
-
-                    {locked && (
-                        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                            🔒 Slot đang ở trạng thái <b>Locked</b> (status = "lock"). Không thể dock pin vào slot này.
-                        </div>
-                    )}
 
                     <div className="flex items-center justify-between gap-3">
                         <input
@@ -496,7 +474,7 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                             placeholder="Search by Battery ID..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            disabled={loadingInv || locked}
+                            disabled={loadingInv}
                         />
                         <div className="text-xs text-slate-500 shrink-0">
                             {loadingInv ? "Loading warehouse…" : `Warehouse: ${warehouse.length} batteries`}
@@ -519,7 +497,7 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                             </thead>
                             <tbody>
                                 {loadingInv ? (
-                                    <tr><td className="px-3 py-3 text-slate-500" colSpan={5}>Đang tải…</td></tr>
+                                    <tr><td className="px-3 py-3 text-slate-500" colSpan={5}>Loading…</td></tr>
                                 ) : filtered.length === 0 ? (
                                     <tr><td className="px-3 py-3 text-slate-500" colSpan={5}>No matching batteries.</td></tr>
                                 ) : (
@@ -531,7 +509,6 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                                                     name="pickBattery"
                                                     checked={selectedId === b.batteryId}
                                                     onChange={() => setSelectedId(b.batteryId)}
-                                                    disabled={locked}
                                                 />
                                             </td>
                                             <td className="px-3 py-2 font-medium">{b.batteryId}</td>
@@ -540,7 +517,7 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                                             <td className="px-3 py-2">{b.capacity ? `${b.capacity} kWh` : "—"}</td>
                                         </tr>
                                     ))
-                                ))}
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -553,7 +530,7 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                             className="px-3 py-2 rounded-lg border bg-blue-600 text-white text-sm disabled:opacity-60"
                             onClick={handleDock}
                             disabled={busy || !selectedId}
-                            title={!selectedId ? "Chọn 1 Pin trước" : "Dock Pin vào slot (dùng slotId thật)"}
+                            title={!selectedId ? "Pick a battery first" : "Dock battery into slot (use real slotId)"}
                             type="button"
                         >
                             {busy ? "Processing…" : "Dock Battery"}
@@ -614,6 +591,7 @@ function RemoveBatteryModal({ open, onClose, slot, staffId, onRemoved }) {
                 <div className="p-5 space-y-3 text-sm">
                     <div className="grid grid-cols-2 gap-3">
                         <div><div className="text-slate-500">Pillar</div><div className="font-medium">{slot.pillarId}</div></div>
+                        <div><div className="text-slate-500">Slot No.</div><div className="font-medium">{slot.slotNumber} ({slot.pos})</div></div>
                         <div><div className="text-slate-500">Slot ID</div><div className="font-medium">{slot.slotId}</div></div>
                         <div><div className="text-slate-500">Battery</div><div className="font-medium">{slot.code}</div></div>
                     </div>
@@ -631,83 +609,7 @@ function RemoveBatteryModal({ open, onClose, slot, staffId, onRemoved }) {
                             title="Remove battery to warehouse"
                             type="button"
                         >
-                            {busy ? "Đang xử lý…" : "Xác nhận lấy Pin"}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-/* ===== Modal: Lấy pin đưa khách ===== */
-function GiveBatteryModal({ open, onClose, slot, staffId, onGave }) {
-    const [busy, setBusy] = useState(false);
-    const [msg, setMsg] = useState("");
-
-    useEffect(() => { if (open) { setBusy(false); setMsg(""); } }, [open]);
-
-    const toast = (t, isErr = false) => {
-        setMsg(t ? (isErr ? `❌ ${t}` : `✅ ${t}`) : "");
-        if (t) setTimeout(() => setMsg(""), 2200);
-    };
-
-    const handleGive = async () => {
-        if (!slot?.slotId) return toast("Thiếu slotId (ID thật). Mở lại trụ để tải dữ liệu mới.", true);
-        if (!staffId) return toast("Thiếu StaffId — vui lòng đăng nhập lại.", true);
-
-        try {
-            setBusy(true);
-            const payload = {
-                staffId,
-                pillarSlotId: Number(slot.slotId) || slot.slotId,
-                batteryId: slot.code, // theo yêu cầu: dùng batteryId
-            };
-            const res = await api.post(ROUTES.TAKE_OUT_CUSTOMER, payload);
-            toast(res?.data?.message || "Đã lấy pin ra khỏi slot và bàn giao cho khách.");
-            onGave?.();
-            setTimeout(() => onClose?.(), 300);
-        } catch (e) {
-            console.error(e);
-            toast(e?.response?.data?.message || e?.message || "Thao tác thất bại", true);
-        } finally {
-            setBusy(false);
-        }
-    };
-
-    if (!open || !slot) return null;
-
-    return (
-        <div className="fixed inset-0 z-[100]">
-            <div className="absolute inset-0 bg-black/40" onClick={() => !busy && onClose?.()} />
-            <div className="absolute inset-x-0 top-[12%] mx-auto max-w-md rounded-2xl border bg-white shadow-xl">
-                <div className="px-5 py-4 border-b flex items-center justify-between">
-                    <div className="font-semibold">Xác nhận giao Pin cho khách</div>
-                    <button className="text-slate-500 hover:text-slate-700" onClick={() => !busy && onClose?.()} title="Đóng" type="button">✕</button>
-                </div>
-
-                <div className="p-5 space-y-3 text-sm">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div><div className="text-slate-500">Pillar</div><div className="font-medium">{slot.pillarId}</div></div>
-                        <div><div className="text-slate-500">Slot No.</div><div className="font-medium">{slot.slotNumber} ({slot.pos})</div></div>
-                        <div><div className="text-slate-500">Slot ID</div><div className="font-medium">{slot.slotId}</div></div>
-                        <div><div className="text-slate-500">Battery</div><div className="font-medium">{slot.code}</div></div>
-                    </div>
-
-                    {!!msg && <div className="font-semibold">{msg}</div>}
-
-                    <div className="pt-2 flex items-center justify-end gap-2">
-                        <button className="px-3 py-2 rounded-lg border text-sm" onClick={() => !busy && onClose?.()} type="button">
-                            Hủy
-                        </button>
-                        <button
-                            className="px-3 py-2 rounded-lg border bg-amber-600 text-white text-sm disabled:opacity-60"
-                            onClick={handleGive}
-                            disabled={busy}
-                            title="Lấy pin ra và giao cho khách"
-                            type="button"
-                        >
-                            {busy ? "Đang xử lý…" : "Xác nhận giao khách"}
+                            {busy ? "Processing…" : "Confirm Remove"}
                         </button>
                     </div>
                 </div>
@@ -760,7 +662,7 @@ export default function BatteryManager() {
 
                 const list = normalizePillarsFromServer(res.data, (sn) => {
                     setStationName(sn);
-                    try { localStorage.setItem("stationName", sn); } catch { /* ignore */ }
+                    try { localStorage.setItem("stationName", sn); } catch { }
                 });
                 setPillars(list);
             } catch (e) {
@@ -804,7 +706,7 @@ export default function BatteryManager() {
             const normalized = normalizeSlotsFromServer(res.data, activePillarId);
             setSlotsByPillar((prev) => ({ ...prev, [activePillarId]: normalized }));
         } catch {
-            // giữ nguyên nếu lỗi
+            // giữ nguyên
         } finally {
             setLoadingSlots(false);
         }
@@ -814,10 +716,10 @@ export default function BatteryManager() {
 
     const legend = useMemo(
         () => [
-            { color: "#ef4444", label: "Maintenance (ô đỏ)" },
-            { color: "#dc2626", label: "≤ 20% (Đỏ SoC)" },
-            { color: "#f59e0b", label: "21–50% (Vàng SoC)" },
-            { color: "#22c55e", label: "> 50% (Xanh lá SoC)" },
+            { color: "#ef4444", label: "Maintenance (red tile)" },
+            { color: "#dc2626", label: "≤ 20% SoC (red bar)" },
+            { color: "#f59e0b", label: "21–50% SoC (amber bar)" },
+            { color: "#22c55e", label: "> 50% SoC (green bar)" },
             { color: "#94a3b8", label: "Empty" },
             { color: "#cbd5e1", label: "Locked (disabled)" },
         ],

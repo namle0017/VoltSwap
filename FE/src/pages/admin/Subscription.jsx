@@ -448,10 +448,6 @@ export default function Subscription() {
                     <h2 className="text-lg font-semibold text-gray-900">
                         Fees by Group: {activeGroupKey || "—"}
                     </h2>
-<<<<<<< HEAD
-                    <div className="text-sm text-gray-500">(Dữ liệu theo /Plan/view-plan-detail)</div>
-=======
->>>>>>> feature/initial-upload
                 </div>
 
                 {"batteryDeposit" in activeFeeSummary &&
