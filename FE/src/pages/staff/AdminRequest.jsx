@@ -105,7 +105,7 @@ export default function AdminRequest() {
     return (
         <section style={{ fontFamily: "system-ui", color: "#0f172a" }}>
             <h2 style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 800 }}>
-                Staff → Admin Report
+                Admin request
             </h2>
             <p style={{ margin: "0 0 14px", fontSize: 12, color: "#6b7280" }}>
                 Staff ID: <strong>{staffId || "N/A (please login)"}</strong>

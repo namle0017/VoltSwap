@@ -337,8 +337,7 @@ function DetailPanel({ selected, onRequestRemove }) {
             ) : (
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
-                    <Row k="Slot ID (BE)" v={selected.slotId ?? "—"} />
-                    <Row k="Position" v={selected.pos} />
+                    <Row k="Slot ID" v={selected.slotId ?? "—"} />
                     <Row k="Battery Code" v={selected.code} />
                     <Row k="SoC" v={`${selected.soc}%`} />
                     <Row k="SoH" v={`${selected.soh}%`} />
