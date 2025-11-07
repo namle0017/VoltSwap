@@ -1,4 +1,5 @@
 // src/api/batterySwapApi.js
+// src/api/batterySwapApi.js
 import axios from "axios";
 
 export const batteryApi = axios.create({
@@ -9,6 +10,18 @@ export const batteryApi = axios.create({
 batteryApi.interceptors.request.use((config) => {
   const fullUrl = (config.baseURL || "") + (config.url || "");
   console.log(`[HTTP] ${config.method?.toUpperCase()} ${fullUrl}`, config);
+  // Gắn token tự động nếu có (fix cho lỗi 401 khi gọi các API BatterySwap)
+  try {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    // eslint-disable-next-line no-unused-vars
+  } catch (e) {
+    // localStorage có thể không tồn tại trong một vài môi trường test - ignore
+  }
+
   return config;
 });
 
