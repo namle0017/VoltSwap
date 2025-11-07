@@ -146,9 +146,8 @@ export default function RegisterService() {
                 plans.map((p) => (
                   <tr
                     key={p.planId}
-                    className={`border-b hover:bg-yellow-50 transition ${
-                      selected?.planId === p.planId ? "bg-yellow-100" : ""
-                    }`}
+                    className={`border-b hover:bg-yellow-50 transition ${selected?.planId === p.planId ? "bg-yellow-100" : ""
+                      }`}
                   >
                     <td className="p-3 font-semibold text-gray-800">
                       {p.planName}
@@ -173,11 +172,10 @@ export default function RegisterService() {
                       </button>
                       <button
                         onClick={() => setSelected(p)}
-                        className={`px-3 py-1 rounded-full ${
-                          selected?.planId === p.planId
+                        className={`px-3 py-1 rounded-full ${selected?.planId === p.planId
                             ? "bg-yellow-400 font-semibold"
                             : "bg-yellow-200 hover:bg-yellow-300"
-                        }`}
+                          }`}
                       >
                         {selected?.planId === p.planId ? "Selected" : "Choose"}
                       </button>
@@ -193,11 +191,10 @@ export default function RegisterService() {
           <button
             onClick={register}
             disabled={!selected}
-            className={`px-6 py-2 rounded-lg font-semibold ${
-              selected
+            className={`px-6 py-2 rounded-lg font-semibold ${selected
                 ? "bg-blue-600 text-white hover:bg-blue-700"
                 : "bg-gray-400 text-gray-100 cursor-not-allowed"
-            }`}
+              }`}
           >
             <i
               className="bi bi-check-circle-fill"

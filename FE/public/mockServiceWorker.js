@@ -7,6 +7,7 @@
  * - Please do NOT modify this file.
  */
 
+<<<<<<< HEAD
 const PACKAGE_VERSION = '2.11.4'
 const INTEGRITY_CHECKSUM = '4db4a41e972cec1b64cc569c66952d82'
 const IS_MOCKED_RESPONSE = Symbol('isMockedResponse')
@@ -48,10 +49,54 @@ addEventListener('message', async function (event) {
     case 'INTEGRITY_CHECK_REQUEST': {
       sendToClient(client, {
         type: 'INTEGRITY_CHECK_RESPONSE',
+=======
+const PACKAGE_VERSION = "2.11.4";
+const INTEGRITY_CHECKSUM = "4db4a41e972cec1b64cc569c66952d82";
+const IS_MOCKED_RESPONSE = Symbol("isMockedResponse");
+const activeClientIds = new Set();
+
+addEventListener("install", function () {
+  self.skipWaiting();
+});
+
+addEventListener("activate", function (event) {
+  event.waitUntil(self.clients.claim());
+});
+
+addEventListener("message", async function (event) {
+  const clientId = Reflect.get(event.source || {}, "id");
+
+  if (!clientId || !self.clients) {
+    return;
+  }
+
+  const client = await self.clients.get(clientId);
+
+  if (!client) {
+    return;
+  }
+
+  const allClients = await self.clients.matchAll({
+    type: "window",
+  });
+
+  switch (event.data) {
+    case "KEEPALIVE_REQUEST": {
+      sendToClient(client, {
+        type: "KEEPALIVE_RESPONSE",
+      });
+      break;
+    }
+
+    case "INTEGRITY_CHECK_REQUEST": {
+      sendToClient(client, {
+        type: "INTEGRITY_CHECK_RESPONSE",
+>>>>>>> feature/initial-upload
         payload: {
           packageVersion: PACKAGE_VERSION,
           checksum: INTEGRITY_CHECKSUM,
         },
+<<<<<<< HEAD
       })
       break
     }
@@ -61,12 +106,24 @@ addEventListener('message', async function (event) {
 
       sendToClient(client, {
         type: 'MOCKING_ENABLED',
+=======
+      });
+      break;
+    }
+
+    case "MOCK_ACTIVATE": {
+      activeClientIds.add(clientId);
+
+      sendToClient(client, {
+        type: "MOCKING_ENABLED",
+>>>>>>> feature/initial-upload
         payload: {
           client: {
             id: client.id,
             frameType: client.frameType,
           },
         },
+<<<<<<< HEAD
       })
       break
     }
@@ -94,27 +151,72 @@ addEventListener('fetch', function (event) {
   // Bypass navigation requests.
   if (event.request.mode === 'navigate') {
     return
+=======
+      });
+      break;
+    }
+
+    case "CLIENT_CLOSED": {
+      activeClientIds.delete(clientId);
+
+      const remainingClients = allClients.filter((client) => {
+        return client.id !== clientId;
+      });
+
+      // Unregister itself when there are no more clients
+      if (remainingClients.length === 0) {
+        self.registration.unregister();
+      }
+
+      break;
+    }
+  }
+});
+
+addEventListener("fetch", function (event) {
+  const requestInterceptedAt = Date.now();
+
+  // Bypass navigation requests.
+  if (event.request.mode === "navigate") {
+    return;
+>>>>>>> feature/initial-upload
   }
 
   // Opening the DevTools triggers the "only-if-cached" request
   // that cannot be handled by the worker. Bypass such requests.
   if (
+<<<<<<< HEAD
     event.request.cache === 'only-if-cached' &&
     event.request.mode !== 'same-origin'
   ) {
     return
+=======
+    event.request.cache === "only-if-cached" &&
+    event.request.mode !== "same-origin"
+  ) {
+    return;
+>>>>>>> feature/initial-upload
   }
 
   // Bypass all requests when there are no active clients.
   // Prevents the self-unregistered worked from handling requests
   // after it's been terminated (still remains active until the next reload).
   if (activeClientIds.size === 0) {
+<<<<<<< HEAD
     return
   }
 
   const requestId = crypto.randomUUID()
   event.respondWith(handleRequest(event, requestId, requestInterceptedAt))
 })
+=======
+    return;
+  }
+
+  const requestId = crypto.randomUUID();
+  event.respondWith(handleRequest(event, requestId, requestInterceptedAt));
+});
+>>>>>>> feature/initial-upload
 
 /**
  * @param {FetchEvent} event
@@ -122,28 +224,49 @@ addEventListener('fetch', function (event) {
  * @param {number} requestInterceptedAt
  */
 async function handleRequest(event, requestId, requestInterceptedAt) {
+<<<<<<< HEAD
   const client = await resolveMainClient(event)
   const requestCloneForEvents = event.request.clone()
+=======
+  const client = await resolveMainClient(event);
+  const requestCloneForEvents = event.request.clone();
+>>>>>>> feature/initial-upload
   const response = await getResponse(
     event,
     client,
     requestId,
+<<<<<<< HEAD
     requestInterceptedAt,
   )
+=======
+    requestInterceptedAt
+  );
+>>>>>>> feature/initial-upload
 
   // Send back the response clone for the "response:*" life-cycle events.
   // Ensure MSW is active and ready to handle the message, otherwise
   // this message will pend indefinitely.
   if (client && activeClientIds.has(client.id)) {
+<<<<<<< HEAD
     const serializedRequest = await serializeRequest(requestCloneForEvents)
 
     // Clone the response so both the client and the library could consume it.
     const responseClone = response.clone()
+=======
+    const serializedRequest = await serializeRequest(requestCloneForEvents);
+
+    // Clone the response so both the client and the library could consume it.
+    const responseClone = response.clone();
+>>>>>>> feature/initial-upload
 
     sendToClient(
       client,
       {
+<<<<<<< HEAD
         type: 'RESPONSE',
+=======
+        type: "RESPONSE",
+>>>>>>> feature/initial-upload
         payload: {
           isMockedResponse: IS_MOCKED_RESPONSE in response,
           request: {
@@ -159,11 +282,19 @@ async function handleRequest(event, requestId, requestInterceptedAt) {
           },
         },
       },
+<<<<<<< HEAD
       responseClone.body ? [serializedRequest.body, responseClone.body] : [],
     )
   }
 
   return response
+=======
+      responseClone.body ? [serializedRequest.body, responseClone.body] : []
+    );
+  }
+
+  return response;
+>>>>>>> feature/initial-upload
 }
 
 /**
@@ -175,6 +306,7 @@ async function handleRequest(event, requestId, requestInterceptedAt) {
  * @returns {Promise<Client | undefined>}
  */
 async function resolveMainClient(event) {
+<<<<<<< HEAD
   const client = await self.clients.get(event.clientId)
 
   if (activeClientIds.has(event.clientId)) {
@@ -188,17 +320,41 @@ async function resolveMainClient(event) {
   const allClients = await self.clients.matchAll({
     type: 'window',
   })
+=======
+  const client = await self.clients.get(event.clientId);
+
+  if (activeClientIds.has(event.clientId)) {
+    return client;
+  }
+
+  if (client?.frameType === "top-level") {
+    return client;
+  }
+
+  const allClients = await self.clients.matchAll({
+    type: "window",
+  });
+>>>>>>> feature/initial-upload
 
   return allClients
     .filter((client) => {
       // Get only those clients that are currently visible.
+<<<<<<< HEAD
       return client.visibilityState === 'visible'
+=======
+      return client.visibilityState === "visible";
+>>>>>>> feature/initial-upload
     })
     .find((client) => {
       // Find the client ID that's recorded in the
       // set of clients that have registered the worker.
+<<<<<<< HEAD
       return activeClientIds.has(client.id)
     })
+=======
+      return activeClientIds.has(client.id);
+    });
+>>>>>>> feature/initial-upload
 }
 
 /**
@@ -211,16 +367,25 @@ async function resolveMainClient(event) {
 async function getResponse(event, client, requestId, requestInterceptedAt) {
   // Clone the request because it might've been already used
   // (i.e. its body has been read and sent to the client).
+<<<<<<< HEAD
   const requestClone = event.request.clone()
+=======
+  const requestClone = event.request.clone();
+>>>>>>> feature/initial-upload
 
   function passthrough() {
     // Cast the request headers to a new Headers instance
     // so the headers can be manipulated with.
+<<<<<<< HEAD
     const headers = new Headers(requestClone.headers)
+=======
+    const headers = new Headers(requestClone.headers);
+>>>>>>> feature/initial-upload
 
     // Remove the "accept" header value that marked this request as passthrough.
     // This prevents request alteration and also keeps it compliant with the
     // user-defined CORS policies.
+<<<<<<< HEAD
     const acceptHeader = headers.get('accept')
     if (acceptHeader) {
       const values = acceptHeader.split(',').map((value) => value.trim())
@@ -236,11 +401,32 @@ async function getResponse(event, client, requestId, requestInterceptedAt) {
     }
 
     return fetch(requestClone, { headers })
+=======
+    const acceptHeader = headers.get("accept");
+    if (acceptHeader) {
+      const values = acceptHeader.split(",").map((value) => value.trim());
+      const filteredValues = values.filter(
+        (value) => value !== "msw/passthrough"
+      );
+
+      if (filteredValues.length > 0) {
+        headers.set("accept", filteredValues.join(", "));
+      } else {
+        headers.delete("accept");
+      }
+    }
+
+    return fetch(requestClone, { headers });
+>>>>>>> feature/initial-upload
   }
 
   // Bypass mocking when the client is not active.
   if (!client) {
+<<<<<<< HEAD
     return passthrough()
+=======
+    return passthrough();
+>>>>>>> feature/initial-upload
   }
 
   // Bypass initial page load requests (i.e. static assets).
@@ -248,6 +434,7 @@ async function getResponse(event, client, requestId, requestInterceptedAt) {
   // means that MSW hasn't dispatched the "MOCK_ACTIVATE" event yet
   // and is not ready to handle requests.
   if (!activeClientIds.has(client.id)) {
+<<<<<<< HEAD
     return passthrough()
   }
 
@@ -257,12 +444,24 @@ async function getResponse(event, client, requestId, requestInterceptedAt) {
     client,
     {
       type: 'REQUEST',
+=======
+    return passthrough();
+  }
+
+  // Notify the client that a request has been intercepted.
+  const serializedRequest = await serializeRequest(event.request);
+  const clientMessage = await sendToClient(
+    client,
+    {
+      type: "REQUEST",
+>>>>>>> feature/initial-upload
       payload: {
         id: requestId,
         interceptedAt: requestInterceptedAt,
         ...serializedRequest,
       },
     },
+<<<<<<< HEAD
     [serializedRequest.body],
   )
 
@@ -277,6 +476,22 @@ async function getResponse(event, client, requestId, requestInterceptedAt) {
   }
 
   return passthrough()
+=======
+    [serializedRequest.body]
+  );
+
+  switch (clientMessage.type) {
+    case "MOCK_RESPONSE": {
+      return respondWithMock(clientMessage.data);
+    }
+
+    case "PASSTHROUGH": {
+      return passthrough();
+    }
+  }
+
+  return passthrough();
+>>>>>>> feature/initial-upload
 }
 
 /**
@@ -287,6 +502,7 @@ async function getResponse(event, client, requestId, requestInterceptedAt) {
  */
 function sendToClient(client, message, transferrables = []) {
   return new Promise((resolve, reject) => {
+<<<<<<< HEAD
     const channel = new MessageChannel()
 
     channel.port1.onmessage = (event) => {
@@ -296,12 +512,28 @@ function sendToClient(client, message, transferrables = []) {
 
       resolve(event.data)
     }
+=======
+    const channel = new MessageChannel();
+
+    channel.port1.onmessage = (event) => {
+      if (event.data && event.data.error) {
+        return reject(event.data.error);
+      }
+
+      resolve(event.data);
+    };
+>>>>>>> feature/initial-upload
 
     client.postMessage(message, [
       channel.port2,
       ...transferrables.filter(Boolean),
+<<<<<<< HEAD
     ])
   })
+=======
+    ]);
+  });
+>>>>>>> feature/initial-upload
 }
 
 /**
@@ -314,17 +546,30 @@ function respondWithMock(response) {
   // instance will have status code set to 0. Since it's not possible to create
   // a Response instance with status code 0, handle that use-case separately.
   if (response.status === 0) {
+<<<<<<< HEAD
     return Response.error()
   }
 
   const mockedResponse = new Response(response.body, response)
+=======
+    return Response.error();
+  }
+
+  const mockedResponse = new Response(response.body, response);
+>>>>>>> feature/initial-upload
 
   Reflect.defineProperty(mockedResponse, IS_MOCKED_RESPONSE, {
     value: true,
     enumerable: true,
+<<<<<<< HEAD
   })
 
   return mockedResponse
+=======
+  });
+
+  return mockedResponse;
+>>>>>>> feature/initial-upload
 }
 
 /**
@@ -345,5 +590,9 @@ async function serializeRequest(request) {
     referrerPolicy: request.referrerPolicy,
     body: await request.arrayBuffer(),
     keepalive: request.keepalive,
+<<<<<<< HEAD
   }
+=======
+  };
+>>>>>>> feature/initial-upload
 }

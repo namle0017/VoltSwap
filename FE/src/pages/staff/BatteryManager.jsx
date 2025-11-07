@@ -327,16 +327,18 @@ function DetailPanel({ selected, onRequestRemove }) {
             <div className="font-semibold mb-3">Battery Details</div>
 
             {!selected ? (
-                <p className="text-sm text-slate-500">Pick a slot to view details (SoH, SoC, battery code).</p>
+                <p className="text-sm text-slate-500">Pick a slot to view details (SoH, SoC, position, battery code).</p>
             ) : selected.empty ? (
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
+                    <Row k="Position" v={selected.pos} />
                     <div className="mt-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm">Empty slot</div>
                 </div>
             ) : (
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
                     <Row k="Slot ID (BE)" v={selected.slotId ?? "—"} />
+                    <Row k="Position" v={selected.pos} />
                     <Row k="Battery Code" v={selected.code} />
                     <Row k="SoC" v={`${selected.soc}%`} />
                     <Row k="SoH" v={`${selected.soh}%`} />

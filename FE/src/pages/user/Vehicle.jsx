@@ -88,7 +88,7 @@ export default function Vehicle() {
           setPendingRecs((prev) => prev.filter((x) => x !== VIN));
           return true;
         }
-      } catch {}
+      } catch { }
     }
     setPendingRecs((prev) => prev.filter((x) => x !== VIN));
     return false;

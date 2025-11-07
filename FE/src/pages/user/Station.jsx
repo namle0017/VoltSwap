@@ -117,10 +117,9 @@ function BookingCountdownBanner({
             <button
               onClick={onNavigate}
               className={`px-3 py-1.5 rounded-lg text-white text-sm
-                ${
-                  danger
-                    ? "bg-red-600 hover:bg-red-700"
-                    : "bg-amber-600 hover:bg-amber-700"
+                ${danger
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-amber-600 hover:bg-amber-700"
                 }`}
             >
               Navigate now
@@ -394,8 +393,7 @@ export default function Station() {
         // Thông báo nhẹ cho người dùng lúc tạo (không phải cảnh báo muộn)
         notify(
           "Booking created",
-          `Batteries locked at ${
-            selectedStation.stationName
+          `Batteries locked at ${selectedStation.stationName
           }. Expires in ${formatMMSS(lockSeconds)}`
         );
       }
@@ -538,7 +536,7 @@ export default function Station() {
                           lng: st.locationLon,
                         }) /
                           40) *
-                          60
+                        60
                       )}{" "}
                       mins
                     </p>
@@ -600,8 +598,8 @@ export default function Station() {
             st.availablePercent >= 70
               ? "bg-green-400"
               : st.availablePercent >= 40
-              ? "bg-yellow-400"
-              : "bg-red-400";
+                ? "bg-yellow-400"
+                : "bg-red-400";
           return (
             <div
               key={st.stationId}

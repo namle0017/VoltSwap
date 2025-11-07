@@ -68,8 +68,8 @@ const ComplaintsManagement = () => {
       } catch (e) {
         setComplaintsError(
           e?.response?.data?.message ||
-            e?.message ||
-            "Không tải được danh sách complaints."
+          e?.message ||
+          "Không tải được danh sách complaints."
         );
       } finally {
         setLoadingComplaints(false);
@@ -79,11 +79,11 @@ const ComplaintsManagement = () => {
 
   // ==== Helpers UI ====
   const badge = (st) =>
-    ({
-      [STATUS.OPEN]: "bg-gray-100 text-gray-800",
-      [STATUS.ASSIGNED]: "bg-indigo-100 text-indigo-800",
-      [STATUS.RESOLVED]: "bg-green-100 text-green-800",
-    }[st] || "bg-gray-100 text-gray-800");
+  ({
+    [STATUS.OPEN]: "bg-gray-100 text-gray-800",
+    [STATUS.ASSIGNED]: "bg-indigo-100 text-indigo-800",
+    [STATUS.RESOLVED]: "bg-green-100 text-green-800",
+  }[st] || "bg-gray-100 text-gray-800");
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
@@ -112,8 +112,8 @@ const ComplaintsManagement = () => {
       } catch (e) {
         setStaffsError(
           e?.response?.data?.message ||
-            e?.message ||
-            "Không tải được danh sách nhân viên."
+          e?.message ||
+          "Không tải được danh sách nhân viên."
         );
       } finally {
         setLoadingStaffs(false);
@@ -135,20 +135,20 @@ const ComplaintsManagement = () => {
         prev.map((c) =>
           c.id === assignModal.complaintId
             ? {
-                ...c,
-                status: STATUS.ASSIGNED,
-                assignedTo: { id: assigned.staffId, name: assigned.staffName },
-                timeline: [
-                  ...c.timeline,
-                  {
-                    time: new Date()
-                      .toISOString()
-                      .slice(0, 16)
-                      .replace("T", " "),
-                    text: `Assigned to ${assigned.staffName} (${assigned.staffId})`,
-                  },
-                ],
-              }
+              ...c,
+              status: STATUS.ASSIGNED,
+              assignedTo: { id: assigned.staffId, name: assigned.staffName },
+              timeline: [
+                ...c.timeline,
+                {
+                  time: new Date()
+                    .toISOString()
+                    .slice(0, 16)
+                    .replace("T", " "),
+                  text: `Assigned to ${assigned.staffName} (${assigned.staffId})`,
+                },
+              ],
+            }
             : c
         )
       );
@@ -156,8 +156,8 @@ const ComplaintsManagement = () => {
     } catch (e) {
       alert(
         e?.response?.data?.message ||
-          e?.message ||
-          "Gán nhân viên thất bại. Vui lòng thử lại."
+        e?.message ||
+        "Gán nhân viên thất bại. Vui lòng thử lại."
       );
     } finally {
       setAssignSubmitting(false);
@@ -172,15 +172,15 @@ const ComplaintsManagement = () => {
       prev.map((c) =>
         c.id === responseModal.complaintId
           ? {
-              ...c,
-              timeline: [
-                ...c.timeline,
-                {
-                  time: new Date().toISOString().slice(0, 16).replace("T", " "),
-                  text: `Admin response: ${text}`,
-                },
-              ],
-            }
+            ...c,
+            timeline: [
+              ...c.timeline,
+              {
+                time: new Date().toISOString().slice(0, 16).replace("T", " "),
+                text: `Admin response: ${text}`,
+              },
+            ],
+          }
           : c
       )
     );
@@ -192,16 +192,16 @@ const ComplaintsManagement = () => {
       prev.map((c) =>
         c.id === id
           ? {
-              ...c,
-              status: STATUS.RESOLVED,
-              timeline: [
-                ...c.timeline,
-                {
-                  time: new Date().toISOString().slice(0, 16).replace("T", " "),
-                  text: "Marked as Resolved",
-                },
-              ],
-            }
+            ...c,
+            status: STATUS.RESOLVED,
+            timeline: [
+              ...c.timeline,
+              {
+                time: new Date().toISOString().slice(0, 16).replace("T", " "),
+                text: "Marked as Resolved",
+              },
+            ],
+          }
           : c
       )
     );

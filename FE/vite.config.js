@@ -10,7 +10,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
+<<<<<<< HEAD
     base: "./",
+=======
+>>>>>>> feature/initial-upload
     server: {
       proxy: {
         "/api": {
