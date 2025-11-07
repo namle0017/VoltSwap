@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "@/api/api";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 
 export default function Support() {
@@ -73,8 +74,8 @@ export default function Support() {
                 {message && (
                     <div
                         className={`text-center mb-3 p-3 rounded-xl font-medium ${message.startsWith("✅")
-                                ? "bg-green-100 text-green-700"
-                                : "bg-red-100 text-red-700"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
                             }`}
                     >
                         {message}
@@ -112,8 +113,8 @@ export default function Support() {
                     onClick={handleSubmit}
                     disabled={submitting}
                     className={`w-full mt-6 py-2.5 rounded-xl text-white font-semibold transition ${submitting
-                            ? "bg-gray-400"
-                            : "bg-gradient-to-r from-blue-500 to-green-500 hover:opacity-90"
+                        ? "bg-gray-400"
+                        : "bg-gradient-to-r from-blue-500 to-green-500 hover:opacity-90"
                         }`}
                 >
                     {submitting ? "Sending..." : "Send Report"}
