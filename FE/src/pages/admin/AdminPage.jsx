@@ -39,6 +39,7 @@ const pick = (obj, paths, fallback = undefined) => {
 };
 
 /** Chuẩn hoá nhiều biến thể payload từ BE về 1 shape thống nhất */
+/** Chuẩn hoá nhiều biến thể payload từ BE về 1 shape thống nhất */
 function normalizeOverview(raw) {
   if (!raw || typeof raw !== "object") return null;
 
@@ -375,20 +376,6 @@ export default function AdminPage() {
               </div>
             </motion.div>
           </div>
-        )}
-
-        {/* Recent Activity (placeholder) */}
-        {!loading && !err && (
-          <motion.div
-            className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            whileHover={{ y: -2 }}
-          >
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Recent Activity</h2>
-            <div className="text-sm text-gray-500">(Đang chờ endpoint activity feed từ BE)</div>
-          </motion.div>
         )}
       </div>
     </PageTransition>

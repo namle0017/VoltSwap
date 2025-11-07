@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+/* eslint-disable no-empty */
 import React, { useEffect, useState } from "react";
 import api from "@/api/api";
 import { useNavigate } from "react-router-dom";
@@ -266,26 +268,22 @@ export default function Vehicle() {
                         Calculating recommend...
                       </span>
                     ) : (
-                      <span className="text-sm text-blue-700 font-medium">
+                      <span
+                        className="text-sm text-blue-700 font-medium cursor-pointer hover:underline"
+                        onClick={() =>
+                          navigate(
+                            `/user/service/suggest?planList=${encodeURIComponent(
+                              v.recommendPlan.join(",")
+                            )}`
+                          )
+                        }
+                      >
                         Recommend:{" "}
                         {v.recommendPlan?.length
                           ? v.recommendPlan.join(", ")
                           : "--"}
                       </span>
                     )}
-
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/user/service/suggest?planList=${encodeURIComponent(
-                            v.recommendPlan.join(",")
-                          )}`
-                        )
-                      }
-                      className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-xl text-sm hover:opacity-90"
-                    >
-                      🔍 View Plans
-                    </button>
                   </div>
                 </motion.div>
               );
