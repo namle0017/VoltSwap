@@ -422,12 +422,14 @@ namespace VoltSwap.BusinessLayer.Services
                         Status = "Returned",
                         CreateAt = DateTime.UtcNow.ToLocalTime(),
                     };
+
                     //Sau khi tạo ra 1 bảng là returned thì sẽ update lại cục pin 
                     getSlot.BatteryId = item.BatteryId;
                     getSlot.AppointmentId = null;
                     getSlot.PillarStatus = "Unavailable";
                     updateBat.BatteryStatus = "Charging";
-                    updateBat.Soc = random.Next(1, 51);
+                    updateBat.Soc = Random.Shared.Next(1, 31);
+                    updateBat.UpdateAt = DateTime.UtcNow.ToLocalTime();
                     updateBat.BatterySwapStationId = requestBatteryList.AccessRequest.StationId;
                     //Update lại cái pin được trả vô
                     await _batSwapRepo.CreateAsync(updateBatSwapIn);

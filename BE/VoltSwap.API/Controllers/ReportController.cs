@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.BusinessLayer.Services;
@@ -34,7 +35,7 @@ namespace VoltSwap.API.Controllers
         public async Task<IActionResult> GetContact(String driverId)
         {
             var results = await _reportService.GetDriverContact(driverId);
-            return Ok(results);
+            return StatusCode(200, new { message = results.Message, data = results.Data });
         }
 
 
@@ -72,7 +73,7 @@ namespace VoltSwap.API.Controllers
 
         [Authorize(Roles = "Driver")]
         [HttpPost("Driver-create-report")]
-        public  async Task<IActionResult> CreateReport([FromBody] UserReportRequest request)
+        public async Task<IActionResult> CreateReport([FromBody] UserReportRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -80,10 +81,10 @@ namespace VoltSwap.API.Controllers
             }
             var result = await _reportService.DriverCreateReport(request);
             return StatusCode(result.Status, new
-                                            { 
-                                                message = result.Message,
-                                                data = result.Data
-                                            });
+            {
+                message = result.Message,
+                data = result.Data
+            });
 
         }
 
@@ -95,11 +96,41 @@ namespace VoltSwap.API.Controllers
             {
                 return BadRequest(ModelState);
             }
-            var result = await _reportService.ReportTypeList();
+            var result = await _reportService.ReportTypeListForDriver();
             return StatusCode(result.Status, new
             {
                 message = result.Message,
                 data = result.Data
+            });
+
+        }
+        [HttpGet("get-staff-report-list")]
+        public async Task<IActionResult> GetStaffReportType()
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _reportService.ReportTypeListForStaff();
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+                data = result.Data
+            });
+
+        }
+        [Authorize(Roles = "Admin,Staff")]
+        [HttpPatch("mark-resolve")]
+        public async Task<IActionResult> MarkResolve(MarkResolveDto requestDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _reportService.MarkResolveInSystem(requestDto);
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
             });
 
         }

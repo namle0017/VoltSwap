@@ -10,5 +10,6 @@ namespace VoltSwap.DAL.IRepositories
 {
     public interface IReportTypeRepository : IGenericRepositories<ReportType>
     {
+        Task<string> GetReportTypeName(int reporttypeId);
     }
 }

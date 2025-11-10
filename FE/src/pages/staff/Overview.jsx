@@ -184,9 +184,9 @@ export default function Overview() {
                         <table className="w-full text-sm">
                             <thead className="bg-slate-50">
                                 <tr>
-                                    <th className="px-3 py-2 text-left">Staff ID</th>
+                                    <th className="px-3 py-2 text-left w-16">No</th>
                                     <th className="px-3 py-2 text-left">Driver</th>
-                                    <th className="px-3 py-2 text-left">Type</th>
+                                    {/* <th className="px-3 py-2 text-left">Type</th>  // removed */}
                                     <th className="px-3 py-2 text-left">Note</th>
                                     <th className="px-3 py-2 text-left">Created At</th>
                                     <th className="px-3 py-2 text-left">Status</th>
@@ -195,11 +195,13 @@ export default function Overview() {
                             <tbody>
                                 {reports.map((r, i) => (
                                     <tr key={`${r.staffId || i}-${i}`} className="hover:bg-slate-50">
-                                        <td className="px-3 py-2">{r.staffId || "—"}</td>
+                                        <td className="px-3 py-2">{i + 1}</td>
                                         <td className="px-3 py-2">{r.driverName || r.driverId || "—"}</td>
-                                        <td className="px-3 py-2">{r.reportType || "—"}</td>
+                                        {/* <td className="px-3 py-2">{r.reportType || "—"}</td> // removed */}
                                         <td className="px-3 py-2">{r.reportNote || "—"}</td>
-                                        <td className="px-3 py-2">{r.createAt ? new Date(r.createAt).toLocaleString() : "—"}</td>
+                                        <td className="px-3 py-2">
+                                            {r.createAt ? new Date(r.createAt).toLocaleString() : "—"}
+                                        </td>
                                         <td className="px-3 py-2">{r.reportStatus || "—"}</td>
                                     </tr>
                                 ))}

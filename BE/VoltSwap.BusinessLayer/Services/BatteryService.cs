@@ -40,7 +40,7 @@ namespace VoltSwap.BusinessLayer.Services
             foreach (var item in getBatteryCharging)
             {
                 TimeSpan duration = (TimeSpan)(getDateTimeNow - item.UpdateAt);
-                double increased = duration.TotalMinutes / 10.0;
+                double increased = duration.TotalMinutes / 0.1;
                 decimal totalSoc = item.Soc + (decimal)increased;
                 if (totalSoc > 100)
                 {

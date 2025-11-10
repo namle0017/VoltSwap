@@ -73,4 +73,22 @@ namespace VoltSwap.Common.DTOs
         public int ActiveStation { get; set; }
         public int TotalStation { get; set; }
     }
+
+    //Nemo: Conver lat and lng
+    public class LatAndLngDto
+    {
+        public decimal LocationLat { get; set; }
+        public decimal LocationLng { get; set; }
+        public string FormattedAddress { get; set; }
+    }
+
+    public class StationRequest
+    {
+        public string StationName { get; set; }
+        public string Address { get; set; }
+        public int NumberOfPillar { get; set; }
+        public TimeOnly OpenTime { get; set; }
+        public TimeOnly CloseTime { get; set; }
+        public int PillarCapicity { get; set; }
+    }
 }

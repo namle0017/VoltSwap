@@ -3,26 +3,26 @@ import React, { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
+import "bootstrap-icons/font/bootstrap-icons.css"; // cần có
 
+// Map route -> nhãn + icon Bootstrap (KHÔNG để "bi " lặp lại)
 const sections = [
-    { to: "/staff/overview", label: "Overview", icon: "🏠" },
-    { to: "/staff/inventory", label: "Inventory", icon: "📦" },
-    { to: "/staff/assist", label: "Manual Assist", icon: "🛠️" },
-    { to: "/staff/swap", label: "Battery Swap", icon: "⚡" },
-    { to: "/staff/booking", label: "Booking", icon: "🗓️" },
-    { to: "/staff/admin-request", label: "Admin Request", icon: "📝" },
-    { to: "/staff/support", label: "Customer Support", icon: "💬" },
-    { to: "/staff/battery-mgmt", label: "Battery Manager", icon: "🔋" },
+    { to: "/staff/overview", label: "Overview", icon: "bi-house" },
+    { to: "/staff/inventory", label: "Inventory", icon: "bi-box" },
+    { to: "/staff/assist", label: "Manual Assist", icon: "bi-tools" },
+    { to: "/staff/swap", label: "Battery Swap", icon: "bi bi-battery-full" },
+    { to: "/staff/booking", label: "Booking", icon: "bi-calendar-check" },
+    { to: "/staff/admin-request", label: "Admin Request", icon: "bi-file-earmark-text" },
+    { to: "/staff/support", label: "Customer Support", icon: "bi-chat-dots" },
+    { to: "/staff/battery-mgmt", label: "Battery Manager", icon: " bi-battery-charging" },
 ];
 
 /* Small, accessible confirm dialog */
 function ConfirmDialog({ open, title, message, onCancel, onConfirm }) {
     const cancelRef = useRef(null);
-
     useEffect(() => {
         if (open) cancelRef.current?.focus();
     }, [open]);
-
     if (!open) return null;
 
     return (
@@ -36,16 +36,10 @@ function ConfirmDialog({ open, title, message, onCancel, onConfirm }) {
         >
             <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
             <div className="absolute inset-x-0 top-[20%] mx-auto max-w-md rounded-2xl border bg-white shadow-xl">
-                <div
-                    className="px-5 py-4 border-b font-semibold"
-                    id="dlg-title"
-                >
+                <div className="px-5 py-4 border-b font-semibold" id="dlg-title">
                     {title}
                 </div>
-                <div
-                    className="p-5 text-sm text-slate-600"
-                    id="dlg-desc"
-                >
+                <div className="p-5 text-sm text-slate-600" id="dlg-desc">
                     {message}
                 </div>
                 <div className="px-5 py-4 border-t flex justify-end gap-2">
@@ -59,9 +53,10 @@ function ConfirmDialog({ open, title, message, onCancel, onConfirm }) {
                     </button>
                     <button
                         type="button"
-                        className="px-3 py-2 rounded-lg bg-red-600 text-white text-sm"
+                        className="px-3 py-2 rounded-lg bg-red-600 text-white text-sm flex items-center"
                         onClick={onConfirm}
                     >
+                        <i className="bi bi-box-arrow-right mr-2" aria-hidden="true" />
                         Đăng xuất
                     </button>
                 </div>
@@ -76,10 +71,13 @@ export default function StaffLayout() {
     const [confirmOpen, setConfirmOpen] = useState(false);
 
     const doSignOut = () => {
-        // Xoá các key xác thực/làm việc
-        const CLEAR_KEYS = ["accessToken", "role", "userId", "staffId", "stationId"];
+        const CLEAR_KEYS = [
+            "accessToken", "role",
+            "userId", "UserId",
+            "staffId", "StaffId",
+            "stationId", "StationId",
+        ];
         CLEAR_KEYS.forEach((k) => localStorage.removeItem(k));
-
         setConfirmOpen(false);
         navigate("/", { replace: true }); // về Home.jsx
     };
@@ -90,7 +88,13 @@ export default function StaffLayout() {
             <aside className="sidebar">
                 {/* Brand */}
                 <div className="brand-tile">
-                    <div className="brand-badge">⚡</div>
+                    <div className="brand-badge flex items-center justify-center">
+                        <i
+                            className="bi bi-lightning-charge-fill text-yellow-400 text-2xl"
+                            aria-hidden="true"
+                        />
+                        <span className="sr-only">EVSwap</span>
+                    </div>
                     <div>
                         <div style={{ fontWeight: 800, lineHeight: 1 }}>EVSwap</div>
                         <div className="small" style={{ opacity: 0.8 }}>Staff Portal</div>
@@ -102,24 +106,24 @@ export default function StaffLayout() {
                         <NavLink
                             key={s.to}
                             to={s.to}
-                            className={({ isActive }) =>
-                                `nav-item ${isActive ? "active" : ""}`
-                            }
+                            className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+                            title={s.label}
                         >
-                            <span>{s.icon}</span>
-                            <span>{s.label}</span>
+                            <i className={`bi ${s.icon} text-lg`} aria-hidden="true" />
+                            <span className="ml-2">{s.label}</span>
                         </NavLink>
                     ))}
                 </nav>
 
-                {/* Nút Sign out ở sidebar - CUSTOM STYLE chữ đen, nền trắng */}
+                {/* Nút Sign out ở sidebar */}
                 <button
                     type="button"
-                    className="mt-4 w-full px-3 py-2 rounded-xl bg-white text-black font-medium shadow"
+                    className="mt-4 w-full px-3 py-2 rounded-xl bg-white text-black font-medium shadow flex items-center justify-center"
                     onClick={() => setConfirmOpen(true)}
                     title="Đăng xuất"
                 >
-                    🚪 Sign out
+                    <i className="bi bi-box-arrow-right mr-2" aria-hidden="true" />
+                    Sign out
                 </button>
             </aside>
 

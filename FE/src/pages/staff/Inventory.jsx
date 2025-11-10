@@ -5,6 +5,7 @@
 // Yêu cầu: Chỉ hiển thị 20 pin đầu; có nút "View more" để xem toàn bộ (và "View less" để thu về).
 // Sắp xếp: Pin thường lên trước, Maintenance xuống dưới; trong nhóm sort theo SOC ↓, SOH ↓, ID ↑.
 // API: GET /Station/station-inventory?staffId=...
+// Tính năng mới: Thanh search theo Battery ID (lọc theo id, không phân biệt hoa/thường)
 // ===================
 
 import React from "react";
@@ -67,7 +68,7 @@ export default function Inventory() {
         localStorage.getItem("userId") ||
         "";
 
-    const [list, setList] = React.useState([]);          // toàn bộ pin đã sort
+    const [list, setList] = React.useState([]); // toàn bộ pin đã sort
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState("");
 
@@ -81,6 +82,9 @@ export default function Inventory() {
 
     // View-more: dùng limit thay vì boolean để control hiển thị
     const [limit, setLimit] = React.useState(PAGE_SIZE);
+
+    // Search query cho Battery ID
+    const [query, setQuery] = React.useState("");
 
     // Fetch inventory
     const fetchInventory = React.useCallback(async () => {
@@ -119,9 +123,21 @@ export default function Inventory() {
         fetchInventory();
     }, [fetchInventory]);
 
-    // Danh sách hiển thị dựa theo limit
-    const visible = loading ? [] : list.slice(0, Math.min(limit, list.length));
-    const canViewMore = !loading && limit < list.length;
+    // Khi người dùng gõ search → tự thu về 20 để tránh đổ quá nhiều
+    React.useEffect(() => {
+        setLimit(PAGE_SIZE);
+    }, [query]);
+
+    // Lọc theo Battery ID (không phân biệt hoa/thường)
+    const filtered = React.useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return list;
+        return list.filter((b) => String(b.id || "").toLowerCase().includes(q));
+    }, [list, query]);
+
+    // Danh sách hiển thị dựa theo limit trên dữ liệu đã lọc
+    const visible = loading ? [] : filtered.slice(0, Math.min(limit, filtered.length));
+    const canViewMore = !loading && limit < filtered.length;
     const canViewLess = !loading && limit > PAGE_SIZE;
 
     return (
@@ -134,12 +150,37 @@ export default function Inventory() {
                     <div className="muted small">
                         {!loading && (
                             <>
-                                Showing <b>{visible.length}</b> of <b>{list.length}</b> batteries
+                                Showing <b>{visible.length}</b> of{" "}
+                                <b>{filtered.length}</b> {query ? "matches" : "batteries"}
+                                {query && <> (total {list.length})</>}
                             </>
                         )}
                     </div>
                 </div>
+
                 <div className="actions">
+                    {/* Ô Search theo Battery ID */}
+                    <div className="search">
+                        <i className="bi bi-search" aria-hidden="true" />
+                        <input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search by Battery ID…"
+                            aria-label="Search by Battery ID"
+                        />
+                        {query && (
+                            <button
+                                type="button"
+                                className="clear"
+                                onClick={() => setQuery("")}
+                                aria-label="Clear search"
+                                title="Clear"
+                            >
+                                <i className="bi bi-x" />
+                            </button>
+                        )}
+                    </div>
+
                     <button className="btn" onClick={fetchInventory} disabled={loading}>
                         <i className="bi bi-arrow-clockwise" /> {loading ? "Loading..." : "Refresh"}
                     </button>
@@ -163,64 +204,69 @@ export default function Inventory() {
                     </div>
                 </div>
 
-                <div className="slots-grid mt-3" role="grid" aria-label="Station batteries">
-                    {(loading ? Array.from({ length: PAGE_SIZE }) : visible).map((b, i) => {
-                        if (loading) {
-                            return <div key={i} className="slot-card skeleton" />;
-                        }
+                {!loading && filtered.length === 0 ? (
+                    <div className="mt-3 muted">No batteries found{query ? " for this search." : "."}</div>
+                ) : (
+                    <div className="slots-grid mt-3" role="grid" aria-label="Station batteries">
+                        {(loading ? Array.from({ length: PAGE_SIZE }) : visible).map((b, i) => {
+                            if (loading) return <div key={i} className="slot-card skeleton" />;
 
-                        const tone = statusTone(b);
-                        const pct = clamp01(b.soc);
+                            const tone = statusTone(b);
+                            const pct = clamp01(b.soc);
 
-                        return (
-                            <button
-                                key={b.id || i}
-                                role="gridcell"
-                                className="slot-card"
-                                style={{ borderColor: tone.br, background: "#fff" }}
-                                onClick={() => setOpenSlot({ battery: b })}
-                                aria-label={b.id ? `Battery ${b.id}, SOC ${pct}%` : "Battery"}
-                            >
-                                <div className="slot-head">
-                                    <span
-                                        className="status-badge"
-                                        style={{ background: tone.bg, color: tone.fg, borderColor: tone.br }}
-                                    >
-                                        {tone.label}
-                                    </span>
-                                </div>
-
-                                <div className="slot-body">
-                                    <div className="slot-id">{b.id || "—"}</div>
-
-                                    <div className="kv">
-                                        <span>SOH</span>
-                                        <b>{clamp01(b.soh)}%</b>
-                                    </div>
-                                    <div className="kv">
-                                        <span>SOC</span>
-                                        <b>{pct}%</b>
+                            return (
+                                <button
+                                    key={b.id || i}
+                                    role="gridcell"
+                                    className="slot-card"
+                                    style={{ borderColor: tone.br, background: "#fff" }}
+                                    onClick={() => setOpenSlot({ battery: b })}
+                                    aria-label={b.id ? `Battery ${b.id}, SOC ${pct}%` : "Battery"}
+                                >
+                                    <div className="slot-head">
+                                        <span
+                                            className="status-badge"
+                                            style={{ background: tone.bg, color: tone.fg, borderColor: tone.br }}
+                                        >
+                                            {tone.label}
+                                        </span>
                                     </div>
 
-                                    <div className="socbar" title={`SOC ${pct}%`}>
-                                        <span className="socbar-fill" style={{ width: `${pct}%`, borderColor: tone.br, background: tone.br }} />
-                                    </div>
+                                    <div className="slot-body">
+                                        <div className="slot-id">{b.id || "—"}</div>
 
-                                    <div className="kv">
-                                        <span>Capacity</span>
-                                        <b>{b.capacityKWh ? `${b.capacityKWh} kWh` : "—"}</b>
+                                        <div className="kv">
+                                            <span>SOH</span>
+                                            <b>{clamp01(b.soh)}%</b>
+                                        </div>
+                                        <div className="kv">
+                                            <span>SOC</span>
+                                            <b>{pct}%</b>
+                                        </div>
+
+                                        <div className="socbar" title={`SOC ${pct}%`}>
+                                            <span
+                                                className="socbar-fill"
+                                                style={{ width: `${pct}%`, borderColor: tone.br, background: tone.br }}
+                                            />
+                                        </div>
+
+                                        <div className="kv">
+                                            <span>Capacity</span>
+                                            <b>{b.capacityKWh ? `${b.capacityKWh} kWh` : "—"}</b>
+                                        </div>
                                     </div>
-                                </div>
-                            </button>
-                        );
-                    })}
-                </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {/* View more / View less */}
-                {!loading && (canViewMore || canViewLess) && (
+                {!loading && filtered.length > 0 && (canViewMore || canViewLess) && (
                     <div className="mt-3" style={{ display: "flex", justifyContent: "center", gap: 8 }}>
                         {canViewMore && (
-                            <button className="btn" onClick={() => setLimit(list.length)}>
+                            <button className="btn" onClick={() => setLimit(filtered.length)}>
                                 View more
                             </button>
                         )}
@@ -260,11 +306,19 @@ export default function Inventory() {
                                 </div>
                                 <div className="detail">
                                     <dt>Capacity</dt>
-                                    <dd>{openSlot.battery?.capacityKWh ? `${openSlot.battery.capacityKWh} kWh` : "—"}</dd>
+                                    <dd>
+                                        {openSlot.battery?.capacityKWh
+                                            ? `${openSlot.battery.capacityKWh} kWh`
+                                            : "—"}
+                                    </dd>
                                 </div>
                                 <div className="detail">
                                     <dt>Status</dt>
-                                    <dd>{isMaintenance(openSlot.battery) ? "Maintenance" : (openSlot.battery?.status || "Normal")}</dd>
+                                    <dd>
+                                        {isMaintenance(openSlot.battery)
+                                            ? "Maintenance"
+                                            : openSlot.battery?.status || "Normal"}
+                                    </dd>
                                 </div>
                             </dl>
                         </div>
@@ -292,7 +346,27 @@ export default function Inventory() {
           background:#eef2ff; color:#3730a3; font-weight:600; font-size:12px; border:1px solid #c7d2fe;
           margin-bottom:6px;
         }
+
+        .actions { display:flex; align-items:center; gap:10px; }
         .actions .btn { height:36px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:#fff; }
+
+        /* Search box */
+        .search {
+          display:flex; align-items:center; gap:8px; height:36px;
+          padding:0 10px; border:1px solid var(--line); border-radius:10px; background:#fff;
+        }
+        .search i { font-size:14px; color:var(--muted); }
+        .search input {
+          border:none; outline:none; background:transparent; min-width:220px;
+          font-size:14px; color:#0f172a;
+        }
+        .search .clear {
+          display:flex; align-items:center; justify-content:center;
+          border:none; background:transparent; width:28px; height:28px; cursor:pointer; color:#334155;
+          border-radius:8px;
+        }
+        .search .clear:hover { background:#f1f5f9; }
+
         .error { color:#991b1b; background:#fee2e2; border:1px solid #fecaca; }
 
         .legend { display:flex; align-items:center; gap:12px; color:var(--muted); font-size:12px; }

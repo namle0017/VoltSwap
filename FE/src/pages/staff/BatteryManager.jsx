@@ -1,14 +1,15 @@
+/* eslint-disable no-unused-vars */
 // src/pages/staff/BatteryManager.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import api from "@/api/api";
+import "bootstrap-icons/font/bootstrap-icons.css"; // dùng icon Bootstrap
 
 /* ===== Endpoints =====
  * 1) Danh sách pillars (+ stationName): GET /PillarSlot/staff-pillar-slot?UserId=...
- * 2) Slots của 1 pillar:              GET /PillarSlot/battery-in-pillar?pillarId=PI-...
- * 3) Kho pin của trạm:                GET /Station/station-inventory?StaffId=...
- * 4) Dock pin từ kho vào slot:        POST /PillarSlot/store-battery-inventory-to-pillar-slot
- * 5) Lấy pin ra kho:                  POST /PillarSlot/take-out-slot
- * (ĐÃ BỎ: lấy pin đưa khách)
+ * 2) Slots của 1 pillar:               GET /PillarSlot/battery-in-pillar?pillarId=PI-...
+ * 3) Kho pin của trạm:                 GET /Station/station-inventory?StaffId=...
+ * 4) Dock pin từ kho vào slot:         POST /PillarSlot/store-battery-inventory-to-pillar-slot
+ * 5) Lấy pin ra kho:                   POST /PillarSlot/take-out-slot
  */
 const ROUTES = {
     PILLARS: "/PillarSlot/staff-pillar-slot",
@@ -25,10 +26,10 @@ const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const toPos = (zeroIndex) => `${ROWS[Math.floor(zeroIndex / 4)]}${(zeroIndex % 4) + 1}`;
 
 const socColor = (soc) => {
-    if (soc == null) return "#94a3b8";   // xám khi rỗng
-    if (soc <= 20) return "#dc2626";     // đỏ
-    if (soc <= 50) return "#f59e0b";     // vàng
-    return "#22c55e";                    // xanh lá
+    if (soc == null) return "#94a3b8"; // xám khi rỗng
+    if (soc <= 20) return "#dc2626";   // đỏ
+    if (soc <= 50) return "#f59e0b";   // vàng
+    return "#22c55e";                  // xanh lá
 };
 
 const clampPct = (x) => {
@@ -38,21 +39,16 @@ const clampPct = (x) => {
 
 const isLock = (v) => String(v || "").trim().toLowerCase() === "lock";
 
+// Ưu tiên hiển thị: Slot ID (BE) -> slotNumber -> pos A1..E4
+const slotLabel = (slot) => {
+    if (slot?.slotId != null && slot?.slotId !== "") return String(slot.slotId);
+    if (Number.isFinite(slot?.slotNumber)) return `#${slot.slotNumber}`;
+    return slot?.pos ?? "";
+};
+
 /* ===== Normalizers ===== */
-/* Chuẩn hoá JSON pillars theo format mới:
- * {
- *   message: "...",
- *   data: {
- *     stationName: "Trạm ...",
- *     pillarList: [
- *       { pillarSlotId: "PI-...", slotId: 20, numberOfSlotEmpty: 4, numberOfSlotRed: 0, numberOfSlotGreen: 8, ... }
- *     ]
- *   }
- * }
- */
 function normalizePillarsFromServer(payload, setStationName) {
     const root = payload?.data || {};
-    // lấy stationName để show ở header
     const sn = root?.stationName || payload?.stationName || "";
     if (sn && typeof setStationName === "function") setStationName(sn);
 
@@ -70,9 +66,9 @@ function normalizePillarsFromServer(payload, setStationName) {
             if (!id) return null;
             return {
                 pillarId: id,
-                pillarName: x?.pillarName || "", // nếu BE có tên thân thiện
-                // Ở JSON mới: "slotId" = tổng số slot (ví dụ 20)
-                totalSlots: Number(x?.slotId ?? x?.totalSlots ?? x?.slotCount ?? 20) || 20,
+                pillarName: x?.pillarName || "",
+                // Giữ 20 mặc định vì layout cố định 5x4
+                totalSlots: Number(x?.totalSlots ?? x?.slotCount ?? 20) || 20,
                 summary: {
                     empty: Number(x?.numberOfSlotEmpty ?? x?.empty ?? 0) || 0,
                     red: Number(x?.numberOfSlotRed ?? 0) || 0,
@@ -98,20 +94,19 @@ function normalizeSlotsFromServer(payload, pillarId) {
             ? payload.data
             : [];
 
-    // tạo 20 ô mặc định
     const slots = Array.from({ length: 20 }, (_, i) => ({
         pillarId,
         index: i,
-        slotNumber: i + 1,   // dùng để sắp xếp 5x4 + hiển thị
-        slotId: null,        // ID thật từ BE (ví dụ 421)
-        code: null,          // batteryId
+        slotNumber: i + 1,
+        slotId: null,
+        code: null,
         pos: toPos(i),
         soc: null,
         soh: null,
         empty: true,
         stationId: null,
         batteryStatus: null,
-        pillarStatus: null,  // trạng thái của cột/slot (ví dụ: "lock")
+        pillarStatus: null, // "lock" nếu bị khoá
     }));
 
     for (const s of serverList) {
@@ -143,9 +138,7 @@ function normalizeSlotsFromServer(payload, pillarId) {
 }
 
 /* ===== UI atoms ===== */
-// Thẻ hiển thị 1 pillar (ô tổng quan)
 function PillarTile({ pillarId, pillarName, totalSlots, summary, onOpen }) {
-    // Hiển thị nhãn thân thiện nếu có
     const title = pillarName ? `${pillarName} (${pillarId})` : pillarId;
 
     return (
@@ -194,11 +187,12 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
     const isMaintenance = String(data?.batteryStatus || "").toLowerCase() === "maintenance";
     const locked = isLock(data?.pillarStatus);
 
-    // Nếu bị lock: không cho click / action
     const handleClick = () => {
         if (locked) return;
         onClick?.();
     };
+
+    const topLeftLabel = slotLabel(data);
 
     return (
         <button
@@ -208,10 +202,10 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
         ${selected ? (isMaintenance ? "ring-2 ring-red-500" : locked ? "" : "ring-2 ring-blue-500") : ""}`}
             title={
                 isEmpty
-                    ? `${data.pillarId} • ${data.pos} • Empty • SlotNo ${data.slotNumber}${locked ? " • Locked" : ""}`
-                    : `${data.pillarId} • ${data.code} • ${data.pos} • SlotNo ${data.slotNumber} • SoC ${soc}%` +
-                    (isMaintenance ? " • Maintenance" : "") +
-                    (locked ? " • Locked" : "")
+                    ? `${data.pillarId} • ${topLeftLabel || data.pos} • Empty • SlotId ${data.slotId ?? "—"} • SlotNo ${data.slotNumber}${locked ? " • Locked" : ""}`
+                    : `${data.pillarId} • ${data.code} • ${topLeftLabel || data.pos} • SlotId ${data.slotId ?? "—"} • SlotNo ${data.slotNumber} • SoC ${soc}%`
+                    + (isMaintenance ? " • Maintenance" : "")
+                    + (locked ? " • Locked" : "")
             }
             type="button"
             disabled={locked}
@@ -224,20 +218,22 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
                 />
             )}
 
-            {/* Nội dung giữa */}
+            {/* Nội dung giữa (đã đổi sang icon) */}
             <div className="absolute inset-0 grid place-items-center text-[13px] font-semibold">
-                {locked
-                    ? "Locked"
-                    : isEmpty
-                        ? "＋"
-                        : isMaintenance
-                            ? "Maintenance"
-                            : `${soc}%`}
+                {locked ? (
+                    <i className="bi bi-lock text-2xl text-slate-800" aria-label="Locked" />
+                ) : isEmpty ? (
+                    "＋"
+                ) : isMaintenance ? (
+                    <i className="bi bi-exclamation-triangle text-xl text-red-600" aria-label="Maintenance" />
+                ) : (
+                    `${soc}%`
+                )}
             </div>
 
-            {/* Gốc trái trên: vị trí A1..E4 */}
+            {/* Gốc trái trên: HIỂN THỊ SLOT ID (BE) */}
             <div className="absolute left-2 top-2 text-[11px] font-bold text-slate-700">
-                {data.pos}
+                {topLeftLabel}
             </div>
 
             {/* Gốc phải dưới: battery code */}
@@ -247,19 +243,19 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
                 </div>
             )}
 
-            {/* Badge Maintenance */}
+            {/* Badge Maintenance (có icon) */}
             {isMaintenance && !locked && (
-                <div className="absolute right-2 top-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-500 text-white">
+                <div className="absolute right-2 top-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-500 text-white inline-flex items-center gap-1">
+                    <i className="bi bi-exclamation-triangle" aria-hidden="true" />
                     Maintenance
                 </div>
             )}
 
-            {/* Overlay khoá nếu Locked */}
+            {/* Overlay khoá (icon lock) */}
             {locked && (
                 <div className="absolute inset-0 rounded-xl grid place-items-center bg-black/10 pointer-events-none">
-                    <div className="flex items-center gap-1 text-[12px] font-semibold text-slate-800">
-                        🔒 Locked
-                    </div>
+                    <i className="bi bi-lock text-2xl text-slate-800" aria-hidden="true" />
+                    <span className="sr-only">Locked</span>
                 </div>
             )}
 
@@ -304,6 +300,28 @@ function Row({ k, v }) {
 function DetailPanel({ selected, onRequestRemove }) {
     const locked = isLock(selected?.pillarStatus);
 
+    const batteryStatusValue = selected?.batteryStatus
+        ? String(selected.batteryStatus).toLowerCase() === "maintenance"
+            ? (
+                <span className="inline-flex items-center gap-1">
+                    <i className="bi bi-exclamation-triangle" aria-hidden="true" />
+                    <span>Maintenance</span>
+                </span>
+            )
+            : selected.batteryStatus
+        : null;
+
+    const pillarStatusValue = selected?.pillarStatus
+        ? isLock(selected.pillarStatus)
+            ? (
+                <span className="inline-flex items-center gap-1">
+                    <i className="bi bi-lock" aria-hidden="true" />
+                    <span>Locked</span>
+                </span>
+            )
+            : selected.pillarStatus
+        : null;
+
     return (
         <div className="rounded-2xl border bg-white shadow-sm p-4">
             <div className="font-semibold mb-3">Battery Details</div>
@@ -313,27 +331,20 @@ function DetailPanel({ selected, onRequestRemove }) {
             ) : selected.empty ? (
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
-                    <Row k="Slot No." v={selected.slotNumber} />
                     <Row k="Position" v={selected.pos} />
                     <div className="mt-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm">Empty slot</div>
                 </div>
             ) : (
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
-                    <Row k="Slot No." v={selected.slotNumber} />
                     <Row k="Slot ID (BE)" v={selected.slotId ?? "—"} />
                     <Row k="Position" v={selected.pos} />
                     <Row k="Battery Code" v={selected.code} />
                     <Row k="SoC" v={`${selected.soc}%`} />
                     <Row k="SoH" v={`${selected.soh}%`} />
                     {selected.stationId && <Row k="Station ID" v={selected.stationId} />}
-                    {selected.batteryStatus && (
-                        <Row
-                            k="Battery Status"
-                            v={String(selected.batteryStatus).toLowerCase() === "maintenance" ? "Maintenance 🔧" : selected.batteryStatus}
-                        />
-                    )}
-                    {selected.pillarStatus && <Row k="Pillar Status" v={isLock(selected.pillarStatus) ? "Locked 🔒" : selected.pillarStatus} />}
+                    {batteryStatusValue && <Row k="Battery Status" v={batteryStatusValue} />}
+                    {pillarStatusValue && <Row k="Pillar Status" v={pillarStatusValue} />}
 
                     <div className="mt-3 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                         <div
@@ -342,7 +353,6 @@ function DetailPanel({ selected, onRequestRemove }) {
                         />
                     </div>
 
-                    {/* Chỉ cho phép "Remove to Warehouse" khi KHÔNG lock */}
                     <div className="pt-3 flex justify-end">
                         <button
                             type="button"
@@ -370,7 +380,6 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
     const [invErr, setInvErr] = useState("");
     const [warehouse, setWarehouse] = useState([]);
 
-    // load danh sách pin trong kho khi mở modal
     useEffect(() => {
         if (!open) return;
         setSearch(""); setBusy(false); setMsg(""); setWarehouse([]); setInvErr("");
@@ -386,7 +395,6 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                 setLoadingInv(true);
                 const res = await api.get(ROUTES.WAREHOUSE, { params: { StaffId: staffId }, signal: ac.signal });
                 const raw = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
-                // lọc chỉ các pin đang ở kho
                 const mapped = raw
                     .filter((x) => (x?.status || "Warehouse").toLowerCase() === "warehouse")
                     .map((it) => ({
@@ -431,8 +439,8 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
             setBusy(true);
             const payload = {
                 staffId,
-                pillarSlotId: Number(slot.slotId) || slot.slotId, // dùng slotId thật
-                batteryWareHouseId: selectedId,                    // id pin trong kho
+                pillarSlotId: Number(slot.slotId) || slot.slotId,
+                batteryWareHouseId: selectedId,
             };
             const res = await api.post(ROUTES.STORE, payload);
             toast(res?.data?.message || "Docked battery into slot.");
@@ -460,7 +468,6 @@ function AddBatteryModal({ open, onClose, slot, staffId, onDocked }) {
                 <div className="p-5 space-y-4">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                         <div><div className="text-slate-500">Pillar</div><div className="font-medium">{slot.pillarId}</div></div>
-                        <div><div className="text-slate-500">Slot No.</div><div className="font-medium">{slot.slotNumber} ({slot.pos})</div></div>
                         <div><div className="text-slate-500">Slot ID (BE)</div><div className="font-medium">{slot.slotId ?? "—"}</div></div>
                         <div><div className="text-slate-500">Staff</div><div className="font-medium">{staffId || "—"}</div></div>
                     </div>
@@ -560,7 +567,7 @@ function RemoveBatteryModal({ open, onClose, slot, staffId, onRemoved }) {
             const payload = {
                 staffId,
                 pillarSlotId: Number(slot.slotId) || slot.slotId,
-                batteryId: slot.code, // theo yêu cầu: dùng batteryId
+                batteryId: slot.code,
             };
             const res = await api.post(ROUTES.TAKE_OUT_WAREHOUSE, payload);
             toast(res?.data?.message || "Removed battery to warehouse.");
@@ -588,7 +595,6 @@ function RemoveBatteryModal({ open, onClose, slot, staffId, onRemoved }) {
                 <div className="p-5 space-y-3 text-sm">
                     <div className="grid grid-cols-2 gap-3">
                         <div><div className="text-slate-500">Pillar</div><div className="font-medium">{slot.pillarId}</div></div>
-                        <div><div className="text-slate-500">Slot No.</div><div className="font-medium">{slot.slotNumber} ({slot.pos})</div></div>
                         <div><div className="text-slate-500">Slot ID</div><div className="font-medium">{slot.slotId}</div></div>
                         <div><div className="text-slate-500">Battery</div><div className="font-medium">{slot.code}</div></div>
                     </div>
@@ -617,10 +623,7 @@ function RemoveBatteryModal({ open, onClose, slot, staffId, onRemoved }) {
 
 /* ===== Page ===== */
 export default function BatteryManager() {
-    // userId: lấy pillars (server yêu cầu param UserId)
     const [userId] = useState(() => (localStorage.getItem("userId") || "").trim());
-
-    // staffId: dùng cho kho + thao tác post
     const [staffId] = useState(() =>
         (localStorage.getItem("staffId") ||
             localStorage.getItem("StaffId") ||
@@ -628,7 +631,6 @@ export default function BatteryManager() {
             "").trim()
     );
 
-    // tên trạm hiển thị ở header (ưu tiên từ BE, fallback localStorage)
     const [stationName, setStationName] = useState(() =>
         localStorage.getItem("stationName") || "Station"
     );
@@ -642,15 +644,12 @@ export default function BatteryManager() {
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [error, setError] = useState("");
 
-    // Modal: thêm pin từ kho
     const [addOpen, setAddOpen] = useState(false);
     const [targetSlot, setTargetSlot] = useState(null);
 
-    // Modal: lấy pin ra kho
     const [removeOpen, setRemoveOpen] = useState(false);
     const [removeTarget, setRemoveTarget] = useState(null);
 
-    // Tải pillars + stationName theo JSON mới
     useEffect(() => {
         const ac = new AbortController();
         (async () => {
@@ -664,10 +663,9 @@ export default function BatteryManager() {
 
                 const res = await api.get(ROUTES.PILLARS, { params: { UserId: userId }, signal: ac.signal });
 
-                // chuẩn hoá theo JSON mới + đồng thời setStationName
                 const list = normalizePillarsFromServer(res.data, (sn) => {
                     setStationName(sn);
-                    try { localStorage.setItem("stationName", sn); } catch { }
+                    try { localStorage.setItem("stationName", sn); } catch { /* ignore */ }
                 });
                 setPillars(list);
             } catch (e) {
@@ -680,7 +678,6 @@ export default function BatteryManager() {
         return () => ac.abort();
     }, [userId]);
 
-    // Mở 1 pillar -> tải danh sách 20 ô
     const openPillar = async (pillarId) => {
         setActivePillarId(pillarId);
         setSelected(null);
@@ -703,7 +700,6 @@ export default function BatteryManager() {
         }
     };
 
-    // Làm mới 20 ô của pillar đang mở
     const refreshCurrentPillarSlots = async () => {
         if (!activePillarId) return;
         const ac = new AbortController();
@@ -713,7 +709,7 @@ export default function BatteryManager() {
             const normalized = normalizeSlotsFromServer(res.data, activePillarId);
             setSlotsByPillar((prev) => ({ ...prev, [activePillarId]: normalized }));
         } catch {
-            // giữ nguyên
+            // giữ nguyên nếu lỗi
         } finally {
             setLoadingSlots(false);
         }
@@ -737,7 +733,7 @@ export default function BatteryManager() {
 
     return (
         <div className="space-y-6">
-            {/* Header: hiển thị Station Name rõ ràng */}
+            {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <div className="inline-flex items-center gap-2">

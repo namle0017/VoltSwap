@@ -14,5 +14,8 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<ServiceResult> GetPillarSlotByStaffId(UserRequest requestDto);
         Task<List<PillarSlot>> GetBatteriesInPillarByPillarIdAsync(String pillarId);
         Task<List<PillarSlotDto>> LockSlotsAsync(string stationId, string subscriptionId, string bookingId);
+
+        //Nemo: tạo pillar slot
+        Task CreateSlotChain(string pillarId, int pillarCapacity);
     }
 }

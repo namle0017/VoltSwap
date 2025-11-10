@@ -23,9 +23,8 @@ namespace VoltSwap.DAL.Repositories
         //Bin: Lấy danh sách pin trong kho của trạm theo StaffId
         public async Task<List<Battery>> GetBatteriesInventoryByStationId(string StationId)
         {
-            var getStation = await _context.StationStaffs.FirstOrDefaultAsync(station => station.BatterySwapStationId == StationId);
             var result = await _context.Batteries
-                .Where(bat => bat.BatterySwapStationId == getStation.BatterySwapStationId && (bat.BatteryStatus == "Warehouse" || bat.BatteryStatus == "Maintenance"))
+                .Where(bat => bat.BatterySwapStationId == StationId && (bat.BatteryStatus == "Warehouse" || bat.BatteryStatus == "Maintenance"))
                 .ToListAsync();
             return result;
         }

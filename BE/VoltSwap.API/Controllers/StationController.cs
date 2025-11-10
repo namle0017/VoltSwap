@@ -53,5 +53,17 @@ namespace VoltSwap.API.Controllers
                             });
         }
 
+
+
+        [AllowAnonymous]
+        [HttpPost("create-new-station")]
+        public async Task<IActionResult> CreateStation(StationRequest requestDto)
+        {
+            var getStationList = await _stationService.CreateStationAsync(requestDto);
+            return StatusCode(getStationList.Status, new
+            {
+                getStationList.Message,
+            });
+        }
     }
 }

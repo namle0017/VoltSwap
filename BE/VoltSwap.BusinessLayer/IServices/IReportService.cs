@@ -12,12 +12,15 @@ namespace VoltSwap.BusinessLayer.IServices
     public interface IReportService
     {
 
-        Task<List<Report>> GetAllReport();
+        Task<List<UserReportRespone>> GetAllReport();
 
         //Nemo: lấy report cho staff
         Task<List<StaffReportResponse>> GetReportForStaff(string staffId);
 
         //Nemo: Lấy Customer report list
         Task<IServiceResult> GetCustomerReportForStaff(UserRequest request);
+
+        //Nemo: Mark resolve cho admin
+        Task<IServiceResult> MarkResolveInSystem(MarkResolveDto requestDto);
     }
 }

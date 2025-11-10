@@ -73,7 +73,6 @@ export default function CustomerSupport() {
 
     // Tìm kiếm cục bộ
     const [q, setQ] = React.useState("");
-    const [showDebug, setShowDebug] = React.useState(false);
 
     // Gọi API lấy danh sách ticket
     const fetchTickets = React.useCallback(async () => {
@@ -141,13 +140,7 @@ export default function CustomerSupport() {
                     >
                         ↻ Refresh
                     </button>
-                    <button
-                        onClick={() => setShowDebug((v) => !v)}
-                        className="px-3 py-2 rounded-lg border text-sm"
-                        type="button"
-                    >
-                        {showDebug ? "Hide Debug" : "Show Debug"}
-                    </button>
+
                 </div>
             </div>
 
@@ -155,7 +148,7 @@ export default function CustomerSupport() {
             <div className="rounded-2xl border bg-white shadow-sm">
                 <div className="px-4 py-3 border-b flex items-center justify-between">
                     <div className="font-semibold flex items-center gap-2">
-                        <span role="img" aria-label="headset">🎧</span>
+                        <span role="img" aria-label="headset"></span>
                         Open Tickets
                     </div>
                     <div className="text-xs text-slate-500">
@@ -194,12 +187,7 @@ export default function CustomerSupport() {
                 )}
             </div>
 
-            {/* Debug JSON (tùy chọn) */}
-            {showDebug && (
-                <pre className="mt-4 text-xs bg-slate-50 border rounded-lg p-3 overflow-auto">
-                    {JSON.stringify(rows, null, 2)}
-                </pre>
-            )}
+
         </section>
     );
 }

@@ -2,6 +2,10 @@
 import React, { useEffect, useState } from "react";
 import api from "@/api/api";
 
+const LIST_EP = "/Transaction/admin-transaction-list";
+const CREATE_EP = "/Transaction/admin-create-transaction";
+const DETAIL_EP = "/Transaction/transaction-detail"; // <-- dùng requestTransactionId
+
 export default function PaymentInfo() {
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -16,19 +20,12 @@ export default function PaymentInfo() {
     const [selectedTxId, setSelectedTxId] = useState("");
 
     const formatVND = (value) =>
-        Number(value || 0).toLocaleString("vi-VN", {
-            style: "currency",
-            currency: "VND",
-        });
-
-    const fmtDate = (d) => (d ? new Date(d).toLocaleString("vi-VN") : "—");
-
+        Number(value || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
     const statusPill = (status) => {
         const s = String(status || "").toLowerCase();
         if (s === "approved" || s === "success") return "bg-green-100 text-green-700";
         if (s === "waiting" || s === "pending") return "bg-yellow-100 text-yellow-700";
-        if (s === "denied" || s === "failed" || s === "fail")
-            return "bg-red-100 text-red-700";
+        if (s === "denied" || s === "failed" || s === "fail") return "bg-red-100 text-red-700";
         return "bg-gray-100 text-gray-700";
     };
 
@@ -36,14 +33,10 @@ export default function PaymentInfo() {
         try {
             setRefreshing(true);
             const token = localStorage.getItem("token");
-
-            const res = await api.get("/Transaction/admin-transaction-list", {
-                headers: { Authorization: `Bearer ${token}` },
+            const res = await api.get(LIST_EP, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
-
-            const data =
-                res?.data?.data && Array.isArray(res.data.data) ? res.data.data : [];
-
+            const data = Array.isArray(res?.data?.data) ? res.data.data : [];
             setPayments(data);
         } catch (err) {
             console.error("❌ admin-transaction-list error:", err?.response?.data || err);
@@ -68,31 +61,27 @@ export default function PaymentInfo() {
         setDetail(null);
         try {
             const token = localStorage.getItem("token");
-            const res = await api.get("/Transaction/admin-transaction-detail", {
-                params: { transactionId },
-                headers: { Authorization: `Bearer ${token}` },
+            // BE yêu cầu query: requestTransactionId=...
+            const res = await api.get(DETAIL_EP, {
+                params: { requestTransactionId: transactionId },
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
-            const payload = res?.data?.data ?? res?.data ?? null;
+            const payload = res?.data?.data ?? null;
 
-            // Chuẩn hoá nhẹ (phòng khi BE thay key nhỏ)
+            // Map đúng theo response mẫu bạn gửi
             const normalized = payload
                 ? {
-                    transactionId:
-                        payload.transactionId || payload.id || transactionId,
-                    status: payload.status || payload.paymentStatus || "—",
-                    transactionType: payload.transactionType || payload.type || "—",
+                    transactionId: payload.transactionId || transactionId,
+                    status: payload.status || "—",
+                    transactionType: payload.transactionType || "—",
                     subscriptionId: payload.subscriptionId || "—",
-                    driverName: payload.driverName || payload.customerName || "—",
-                    driverId: payload.driverId || payload.userId || "—",
-                    planName: payload.planName || payload.plan || "—",
+                    driverName: payload.driverName || "—",
+                    driverId: payload.driverId || "—",
+                    planName: payload.planName || "—",
                     numberOfBooking:
-                        typeof payload.numberOfBooking === "number"
-                            ? payload.numberOfBooking
-                            : payload.bookingCount ?? 0,
+                        typeof payload.numberOfBooking === "number" ? payload.numberOfBooking : 0,
                     totalFee:
-                        typeof payload.totalFee === "number"
-                            ? payload.totalFee
-                            : Number(payload.fee || 0),
+                        typeof payload.totalFee === "number" ? payload.totalFee : Number(payload.fee || 0),
                     totalAmount:
                         typeof payload.totalAmount === "number"
                             ? payload.totalAmount
@@ -102,18 +91,16 @@ export default function PaymentInfo() {
 
             setDetail(normalized);
         } catch (err) {
-            console.error("❌ admin-transaction-detail error:", err?.response?.data || err);
+            console.error("❌ transaction-detail error:", err?.response?.data || err);
             setDetailError(
-                err?.response?.data?.message ||
-                err?.message ||
-                "Không thể tải chi tiết giao dịch."
+                err?.response?.data?.message || err?.message || "Không thể tải chi tiết giao dịch."
             );
         } finally {
             setDetailLoading(false);
         }
     };
 
-    // Bulk create invoices (giữ nguyên)
+    // Bulk create invoices (giữ nguyên ý tưởng: tạo cho các giao dịch Waiting)
     const handleCreateAllInvoices = async () => {
         const eligible = payments.filter(
             (p) => String(p.paymentStatus || "").toLowerCase() === "waiting"
@@ -124,11 +111,7 @@ export default function PaymentInfo() {
             return;
         }
 
-        if (
-            !window.confirm(
-                `Tạo hóa đơn cho ${eligible.length} giao dịch ở trạng thái Waiting?`
-            )
-        )
+        if (!window.confirm(`Tạo hóa đơn cho ${eligible.length} giao dịch ở trạng thái Waiting?`))
             return;
 
         const token = localStorage.getItem("token");
@@ -139,17 +122,13 @@ export default function PaymentInfo() {
             for (const p of eligible) {
                 try {
                     await api.post(
-                        "/Transaction/admin-create-transaction",
+                        CREATE_EP,
                         { requestTransactionId: p.transactionId },
-                        { headers: { Authorization: `Bearer ${token}` } }
+                        { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
                     );
                     results.push({ id: p.transactionId, ok: true });
                 } catch (e) {
-                    console.error(
-                        "create-invoice failed:",
-                        p.transactionId,
-                        e?.response?.data || e
-                    );
+                    console.error("create-invoice failed:", p.transactionId, e?.response?.data || e);
                     results.push({
                         id: p.transactionId,
                         ok: false,
@@ -191,12 +170,8 @@ export default function PaymentInfo() {
         <div className="p-8 bg-gray-50 min-h-screen">
             <div className="mb-8 flex flex-wrap gap-3 items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                        🧾 Admin Transaction Management
-                    </h1>
-                    <p className="text-gray-600">
-                        Xuất hóa đơn hàng loạt và xem chi tiết giao dịch
-                    </p>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">🧾 Admin Transaction Management</h1>
+                    <p className="text-gray-600">Xuất hóa đơn hàng loạt và xem chi tiết giao dịch</p>
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -204,12 +179,7 @@ export default function PaymentInfo() {
                         disabled={refreshing || creatingAll}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
                     >
-                        {refreshing ? "Đang tải..." : (
-                            <>
-                                <i className="bi bi-arrow-repeat me-1" aria-hidden="true"></i>
-                                Refresh
-                            </>
-                        )}
+                        {refreshing ? "Đang tải..." : (<><i className="bi bi-arrow-repeat me-1" /> Refresh</>)}
                     </button>
                     <button
                         onClick={handleCreateAllInvoices}
@@ -217,46 +187,25 @@ export default function PaymentInfo() {
                         className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-60"
                         title="Tạo hóa đơn cho tất cả giao dịch đủ điều kiện"
                     >
-                        {creatingAll ? "Đang tạo..." : (
-                            <>
-                                <i className="bi bi-receipt me-1" aria-hidden="true"></i>
-                                Create
-                            </>
-                        )}
+                        {creatingAll ? "Đang tạo..." : (<><i className="bi bi-receipt me-1" /> Create</>)}
                     </button>
                 </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                    Danh sách giao dịch
-                </h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Danh sách giao dịch</h2>
 
                 <div className="overflow-x-auto">
                     <table className="min-w-full border-collapse text-center">
                         <thead className="bg-gray-100 border-b">
                             <tr>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
-                                    Transaction ID
-                                </th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
-                                    Amount
-                                </th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
-                                    Context
-                                </th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
-                                    Note
-                                </th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
-                                    Status
-                                </th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
-                                    Date
-                                </th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
-                                    Actions
-                                </th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Transaction ID</th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Amount</th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Context</th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Note</th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Status</th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Date</th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -272,30 +221,14 @@ export default function PaymentInfo() {
                                     const formattedDate = p.paymentDate
                                         ? new Date(p.paymentDate).toLocaleDateString("vi-VN")
                                         : "—";
-
                                     return (
-                                        <tr
-                                            key={p.transactionId}
-                                            className="border-b hover:bg-gray-50 transition duration-150"
-                                        >
-                                            <td className="px-4 py-3 font-medium text-gray-800">
-                                                {p.transactionId}
-                                            </td>
-                                            <td className="px-4 py-3 text-blue-700 font-semibold">
-                                                {formatVND(p.amount)}
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-700 text-sm">
-                                                {p.transactionContext}
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-700 text-sm">
-                                                {p.transactionNote}
-                                            </td>
+                                        <tr key={p.transactionId} className="border-b hover:bg-gray-50 transition duration-150">
+                                            <td className="px-4 py-3 font-medium text-gray-800">{p.transactionId}</td>
+                                            <td className="px-4 py-3 text-blue-700 font-semibold">{formatVND(p.amount)}</td>
+                                            <td className="px-4 py-3 text-gray-700 text-sm">{p.transactionContext}</td>
+                                            <td className="px-4 py-3 text-gray-700 text-sm">{p.transactionNote}</td>
                                             <td className="px-4 py-3">
-                                                <span
-                                                    className={`px-3 py-1 text-sm font-medium rounded-full ${statusPill(
-                                                        p.paymentStatus
-                                                    )}`}
-                                                >
+                                                <span className={`px-3 py-1 text-sm font-medium rounded-full ${statusPill(p.paymentStatus)}`}>
                                                     {p.paymentStatus}
                                                 </span>
                                             </td>
@@ -318,9 +251,9 @@ export default function PaymentInfo() {
                 </div>
 
                 <div className="mt-3 text-xs text-gray-500">
-                    Gợi ý: Nút <b>Create</b> ở góc trên sẽ xuất hóa đơn <b>hàng loạt</b> cho
-                    các giao dịch đang <b>Waiting</b>. Muốn tiêu chí khác — chỉnh biến{" "}
-                    <code>eligible</code> trong <code>handleCreateAllInvoices</code>.
+                    Gợi ý: Nút <b>Create</b> ở góc trên sẽ xuất hóa đơn <b>hàng loạt</b> cho các giao dịch đang
+                    <b> Waiting</b>. Muốn tiêu chí khác — chỉnh biến <code>eligible</code> trong{" "}
+                    <code>handleCreateAllInvoices</code>.
                 </div>
             </div>
 
@@ -337,12 +270,7 @@ export default function PaymentInfo() {
                         <div className="p-5 border-b flex items-center justify-between">
                             <h3 className="text-xl font-semibold">
                                 Transaction Detail
-                                {selectedTxId ? (
-                                    <span className="text-gray-500 font-normal text-sm">
-                                        {" "}
-                                        • {selectedTxId}
-                                    </span>
-                                ) : null}
+                                {selectedTxId ? <span className="text-gray-500 font-normal text-sm"> • {selectedTxId}</span> : null}
                             </h3>
                             <button
                                 className="p-2 rounded-lg hover:bg-gray-100"
@@ -366,11 +294,7 @@ export default function PaymentInfo() {
                                     <KV
                                         label="Status"
                                         value={
-                                            <span
-                                                className={`px-2.5 py-0.5 rounded-full text-sm font-medium ${statusPill(
-                                                    detail.status
-                                                )}`}
-                                            >
+                                            <span className={`px-2.5 py-0.5 rounded-full text-sm font-medium ${statusPill(detail.status)}`}>
                                                 {detail.status}
                                             </span>
                                         }
@@ -408,9 +332,7 @@ function KV({ label, value }) {
     return (
         <div className="p-3 bg-gray-50 rounded-lg">
             <div className="text-sm text-gray-500">{label}</div>
-            <div className="font-semibold text-gray-900">
-                {value ?? <span className="text-gray-400">—</span>}
-            </div>
+            <div className="font-semibold text-gray-900">{value ?? <span className="text-gray-400">—</span>}</div>
         </div>
     );
 }
