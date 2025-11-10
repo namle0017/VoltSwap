@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.Common.DTOs;
@@ -14,6 +15,8 @@ namespace VoltSwap.API.Controllers
         {
             _vehicleService = vehicleService;
         }
+
+        [Authorize(Roles = "Driver")]
         [HttpPost("Create-vehicle")]
         public async Task<IActionResult> CreateVehicle([FromBody] CreateDriverVehicleRequest request)
         {
@@ -24,7 +27,7 @@ namespace VoltSwap.API.Controllers
               
             });
         }
-
+        [Authorize(Roles = "Driver")]
         [HttpGet("vehicle-list")]
         public async Task<IActionResult> GetVehicleUserList([FromQuery] CheckDriverRequest request)
         {
@@ -35,7 +38,7 @@ namespace VoltSwap.API.Controllers
                 result.Data
             });
         }
-
+        [Authorize(Roles = "Driver")]
         [HttpDelete("delete-vehicle")]
         public async Task<IActionResult> DeleteVehicle([FromQuery] CheckDriverVehicleRequest request)
         {

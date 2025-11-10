@@ -1,10 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity.Data;
+using Microsoft.AspNetCore.Mvc;
+using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.Common.DTOs;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Identity.Data;
-using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.DAL.Models;
 
 namespace VoltSwap.API.Controllers
@@ -18,7 +19,7 @@ namespace VoltSwap.API.Controllers
         {
             _authService = authService;
         }
-
+        [AllowAnonymous]
         [HttpPost("register")]
         public async Task<IActionResult> Register(VoltSwap.Common.DTOs.RegisterRequest request)
         {
@@ -42,7 +43,7 @@ namespace VoltSwap.API.Controllers
                 message = result.Message
             });
         }
-
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> LoginAsync(Common.DTOs.LoginRequest request)
         {

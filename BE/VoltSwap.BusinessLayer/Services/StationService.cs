@@ -19,14 +19,21 @@ namespace VoltSwap.BusinessLayer.Services
         private readonly IGenericRepositories<BatterySwapStation> _stationRepo;
         private readonly IGenericRepositories<Battery> _batteryRepo;
         private readonly IGenericRepositories<StationStaff> _staRepo;
+        private readonly IGenericRepositories<BatterySwapPillar> _pillarRepo;
+        private readonly IGenericRepositories<PillarSlot> _slotRepo;
         private readonly IBatteryService _batService;
+        private readonly IGeocodingService _geoService;
+        private readonly IPillarSlotService _slotService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
         public StationService(
             IServiceProvider serviceProvider,
             IGenericRepositories<BatterySwapStation> stationRepo,
+            IGenericRepositories<BatterySwapPillar> pillarRepo,
             IGenericRepositories<Battery> batteryRepo,
             IGenericRepositories<StationStaff> staRepo,
+            IGeocodingService geoService,
+            IPillarSlotService slotService,
             IBatteryService batService,
             IUnitOfWork unitOfWork,
             IConfiguration configuration) : base(serviceProvider)
@@ -34,7 +41,10 @@ namespace VoltSwap.BusinessLayer.Services
             _stationRepo = stationRepo;
             _batteryRepo = batteryRepo;
             _batService = batService;
+            _pillarRepo = pillarRepo;
             _staRepo = staRepo;
+            _slotService = slotService;
+            _geoService = geoService;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
         }
@@ -44,25 +54,28 @@ namespace VoltSwap.BusinessLayer.Services
             var stationList = await _unitOfWork.Stations.GetAllAsync(station => station.Status == "Active");
             var availableBatteries = await _unitOfWork.Stations.GetBatteriesByStationAsync();
             var stationAvailableList = stationList
-            .Select(station =>
-            {
-                var batteryCount = availableBatteries.Count(b => b.BatterySwapPillar.BatterySwapStationId == station.BatterySwapStationId);
-                var percent = ((double)batteryCount / (double)(station.NumberOfPillar * 20)) * 100;
+        .Select(station =>
+        {
+            var batteryCount = availableBatteries.Count(b => b.BatterySwapPillar.BatterySwapStationId == station.BatterySwapStationId);
+            var totalBattery = station.NumberOfPillar * 20;
 
-                return new StationListResponse
-                {
-                    StationId = station.BatterySwapStationId,
-                    StationName = station.BatterySwapStationName,
-                    StationAddress = station.Address,
-                    LocationLat = station.LocationLat,
-                    LocationLon = station.LocationLng,
-                    BatteryAvailable = batteryCount,
-                    AvailablePercent = percent,
-                    TotalBattery = station.NumberOfPillar * 20,
-                };
-            })
-            .Where(s => s.AvailablePercent > 0)
-            .ToList();
+            var percent = totalBattery > 0
+                ? ((double)batteryCount / totalBattery) * 100
+                : 0;
+
+            return new StationListResponse
+            {
+                StationId = station.BatterySwapStationId,
+                StationName = station.BatterySwapStationName,
+                StationAddress = station.Address,
+                LocationLat = station.LocationLat,
+                LocationLon = station.LocationLng,
+                BatteryAvailable = batteryCount,
+                AvailablePercent = percent,
+                TotalBattery = totalBattery,
+            };
+        })
+        .ToList();
 
             return new ServiceResult
             {
@@ -310,7 +323,122 @@ namespace VoltSwap.BusinessLayer.Services
             };
         }
 
+        private async Task<string> GenerateStationId()
+        {
+            string stationId;
+            bool isDuplicated;
+            var getDate = DateTime.UtcNow.ToLocalTime();
+            do
+            {
+                var random = new Random();
+                stationId = $"STA-{getDate:dd}-{getDate:MM}-{string.Concat(Enumerable.Range(0, 4).Select(_ => random.Next(0, 9).ToString()))}";
+                isDuplicated = await _unitOfWork.Stations.AnyAsync(x => x.BatterySwapStationId == stationId);
+            } while (isDuplicated);
+            return stationId;
+        }
 
+        private async Task<string> GeneratePillarId()
+        {
+            string pillarId;
+            bool isDuplicated;
+            do
+            {
+                var random = new Random();
+                pillarId = $"PI-{string.Concat(Enumerable.Range(0, 6).Select(_ => random.Next(0, 9).ToString()))}";
+                isDuplicated = await _unitOfWork.Pillars.AnyAsync(x => x.BatterySwapPillarId == pillarId);
+            } while (isDuplicated);
+            return pillarId;
+        }
+
+        public async Task<ServiceResult> CreateStationAsync(StationRequest requestDto)
+        {
+            if (requestDto.StationName.Contains("Trạm") && requestDto.StationName.Contains("Station"))
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "The word Station or Trạm cannot be in the name!",
+                };
+            }
+            var getLatLng = await _geoService.ConvertAddrToCoordinates(requestDto.Address);
+            if (getLatLng.LocationLng == -190 && getLatLng.LocationLat == -190)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Can't find this address, please choose the other one!",
+                };
+            }
+            string checkDup = await CheckDuplicateStation(requestDto.Address, requestDto.StationName);
+            if (!string.IsNullOrEmpty(checkDup))
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = checkDup,
+                };
+            }
+            var getStationId = await GenerateStationId();
+            var getPillarList = new List<BatterySwapPillar>();
+            var getSlotList = new List<PillarSlot>();
+            var station = new BatterySwapStation
+            {
+                BatterySwapStationId = getStationId,
+                BatterySwapStationName = $"Trạm {requestDto.StationName}",
+                Address = requestDto.Address,
+                LocationLat = getLatLng.LocationLat,
+                LocationLng = getLatLng.LocationLng,
+                NumberOfPillar = requestDto.NumberOfPillar,
+                Status = "Active",
+                OpenTime = requestDto.OpenTime,
+                CloseTime = requestDto.CloseTime,
+            };
+            await _stationRepo.CreateAsync(station);
+
+            for (int i = 1; i <= requestDto.NumberOfPillar; i++)
+            {
+                var pillarId = await GeneratePillarId();
+                var pillar = new BatterySwapPillar
+                {
+                    BatterySwapPillarId = pillarId,
+                    BatterySwapStationId = getStationId,
+                    PillarCapacity = requestDto.PillarCapicity,
+                };
+                await _pillarRepo.CreateAsync(pillar);
+                await _slotService.CreateSlotChain(pillarId, requestDto.PillarCapicity);
+            }
+
+            var result = await _unitOfWork.SaveChangesAsync();
+            if (result <= 0)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "There was a problem creating the new station, please try again later!",
+                };
+            }
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = $"Station {requestDto.StationName} created successfully!",
+            };
+        }
+
+        private async Task<string> CheckDuplicateStation(string stationAddress, string stationName)
+        {
+            string checkDup = "";
+            if (await _unitOfWork.Stations.AnyAsync(p => p.BatterySwapStationName == stationName))
+            {
+                checkDup = "This station name already exists, please change it to another name!";
+            }
+            if (await _unitOfWork.Stations.AnyAsync(p => p.Address == stationAddress))
+            {
+                checkDup = "There is already a station at this address, please check again!";
+            }
+
+            return checkDup;
+        }
         //Bin: lấy list Battery Swap trong ngày của trạm
         //public async Task<IServiceResult> BatterySwapListAsync(StaffRequest request)
         //{

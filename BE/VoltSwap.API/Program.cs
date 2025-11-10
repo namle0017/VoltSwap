@@ -1,7 +1,10 @@
-﻿using VNPAY.NET;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using System.Text;
+using VNPAY.NET;
 using VoltSwap.BusinessLayer.IServices;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.DAL.Base;
@@ -10,7 +13,33 @@ using VoltSwap.DAL.IRepositories;
 using VoltSwap.DAL.Repositories;
 using VoltSwap.DAL.UnitOfWork;
 
+
 var builder = WebApplication.CreateBuilder(args);
+
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]);
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(key)
+    };
+});
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -29,7 +58,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", b =>
     {
         b.WithOrigins("http://localhost:5173",
-            "https://localhost:5173"
+            "https://localhost:5173",
+            "http://localhost:5174",
+            "https://localhost:5174"
             )
          .AllowAnyMethod()
          .AllowAnyHeader()
@@ -57,6 +88,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<OverviewService>();
 builder.Services.AddScoped<PillarSlotService>();
 builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<PillarSlotService>();
 builder.Services.AddScoped<IPillarSlotService, PillarSlotService>();
 builder.Services.AddScoped<IStationService, StationService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
@@ -67,6 +99,9 @@ builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddScoped<IOverviewService, OverviewService>();
 builder.Services.AddScoped<IBatteryService, BatteryService>();
+builder.Services.AddScoped<IGeocodingService, GeocodingService>();
+builder.Services.AddScoped<GeocodingService>();
+builder.Services.AddHttpClient<GeocodingService>();
 builder.Services.AddScoped<TransactionService>();
 builder.Services.AddScoped(typeof(IGenericRepositories<>), typeof(GenericRepositories<>));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -96,7 +131,8 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 } // 2. CORS trước UseHttpsRedirection
-app.UseAuthorization();      // 4.
+app.UseAuthentication();
+app.UseAuthorization();   // 4.
 app.MapControllers();
 
 app.Run();

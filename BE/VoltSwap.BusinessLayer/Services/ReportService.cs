@@ -87,7 +87,7 @@ namespace VoltSwap.BusinessLayer.Services
                 ReportTypeId = result.ReportTypeId,
                 ReportTypeName = getreport,
                 Note = result.Note,
-                CreateAt =result.CreateAt,
+                CreateAt = result.CreateAt,
                 Status = result.Status,
                 ProcessesAt = result.ProcessesAt,
             };
@@ -170,8 +170,8 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<IServiceResult> ReportTypeListForDriver()
         {
             var getReportType = await _unitOfWork.ReportType.GetAllQueryable()
-                                    .Where(re => re.Status == "active" &&
-                                                ( re.TargetRole == "Driver" || re.TargetRole == null ))
+                                    .Where(re => re.Status == "Active" &&
+                                                (re.TargetRole == "Driver" || re.TargetRole == null))
                                     .Select(re => new ReportTypeDto
                                     {
                                         ReportTypeId = re.ReportTypeId,
@@ -188,7 +188,7 @@ namespace VoltSwap.BusinessLayer.Services
         {
             var getReportType = await _unitOfWork.ReportType.GetAllQueryable()
                                     .Where(re => re.Status == "active" &&
-                                                ( re.TargetRole == "Staff" || re.TargetRole == null ))
+                                                (re.TargetRole == "Staff" || re.TargetRole == null))
                                     .Select(re => new ReportTypeDto
                                     {
                                         ReportTypeId = re.ReportTypeId,
@@ -314,6 +314,7 @@ namespace VoltSwap.BusinessLayer.Services
 
                 result.Add(new StaffReportResponse
                 {
+                    reportId = item.ReportId,
                     StaffId = item.UserStaffId,
                     DriverId = item.UserDriverId,
                     DriverName = getUserName,
@@ -348,6 +349,37 @@ namespace VoltSwap.BusinessLayer.Services
         {
             var getUser = await _userRepo.GetByIdAsync(x => x.UserId == driverId);
             return getUser.UserName;
+        }
+
+        public async Task<IServiceResult> MarkResolveInSystem(MarkResolveDto requestDto)
+        {
+            var getReport = await _reportRepo.GetAllQueryable().Where(x => x.ReportId == requestDto.ReportId).FirstOrDefaultAsync();
+            if (getReport == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Can't find this report!",
+                };
+            }
+
+            getReport.Status = requestDto.ReportStatus;
+            await _reportRepo.UpdateAsync(getReport);
+            int result = await _unitOfWork.SaveChangesAsync();
+            if (result <= 0)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "Can't update this report!",
+                };
+            }
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Mark resolve successfull!",
+            };
         }
     }
 }
