@@ -76,11 +76,10 @@ const Footer = () => {
                     <motion.div whileHover={{ x: 5 }}>
                       <Link
                         to={link.href}
-                        className={`transition-colors duration-300 ${
-                          location.pathname === link.href
+                        className={`transition-colors duration-300 ${location.pathname === link.href
                             ? "text-primary"
                             : "text-gray-400 hover:text-white"
-                        }`}
+                          }`}
                       >
                         {link.name}
                       </Link>
@@ -104,7 +103,6 @@ const Footer = () => {
                 <li>Inventory Management</li>
                 <li>Analytics & Reporting</li>
                 <li>Smart Charging</li>
-                <li>Mobile App Integration</li>
               </ul>
             </motion.div>
 

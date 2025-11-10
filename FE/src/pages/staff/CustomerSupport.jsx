@@ -1,193 +1,281 @@
 // src/pages/staff/CustomerSupport.jsx
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import api from "@/api/api";
 
-/* ===== Endpoint (UI tiếng Anh, comment tiếng Việt) =====
- * GET /Report/customer-reports?UserId=...
- * BE trả về:
- * {
- *   "message": "Get list successfull",
- *   "data": [
- *     {
- *       "staffId": "ST-20000013",
- *       "driverId": "DR-30000001",
- *       "driverName": "Trần Yến",
- *       "reportType": 2,              // số: cần map sang text
- *       "reportNote": "Battery low",
- *       "createAt": "2024-01-04T00:00:00",
- *       "reportStatus": "Processing"  // hoặc "Done", ...
- *     }
- *   ]
- * }
- */
+const LIST_ENDPOINT = "/Report/customer-reports";
+const MARK_STATUS_EP = "/Report/mark-resolve"; // PATCH { reportId, reportStatus }
 
-const ROUTE = "/Report/customer-reports";
-
-// Map số -> mô tả loại báo cáo (có fallback nếu BE đổi)
-const reportTypeLabel = (t) => {
-    switch (Number(t)) {
-        case 1: return "System Error";
-        case 2: return "User Issue";
-        case 3: return "Battery Issue";
-        case 4: return "Station Issue";
-        default: return `Type ${t ?? "—"}`;
-    }
+/* ===== Helpers ===== */
+const REPORT_TYPE_LABELS = {
+    1: "App issue",
+    2: "Battery issue",
+    3: "Payment / Fee",
+    4: "Station issue",
+    5: "Other",
 };
 
-// Định dạng thời gian ngắn gọn
-const fmtTime = (iso) => {
-    if (!iso) return "—";
-    try {
-        const d = new Date(iso);
-        return `${d.toLocaleDateString()} • ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    } catch { return "—"; }
-};
-
-// Chip trạng thái
-function StatusPill({ status }) {
+function getStatusClass(status) {
     const s = String(status || "").toLowerCase();
-    const cls = s === "done"
-        ? "border-emerald-600 text-emerald-700 bg-emerald-50"
-        : s === "processing"
-            ? "border-amber-600 text-amber-700 bg-amber-50"
-            : "border-slate-500 text-slate-700 bg-slate-50";
-    return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border ${cls}`}>
-            {status || "—"}
-        </span>
-    );
+    if (s === "processing") return "pill processing";
+    if (s === "rejected") return "pill rejected";
+    if (s === "done" || s === "resolved" || s === "completed") return "pill success";
+    return "pill pending";
 }
 
+function formatDateTime(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+}
+
+function normalizeReport(r, idx) {
+    const id = r.reportId ?? r.id ?? idx;
+    return {
+        id,
+        reportId: r.reportId ?? r.id ?? id,
+        driverId: r.driverId || "-",
+        driverName: r.driverName || "-",
+        reportNote: r.reportNote || "",
+        reportStatus: r.reportStatus || "Processing",
+        reportType: r.reportType,
+        createdAt: r.createAt || r.createdAt || null,
+    };
+}
+
+/* ===== Page ===== */
 export default function CustomerSupport() {
-    // Lấy UserId (FE truyền cho BE). Ưu tiên userId, sau đó StaffId.
-    const [userId] = React.useState(() =>
-        (localStorage.getItem("userId") ||
-            localStorage.getItem("StaffId") ||
-            "").trim()
+    const [userId] = useState(
+        localStorage.getItem("StaffId") || localStorage.getItem("userId") || ""
     );
+    const [reports, setReports] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [err, setErr] = useState("");
+    const [updatingIds, setUpdatingIds] = useState(() => new Set());
 
-    // State dữ liệu
-    const [rows, setRows] = React.useState([]);
-    const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState("");
-
-    // Tìm kiếm cục bộ
-    const [q, setQ] = React.useState("");
-
-    // Gọi API lấy danh sách ticket
-    const fetchTickets = React.useCallback(async () => {
+    async function loadReports() {
         if (!userId) {
-            setError("Missing UserId in localStorage. Please sign in again.");
-            setLoading(false);
+            setErr("Missing UserId. Please login again.");
+            setReports([]);
             return;
         }
         try {
             setLoading(true);
-            setError("");
-            const res = await api.get(ROUTE, { params: { UserId: userId } });
-            const list = Array.isArray(res?.data?.data) ? res.data.data : [];
-            // Sắp xếp mới nhất lên trên (createAt desc)
-            list.sort((a, b) => new Date(b.createAt || 0) - new Date(a.createAt || 0));
-            setRows(list);
-        } catch (e) {
-            setError(e?.response?.data?.message || e?.message || "Failed to load tickets.");
+            setErr("");
+            const res = await api.get(LIST_ENDPOINT, { params: { userId } });
+            const list = Array.isArray(res?.data?.data)
+                ? res.data.data
+                : Array.isArray(res?.data)
+                    ? res.data
+                    : [];
+            setReports(list.map(normalizeReport));
+        } catch (error) {
+            console.error("Load customer reports error", error);
+            setErr(error?.response?.data?.message || "Cannot load customer reports. Please try again.");
+            setReports([]);
         } finally {
             setLoading(false);
         }
+    }
+
+    useEffect(() => {
+        loadReports();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
-    React.useEffect(() => { fetchTickets(); }, [fetchTickets]);
-
-    // Lọc theo từ khóa
-    const filtered = React.useMemo(() => {
-        const term = q.trim().toLowerCase();
-        if (!term) return rows;
-        return rows.filter((r) => {
-            const hay =
-                `${r.staffId || ""} ${r.driverId || ""} ${r.driverName || ""} ${r.reportNote || ""} ${r.reportStatus || ""} ${reportTypeLabel(r.reportType)}`.toLowerCase();
-            return hay.includes(term);
-        });
-    }, [q, rows]);
-
-    // Đếm ticket chưa Done
-    const openCount = React.useMemo(
-        () => rows.filter(r => String(r.reportStatus || "").toLowerCase() !== "done").length,
-        [rows]
+    // Ẩn toàn bộ Rejected
+    const visibleReports = useMemo(
+        () => reports.filter((r) => String(r.reportStatus || "").toLowerCase() !== "rejected"),
+        [reports]
     );
 
+    const openCount = useMemo(
+        () => visibleReports.filter((r) => String(r.reportStatus || "").toLowerCase() === "processing").length,
+        [visibleReports]
+    );
+
+    // Mark Resolved (theo yêu cầu: gửi reportStatus="Rejected" và ẩn khỏi list)
+    const handleMarkResolved = async (row) => {
+        const reportId = row.reportId ?? row.id;
+        if (reportId === undefined || reportId === null) {
+            alert("Missing reportId. Please check BE response.");
+            return;
+        }
+        if (updatingIds.has(row.id)) return;
+
+        const ok = window.confirm(`Mark report #${reportId} of ${row.driverName} as Resolved (hide)?`);
+        if (!ok) return;
+
+        setUpdatingIds((prev) => {
+            const n = new Set(prev);
+            n.add(row.id);
+            return n;
+        });
+
+        try {
+            // BE yêu cầu:
+            // PATCH /api/Report/mark-resolve
+            // { "reportId": 1, "reportStatus": "" }
+            // Ở đây set "Rejected" để ẩn
+            await api.patch(MARK_STATUS_EP, {
+                reportId,
+                reportStatus: "Rejected",
+            });
+
+            // Cập nhật local: đổi status sang Rejected rồi filter ẩn
+            setReports((prev) =>
+                prev
+                    .map((r) => (r.id === row.id ? { ...r, reportStatus: "Rejected" } : r))
+            );
+        } catch (error) {
+            console.error("Mark resolve error", error);
+            alert(error?.response?.data?.message || "Failed to update report status.");
+        } finally {
+            setUpdatingIds((prev) => {
+                const n = new Set(prev);
+                n.delete(row.id);
+                return n;
+            });
+        }
+    };
+
     return (
-        <section className="space-y-4">
+        <section>
             {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="cs-header">
                 <div>
-                    <h2 className="text-xl font-bold">Customer Support</h2>
-                    <p className="text-sm text-slate-500">Tickets and conversations with customers.</p>
+                    <h2 className="h1">Customer Reports</h2>
+                    <p className="muted">Reports created for driver & station issues.</p>
                 </div>
-
-                <div className="flex items-center gap-2">
-                    <input
-                        className="rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Search ID / name / note / status"
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
-                    />
-                    <button
-                        onClick={fetchTickets}
-                        className="px-3 py-2 rounded-lg border text-sm disabled:opacity-60"
-                        disabled={loading}
-                        title="Refresh tickets"
-                        type="button"
-                    >
-                        ↻ Refresh
+                <div className="cs-header-right">
+                    <div>
+                        User ID: <span className="strong">{userId || "-"}</span>
+                    </div>
+                    <div>
+                        Processing: <span className="strong">{openCount}</span>
+                    </div>
+                    <div>
+                        Total (visible): <span className="strong">{visibleReports.length}</span>
+                    </div>
+                    <button className="btn btn-light" onClick={loadReports} disabled={loading}>
+                        {loading ? "Loading..." : "Reload"}
                     </button>
-
                 </div>
             </div>
 
-            {/* Card danh sách */}
-            <div className="rounded-2xl border bg-white shadow-sm">
-                <div className="px-4 py-3 border-b flex items-center justify-between">
-                    <div className="font-semibold flex items-center gap-2">
-                        <span role="img" aria-label="headset"></span>
-                        Open Tickets
-                    </div>
-                    <div className="text-xs text-slate-500">
-                        {openCount} open • {rows.length} total
-                    </div>
-                </div>
+            {/* Error */}
+            {err && <div className="alert error mt-3">{err}</div>}
 
-                {error && (
-                    <div className="px-4 py-3 text-sm text-red-600">{error}</div>
-                )}
+            {/* Table */}
+            <div className="cs-table-wrap mt-4">
+                <table className="cs-table">
+                    <thead>
+                        <tr>
+                            <th>Report ID</th>
+                            <th>Driver ID</th>
+                            <th>Customer</th>
+                            <th>Description</th>
+                            <th>Type</th>
+                            <th>Created At</th>
+                            <th>Status</th>
+                            <th style={{ minWidth: 140 }}>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading && (
+                            <tr>
+                                <td colSpan={8} className="muted t-center">
+                                    Loading reports...
+                                </td>
+                            </tr>
+                        )}
 
-                {loading ? (
-                    <div className="px-4 py-6 text-sm text-slate-500">Loading…</div>
-                ) : filtered.length === 0 ? (
-                    <div className="px-4 py-6 text-sm text-slate-500">No tickets.</div>
-                ) : (
-                    <ul className="divide-y">
-                        {filtered.map((t, i) => {
-                            const title = `${reportTypeLabel(t.reportType)} — ${t.reportNote || "No note"}`;
-                            const sub = `${t.driverName || "—"}${t.driverId ? ` • ${t.driverId}` : ""}`;
-                            return (
-                                <li key={`${t.staffId || "row"}-${i}`} className="px-4 py-3 flex items-start justify-between gap-3 hover:bg-slate-50">
-                                    <div>
-                                        <div className="font-medium">{title}</div>
-                                        <div className="text-xs text-slate-500">{sub}</div>
-                                        <div className="text-[11px] text-slate-500 mt-0.5">Staff: {t.staffId || "—"}</div>
-                                    </div>
-                                    <div className="flex items-center gap-3 shrink-0">
-                                        <StatusPill status={t.reportStatus} />
-                                        <span className="text-xs text-slate-500">{fmtTime(t.createAt)}</span>
-                                    </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                )}
+                        {!loading && !err && visibleReports.length === 0 && (
+                            <tr>
+                                <td colSpan={8} className="muted t-center">
+                                    No reports to display.
+                                </td>
+                            </tr>
+                        )}
+
+                        {!loading &&
+                            !err &&
+                            visibleReports.map((r) => {
+                                const status = r.reportStatus || "Processing";
+                                const statusClass = getStatusClass(status);
+                                const typeLabel =
+                                    REPORT_TYPE_LABELS[r.reportType] || `Type #${r.reportType ?? "-"}`;
+                                const updating = updatingIds.has(r.id);
+                                const canMark = String(status).toLowerCase() === "processing";
+
+                                return (
+                                    <tr key={r.id}>
+                                        <td>{r.reportId}</td>
+                                        <td>{r.driverId}</td>
+                                        <td>{r.driverName}</td>
+                                        <td className="cs-note" title={r.reportNote}>
+                                            {r.reportNote || "—"}
+                                        </td>
+                                        <td>{typeLabel}</td>
+                                        <td>{formatDateTime(r.createdAt)}</td>
+                                        <td>
+                                            <span className={statusClass}>{status}</span>
+                                        </td>
+                                        <td>
+                                            {canMark ? (
+                                                <button
+                                                    className="btn btn-reject"
+                                                    onClick={() => handleMarkResolved(r)}
+                                                    disabled={updating}
+                                                >
+                                                    {updating ? "Updating..." : "Mark Resolved"}
+                                                </button>
+                                            ) : (
+                                                <span className="muted">—</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                    </tbody>
+                </table>
             </div>
 
+            {/* Styles */}
+            <style>{`
+        .cs-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
+        .cs-header-right { display:flex; gap:10px; align-items:center; font-size:12px; color:#6b7280; }
+        .strong { font-weight:600; color:#111827; }
+        .mt-3 { margin-top:12px; }
+        .mt-4 { margin-top:16px; }
+        .t-center { text-align:center; }
 
+        .cs-table-wrap { background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; padding:4px; box-shadow:0 4px 14px rgba(15,23,42,0.03); overflow-x:auto; }
+        .cs-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .cs-table th, .cs-table td { padding:10px 14px; border-bottom:1px solid #f3f4f6; text-align:left; vertical-align:middle; }
+        .cs-table th { font-size:13px; font-weight:700; color:#111827; background:#f9fafb; white-space:nowrap; }
+        .cs-table tbody tr:hover { background:#f8fafc; }
+        .cs-table tr:last-child td { border-bottom:none; }
+        .cs-note { max-width:320px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+        .btn { padding:6px 12px; border-radius:999px; border:1px solid #e5e7eb; font-size:11px; cursor:pointer; background:#ffffff; }
+        .btn-light { background:#f9fafb; }
+        .btn-reject { border-color:#111827; background:#f3f4f6; color:#111827; font-weight:600; }
+        .btn[disabled] { opacity:.6; cursor:not-allowed; }
+
+        .pill { display:inline-flex; align-items:center; padding:3px 9px; border-radius:999px; font-size:10px; font-weight:600; border:1px solid transparent; }
+        .pill.processing { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+        .pill.success { background:#ecfdf5; border-color:#bbf7d0; color:#15803d; }
+        .pill.pending { background:#fef9c3; border-color:#fde68a; color:#92400e; }
+        .pill.rejected { background:#fef2f2; border-color:#fecaca; color:#b91c1c; }
+
+        .alert.error { padding:10px 14px; border-radius:10px; border:1px solid #fecaca; background:#fef2f2; color:#991b1b; font-size:12px; }
+      `}</style>
         </section>
     );
 }

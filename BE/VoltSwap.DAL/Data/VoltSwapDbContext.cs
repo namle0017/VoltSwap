@@ -190,6 +190,7 @@ public partial class VoltSwapDbContext : DbContext
         {
             entity.HasKey(e => e.SessionId).HasName("PK__battery___69B13FDC3BD2D457");
 
+
             entity.ToTable("battery_sessions");
 
             entity.HasIndex(e => e.BatteryId, "IX_battery_sessions_battery_id");
@@ -224,6 +225,7 @@ public partial class VoltSwapDbContext : DbContext
         modelBuilder.Entity<BatterySwap>(entity =>
         {
             entity.HasKey(e => e.SwapHistoryId).HasName("PK__battery___74DF5EE3E038AF05");
+
 
             entity.ToTable("battery_swap");
 
@@ -752,6 +754,7 @@ public partial class VoltSwapDbContext : DbContext
         {
             entity.HasKey(e => e.SubscriptionId).HasName("PK__subscrip__863A7EC1BD0556A9");
 
+
             entity.ToTable("subscriptions");
 
             entity.HasIndex(e => new { e.StartDate, e.EndDate }, "IX_subscriptions_dates");
@@ -806,6 +809,7 @@ public partial class VoltSwapDbContext : DbContext
         modelBuilder.Entity<Transaction>(entity =>
         {
             entity.HasKey(e => e.TransactionId).HasName("PK__transact__85C600AF07D42455");
+
 
             entity.ToTable("transactions");
 
@@ -898,6 +902,7 @@ public partial class VoltSwapDbContext : DbContext
         {
             entity.HasKey(e => e.TransferId).HasName("PK__transfer__78E6FD33341AFFE9");
 
+
             entity.ToTable("transfer_logs");
 
             entity.HasIndex(e => e.BatteryId, "IX_transfer_logs_battery_id");
@@ -964,6 +969,7 @@ public partial class VoltSwapDbContext : DbContext
         modelBuilder.Entity<User>(entity =>
         {
             entity.HasKey(e => e.UserId).HasName("PK__users__B9BE370F5D9CB54D");
+
 
             entity.ToTable("users");
 

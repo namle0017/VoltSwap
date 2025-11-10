@@ -71,6 +71,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<IVnPayService, VnPayService>();
 builder.Services.AddScoped<VehicleService>();
+builder.Services.AddScoped<RatingService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddScoped<FeeService>();

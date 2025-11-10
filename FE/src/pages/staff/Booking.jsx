@@ -9,7 +9,6 @@ const CANCEL_EP = "/Booking/cancel-booking-by-user";
 
 /* ========== Helpers ========== */
 function parseLocalDateTime(dateStr, timeStr) {
-    // date: "2025-10-25", time: "13:36:00"
     if (!dateStr) return null;
     const [y, m, d] = (dateStr || "").split("-").map(Number);
     const [hh = 0, mm = 0, ss = 0] = (timeStr || "00:00:00").split(":").map(Number);
@@ -38,7 +37,7 @@ function statusPillClass(text) {
     if (v.includes("confirm")) return "pill confirmed";
     if (v.includes("success") || v.includes("done") || v.includes("completed"))
         return "pill successful";
-    return "pill pending"; // "Processing"/"Not done"
+    return "pill pending";
 }
 const isCancelNote = (note) => String(note || "").toLowerCase().includes("cancel");
 const canCancel = (status = "") => {
@@ -55,7 +54,6 @@ function normalizeBooking(b, idx) {
     return {
         id: idx + 1,
         bookingId: b?.bookingId || "",
-        // BE trả "subcriptionId" (đúng chính tả từ BE)
         subcriptionId: b?.subcriptionId || b?.subscriptionId || b?.subId || "",
         driverName: b?.driverName || "—",
         phone: b?.driverTele || "—",
@@ -72,11 +70,12 @@ export default function Booking() {
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState("");
 
-    // tracking theo bookingId
+    // search theo tên
+    const [searchName, setSearchName] = React.useState("");
+
     const [creatingIds, setCreatingIds] = React.useState(() => new Set());
     const [confirmingIds, setConfirmingIds] = React.useState(() => new Set());
-    const [cancellingIds, setCancellingIds] = React.useState(() => new Set()); // NEW
-    // map bookingId -> transactionId (nhận sau khi create)
+    const [cancellingIds, setCancellingIds] = React.useState(() => new Set());
     const [txByBooking, setTxByBooking] = React.useState({});
 
     const staffId = React.useMemo(
@@ -119,8 +118,18 @@ export default function Booking() {
         fetchBookings();
     }, [fetchBookings]);
 
+    /* ========== Derived: filtered rows by name ========== */
+    const filteredRows = React.useMemo(() => {
+        const q = searchName.trim().toLowerCase();
+        if (!q) return rows;
+        return rows.filter((bk) =>
+            String(bk.driverName || "")
+                .toLowerCase()
+                .includes(q)
+        );
+    }, [rows, searchName]);
+
     /* ========== Actions ========== */
-    // Create Transaction: { subId, bookingId, staffId }
     const handleCreateTransaction = async (bk) => {
         if (!bk?.subcriptionId || !bk?.bookingId || !staffId) {
             alert("Missing data (subId / bookingId / staffId).");
@@ -154,7 +163,6 @@ export default function Booking() {
         }
     };
 
-    // Confirm Transaction: { transactionId }
     const handleConfirmTransaction = async (bk) => {
         const txId = txByBooking[bk.bookingId];
         if (!txId) {
@@ -178,7 +186,6 @@ export default function Booking() {
         }
     };
 
-    // NEW: Cancel Booking: { bookingId }
     const handleCancelBooking = async (bk) => {
         if (!bk?.bookingId) {
             alert("Missing bookingId.");
@@ -199,7 +206,6 @@ export default function Booking() {
         try {
             await api.post(CANCEL_EP, { bookingId: bk.bookingId });
             alert("Booking cancelled successfully.");
-            // Refresh list để đồng bộ trạng thái từ BE
             await fetchBookings();
         } catch (e) {
             const msg = e?.response?.data?.message || e?.message || "Failed to cancel booking.";
@@ -221,12 +227,19 @@ export default function Booking() {
                     <h2 className="h1">Booking</h2>
                     <p className="muted">Manage customer bookings and schedules.</p>
                 </div>
-                <button className="btn" onClick={fetchBookings} disabled={loading}>
-                    ↻ Refresh
-                </button>
+                <div className="row-right">
+                    <input
+                        className="search-input"
+                        placeholder="Search by customer name..."
+                        value={searchName}
+                        onChange={(e) => setSearchName(e.target.value)}
+                    />
+                    <button className="btn" onClick={fetchBookings} disabled={loading}>
+                        ↻ Refresh
+                    </button>
+                </div>
             </div>
 
-            {/* Error / Loading */}
             {error && (
                 <div
                     className="card card-padded mt-3"
@@ -244,7 +257,6 @@ export default function Booking() {
                 </div>
             )}
 
-            {/* Table */}
             <div className="table-wrap mt-4">
                 <table className="table">
                     <thead>
@@ -261,14 +273,16 @@ export default function Booking() {
                     </thead>
 
                     <tbody>
-                        {rows.length === 0 && !loading ? (
+                        {filteredRows.length === 0 && !loading ? (
                             <tr>
                                 <td colSpan={8} className="muted" style={{ textAlign: "center", padding: "16px" }}>
-                                    No bookings.
+                                    {rows.length === 0
+                                        ? "No bookings."
+                                        : "No bookings match this customer name."}
                                 </td>
                             </tr>
                         ) : (
-                            rows.map((bk) => {
+                            filteredRows.map((bk) => {
                                 const showCancelFlow = isCancelNote(bk.note);
                                 const creating = creatingIds.has(bk.bookingId);
                                 const confirming = confirmingIds.has(bk.bookingId);
@@ -288,17 +302,19 @@ export default function Booking() {
                                         </td>
                                         <td>{bk.note || "—"}</td>
                                         <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                            {/* NEW: Cancel button (luôn hiển thị nếu booking có thể cancel) */}
                                             <button
                                                 className="btn btn-cancel"
                                                 disabled={!allowCancel || cancelling}
                                                 onClick={() => handleCancelBooking(bk)}
-                                                title={allowCancel ? "Cancel this booking" : "This booking cannot be cancelled"}
+                                                title={
+                                                    allowCancel
+                                                        ? "Cancel this booking"
+                                                        : "This booking cannot be cancelled"
+                                                }
                                             >
                                                 {cancelling ? "Cancelling…" : "Cancel Booking"}
                                             </button>
 
-                                            {/* Flow hoàn tiền riêng khi Note đã là cancel-request */}
                                             {showCancelFlow ? (
                                                 <>
                                                     <button
@@ -325,8 +341,7 @@ export default function Booking() {
                                                 </>
                                             ) : (
                                                 <span className="muted" style={{ lineHeight: "36px" }}>
-                                                    {/* không có flow refund khi chưa có yêu cầu cancel */}
-                                                    {/* — */}
+                                                    {/* no refund flow */}
                                                 </span>
                                             )}
                                         </td>
@@ -338,10 +353,27 @@ export default function Booking() {
                 </table>
             </div>
 
-            {/* Styles */}
             <style>{`
         .row-between { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
-        .btn { height:36px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:#fff; }
+        .row-right { display:flex; align-items:center; gap:8px; }
+
+        .search-input {
+          height:36px;
+          padding:0 10px;
+          border-radius:10px;
+          border:1px solid var(--line, #e5e7eb);
+          font-size:13px;
+          min-width:220px;
+          background:#f9fafb;
+          outline:none;
+        }
+        .search-input:focus {
+          border-color:#4f46e5;
+          box-shadow:0 0 0 1px rgba(79,70,229,0.09);
+          background:#ffffff;
+        }
+
+        .btn { height:36px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:#fff; cursor:pointer; font-size:13px; }
         .btn-confirm { border-color:#f59e0b; background:#fff7ed; }
         .btn-create  { border-color:#10b981; background:#ecfdf5; }
         .btn-cancel  { border-color:#ef4444; background:#fef2f2; }
@@ -351,7 +383,7 @@ export default function Booking() {
         .table-wrap { overflow-x:auto; background:#fff; border:1px solid var(--line); border-radius:12px; }
         .table { width:100%; border-collapse:collapse; }
         .table th, .table td { padding:12px 14px; border-bottom:1px solid var(--line); text-align:left; }
-        .table th { font-size:14px; font-weight:600; color:var(--muted); background:#fafafa; }
+        .table th { font-size:14px; font-weight:600; color:var(--muted,#6b7280); background:#fafafa; }
         .table tr:last-child td { border-bottom:none; }
         .table tbody tr:hover { background:#f8fafc; }
 

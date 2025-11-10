@@ -1,3 +1,4 @@
+/* eslint-disable no-self-assign */
 /* eslint-disable no-unused-vars */
 /* Subscription.jsx */
 import { useEffect, useMemo, useState } from "react";
@@ -32,6 +33,9 @@ const isTierArray = (v) =>
             "amount" in t
     );
 
+const displayMileage = (n) =>
+    Number(n) === 0 ? "Unlimited" : `${Number(n).toLocaleString("vi-VN")} km/month`;
+
 /* ===== Mapping fee key <-> API name ===== */
 const KEY_TO_API = {
     booking: "Booking",
@@ -52,22 +56,31 @@ export default function Subscription() {
     const [feeGroups, setFeeGroups] = useState([]); // [{groupKey, feeSummary}, ...]
     const [activeGroupKey, setActiveGroupKey] = useState("");
 
-    // Package modal (giữ như cũ, không gửi date)
+    // ===== Package modal =====
     const [isPkgModalOpen, setIsPkgModalOpen] = useState(false);
     const [pkgMode, setPkgMode] = useState("create");
     const [editingId, setEditingId] = useState(null);
     const [pkgForm, setPkgForm] = useState({
+        // NOTE: planId chỉ dùng khi edit
+        planId: "",
         name: "",
         batteries: "",
+        durationDays: "",
+        swapLimit: "",
         baseMileage: "",
         basePriceText: "",
+        status: "Active", // Active | Inactive (tuỳ BE)
     });
+
+    // Delete loading
+    const [deletingId, setDeletingId] = useState(null);
 
     // ===== Fee Update Modal =====
     const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
     const [modalGroupKey, setModalGroupKey] = useState("");
     const [simpleFeeEdits, setSimpleFeeEdits] = useState([]); // [{typeOfFee, amountText, unit}]
-    const [tierFeeEdits, setTierFeeEdits] = useState([]); // [{typeOfFee, tiers:[{minValue,maxValue,amountText,unit}]}]
+    // tiers now support description
+    const [tierFeeEdits, setTierFeeEdits] = useState([]); // [{typeOfFee, tiers:[{minValue,maxValue,amountText,unit,description}]}]
     const [submittingFees, setSubmittingFees] = useState(false);
 
     useEffect(() => {
@@ -89,7 +102,7 @@ export default function Subscription() {
 
                 const mapped = list.map((item, idx) => {
                     const p = item?.plans || {};
-                    const createdAtRaw = p.createdAt || null; // (BE có thể trả cratedAt -> đã fix)
+                    const createdAtRaw = p.createdAt || null;
                     const createdAt = createdAtRaw
                         ? new Date(createdAtRaw).toLocaleDateString("vi-VN")
                         : "-";
@@ -101,6 +114,9 @@ export default function Subscription() {
                         batteries: p.numberBattery ?? 0,
                         baseMileage: p.milleageBaseUsed ?? 0,
                         basePrice: Number(p.price || 0),
+                        durationDays: p.durationDays ?? 0,
+                        swapLimit: p.swapLimit ?? 0,
+                        status: p.status || "-",
                         createdAt,
                     };
                 });
@@ -157,66 +173,121 @@ export default function Subscription() {
         return out;
     }, [activeFeeSummary]);
 
-    /* ===== Package Modal handlers (giữ như cũ, không gửi date) ===== */
+    /* ===== Package Modal handlers ===== */
     const openCreatePackage = () => {
         setPkgMode("create");
         setEditingId(null);
         setPkgForm({
+            planId: "",
             name: "",
             batteries: "",
+            durationDays: "",
+            swapLimit: "",
             baseMileage: "",
             basePriceText: "",
+            status: "Active",
         });
         setIsPkgModalOpen(true);
     };
+
     const openEditPackage = (pkg) => {
         setPkgMode("edit");
         setEditingId(pkg.id);
         setPkgForm({
+            planId: String(pkg.planId || ""), // hiện ra ở form nhưng disabled
             name: pkg.name,
             batteries: String(pkg.batteries ?? ""),
+            durationDays: String(pkg.durationDays ?? ""),
+            swapLimit: String(pkg.swapLimit ?? ""),
             baseMileage: String(pkg.baseMileage ?? ""),
             basePriceText: formatCurrencyInput(pkg.basePrice),
+            status: pkg.status || "Active",
         });
         setIsPkgModalOpen(true);
     };
+
     const closePkgModal = () => setIsPkgModalOpen(false);
 
     const submitPackage = async (e) => {
         e.preventDefault();
-        const payload = {
-            planName: (pkgForm.name || "").split(" ")[0].trim() || pkgForm.name.trim(),
+
+        const payloadCommon = {
+            planName: (pkgForm.name || "").trim(),
             numberBattery: Number(pkgForm.batteries || 0),
-            milleageBaseUsed: Number(pkgForm.baseMileage || 0),
+            durationDays: Number(pkgForm.durationDays || 0),
+            milleageBaseUsed: Number(pkgForm.baseMileage || 0), // 0 = Unlimited
+            swapLimit: Number(pkgForm.swapLimit || 0),
             price: parseCurrencyToNumber(pkgForm.basePriceText),
+            status: (pkgForm.status || "").trim(), // "Active" | "Inactive"
         };
 
-        if (
-            !payload.planName ||
-            !payload.numberBattery ||
-            isNaN(payload.milleageBaseUsed) ||
-            !payload.price
-        ) {
-            alert("Vui lòng điền đầy đủ thông tin gói.");
+        // Validate
+        const errs = [];
+        if (!payloadCommon.planName) errs.push("Package Name");
+        if (!payloadCommon.numberBattery) errs.push("Number of batteries");
+        if (!payloadCommon.durationDays) errs.push("Duration days");
+        if (isNaN(payloadCommon.milleageBaseUsed)) errs.push("Base mileage");
+        if (isNaN(payloadCommon.swapLimit)) errs.push("Swap limit");
+        if (!payloadCommon.price) errs.push("Base price");
+        if (!payloadCommon.status) errs.push("Status");
+        if (pkgMode === "edit" && !pkgForm.planId) errs.push("Plan ID");
+
+        if (errs.length) {
+            alert("Vui lòng nhập đúng/đủ các trường: " + errs.join(", "));
             return;
         }
 
         try {
             const token = localStorage.getItem("token");
             if (pkgMode === "create") {
-                // await api.post("/Plan/create-plan", payload, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
-                console.log("[CREATE] payload gửi BE (không có date):", payload);
+                await api.post("/Plan/create-plan", payloadCommon, {
+                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                });
+                alert("✅ Tạo gói thành công.");
             } else {
-                const item = packages.find((p) => p.id === editingId);
-                const planId = item?.planId;
-                const body = planId ? { planId, ...payload } : payload;
-                // await api.post("/Plan/update-plan", body, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
-                console.log("[UPDATE] payload gửi BE (không có date):", body);
+                const body = {
+                    planId: pkgForm.planId, // không cho sửa trong UI
+                    ...payloadCommon,
+                };
+                await api.post("/Plan/update-plan", body, {
+                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                });
+                alert("✅ Cập nhật gói thành công.");
             }
             setIsPkgModalOpen(false);
         } catch (err) {
             console.error("create/update plan error", err?.response?.data || err);
-            alert("❌ Thao tác thất bại.");
+            alert(
+                err?.response?.data?.message ||
+                err?.response?.data?.title ||
+                "❌ Thao tác thất bại."
+            );
+        }
+    };
+
+    const deletePlan = async (planId) => {
+        if (!planId) return;
+        const ok = confirm("Bạn có chắc muốn xoá gói này?");
+        if (!ok) return;
+        try {
+            setDeletingId(planId);
+            const token = localStorage.getItem("token");
+            await api.post(
+                "/Plan/delete-plan",
+                { planId },
+                { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
+            );
+            setPackages((prev) => prev.filter((p) => p.planId !== planId));
+            alert("🗑️ Đã xoá gói.");
+        } catch (e) {
+            console.error("delete-plan error", e?.response?.data || e);
+            alert(
+                e?.response?.data?.message ||
+                e?.response?.data?.title ||
+                "❌ Xoá gói thất bại."
+            );
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -237,18 +308,19 @@ export default function Subscription() {
         Object.entries(summary || {}).forEach(([key, val]) => {
             if (isAmountObj(val)) {
                 simple.push({
-                    typeOfFee: toApiFeeName(key), // ✅ Booking / Battery Deposit / Battery Swap
+                    typeOfFee: toApiFeeName(key), // Booking / Battery Deposit / Battery Swap
                     amountText: formatCurrencyInput(val.amount),
                     unit: val.unit || "VND",
                 });
             } else if (isTierArray(val)) {
                 tiered.push({
-                    typeOfFee: toApiFeeName(key), // ✅ Excess Mileage
+                    typeOfFee: toApiFeeName(key), // Excess Mileage
                     tiers: val.map((t) => ({
                         minValue: Number(t.minValue ?? 0),
                         maxValue: Number(t.maxValue ?? 0),
                         amountText: formatCurrencyInput(t.amount ?? 0),
                         unit: t.unit || "VND/km",
+                        description: t.description || "",
                     })),
                 });
             }
@@ -256,16 +328,48 @@ export default function Subscription() {
 
         setSimpleFeeEdits(simple);
         setTierFeeEdits(tiered);
-        setIsFeeModalOpen(true); // ✅ luôn mở, không ẩn khi đổi group
+        setIsFeeModalOpen(true);
     };
 
     const closeFeeModal = () => setIsFeeModalOpen(false);
+
+    // ===== Helpers for tier logic (Excess Mileage) =====
+    const findFeeIdxByType = (type) =>
+        tierFeeEdits.findIndex((f) => (f?.typeOfFee || "").toLowerCase() === type.toLowerCase());
+
+    const computeNextMinFromTiers = (tiers) => {
+        if (!Array.isArray(tiers) || tiers.length === 0) return 0;
+        const sorted = [...tiers].sort((a, b) => Number(a.maxValue) - Number(b.maxValue));
+        const last = sorted[sorted.length - 1];
+        const nextMin = Number(last.maxValue || 0) + 1;
+        return isFinite(nextMin) ? nextMin : 0;
+    };
+
+    const validateTiersNoOverlap = (tiers) => {
+        const arr = [...tiers]
+            .map((t) => ({
+                min: Number(t.minValue),
+                max: Number(t.maxValue),
+            }))
+            .sort((a, b) => a.min - b.min);
+
+        for (let i = 0; i < arr.length; i++) {
+            const { min, max } = arr[i];
+            if (min > max) return false;
+            if (i > 0) {
+                const prev = arr[i - 1];
+                // disallow overlap
+                if (min <= prev.max) return false;
+            }
+        }
+        return true;
+    };
 
     // Handlers chỉnh simple fees
     const onSimpleChange = (idx, field, value) => {
         setSimpleFeeEdits((prev) => {
             const copy = [...prev];
-            copy[idx] = { ...copy[idx], [field]: value };
+            copy[idx = idx] = { ...copy[idx], [field]: value };
             return copy;
         });
     };
@@ -274,16 +378,42 @@ export default function Subscription() {
     const addTierRow = (feeIdx) => {
         setTierFeeEdits((prev) => {
             const copy = [...prev];
+            const current = copy[feeIdx] || { tiers: [] };
+            const nextMin = computeNextMinFromTiers(current.tiers || []);
             copy[feeIdx] = {
-                ...copy[feeIdx],
+                ...current,
                 tiers: [
-                    ...(copy[feeIdx]?.tiers || []),
-                    { minValue: 0, maxValue: 0, amountText: "", unit: "VND/km" },
+                    ...(current.tiers || []),
+                    {
+                        minValue: nextMin,
+                        maxValue: nextMin, // default = equal, user chỉnh sau
+                        amountText: "",
+                        unit: "VND/km",
+                        description: "",
+                    },
                 ],
             };
             return copy;
         });
     };
+
+    // convenience: add new tier specifically for "Excess Mileage"
+    const addExcessMileageTier = () => {
+        let feeIdx = findFeeIdxByType("Excess Mileage");
+        if (feeIdx === -1) {
+            // If group chưa có "Excess Mileage", thêm mới container
+            setTierFeeEdits((prev) => [
+                ...prev,
+                {
+                    typeOfFee: "Excess Mileage",
+                    tiers: [{ minValue: 0, maxValue: 0, amountText: "", unit: "VND/km", description: "" }],
+                },
+            ]);
+            return;
+        }
+        addTierRow(feeIdx);
+    };
+
     const removeTierRow = (feeIdx, rowIdx) => {
         setTierFeeEdits((prev) => {
             const copy = [...prev];
@@ -293,6 +423,7 @@ export default function Subscription() {
             return copy;
         });
     };
+
     const onTierChange = (feeIdx, rowIdx, field, value) => {
         setTierFeeEdits((prev) => {
             const copy = [...prev];
@@ -317,7 +448,7 @@ export default function Subscription() {
             const amount = parseCurrencyToNumber(f.amountText);
             if (!f.typeOfFee) continue;
             fees.push({
-                typeOfFee: f.typeOfFee, // đã là tên đúng cho BE
+                typeOfFee: f.typeOfFee,
                 amount,
                 unit: f.unit || "VND",
             });
@@ -326,16 +457,30 @@ export default function Subscription() {
         // Tiered
         for (const f of tierFeeEdits) {
             if (!f.typeOfFee) continue;
-            const tiers = (f.tiers || [])
+
+            const sortedTiers = [...(f.tiers || [])].sort(
+                (a, b) => Number(a.minValue || 0) - Number(b.minValue || 0)
+            );
+
+            if (!validateTiersNoOverlap(sortedTiers)) {
+                alert(
+                    `Biểu phí "${f.typeOfFee}" có các bậc (min/max) bị chồng lấn hoặc min > max. Vui lòng kiểm tra lại.`
+                );
+                return;
+            }
+
+            const tiers = sortedTiers
                 .map((t) => ({
                     minValue: Number(t.minValue || 0),
                     maxValue: Number(t.maxValue || 0),
                     amount: parseCurrencyToNumber(t.amountText),
                     unit: t.unit || "VND/km",
+                    description: String(t.description || "").trim(),
                 }))
                 .filter((t) => t.maxValue >= t.minValue);
+
             fees.push({
-                typeOfFee: f.typeOfFee, // "Excess Mileage"
+                typeOfFee: f.typeOfFee, // e.g. "Excess Mileage"
                 tiers,
             });
         }
@@ -346,7 +491,6 @@ export default function Subscription() {
         }
 
         const payload = { groupKey: modalGroupKey, fees };
-        // console.log("PAYLOAD /Fee/update-fee:", payload);
 
         try {
             setSubmittingFees(true);
@@ -448,7 +592,6 @@ export default function Subscription() {
                     <h2 className="text-lg font-semibold text-gray-900">
                         Fees by Group: {activeGroupKey || "—"}
                     </h2>
-                    <div className="text-sm text-gray-500">(Dữ liệu theo /Plan/view-plan-detail)</div>
                 </div>
 
                 {"batteryDeposit" in activeFeeSummary &&
@@ -461,7 +604,7 @@ export default function Subscription() {
                         </div>
                     )}
 
-                {simpleAmountFees.filter((f) => f.key !== "batteryDeposit").length > 0 && (
+                {simpleAmountFees.filter((f) => f.key !== "batteryDeposit").length > 0 ? (
                     <div className="grid md:grid-cols-2 gap-4 mb-4">
                         {simpleAmountFees
                             .filter((f) => f.key !== "batteryDeposit")
@@ -478,6 +621,8 @@ export default function Subscription() {
                                 </div>
                             ))}
                     </div>
+                ) : (
+                    <div className="text-gray-500">Không có biểu phí đơn trị.</div>
                 )}
 
                 {tierFees.length === 0 ? (
@@ -496,6 +641,7 @@ export default function Subscription() {
                                             <th className="p-2 text-left">Max</th>
                                             <th className="p-2 text-left">Amount</th>
                                             <th className="p-2 text-left">Unit</th>
+                                            <th className="p-2 text-left">Description</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -509,6 +655,7 @@ export default function Subscription() {
                                                         : t.amount}
                                                 </td>
                                                 <td className="p-2">{t.unit || "-"}</td>
+                                                <td className="p-2">{t.description || "-"}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -531,18 +678,38 @@ export default function Subscription() {
                 ) : (
                     packages.map((pkg) => (
                         <div key={pkg.id} className="bg-white rounded-lg shadow p-6">
-                            <div className="flex items-start justify-between">
+                            <div className="flex items-start justify-between gap-2">
                                 <div>
-                                    <h3 className="text-lg font-semibold text-gray-900">{pkg.name}</h3>
+                                    <h3 className="text-lg font-semibold text-gray-900">
+                                        {pkg.name}
+                                    </h3>
+                                    <p className="text-xs text-gray-400">ID: {pkg.planId}</p>
                                     <p className="text-sm text-gray-500">Users: {pkg.users}</p>
                                 </div>
-                                <button
-                                    onClick={() => openEditPackage(pkg)}
-                                    className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-100"
-                                    title="Edit Package"
-                                >
-                                    <i className="bi bi-pencil-square" /> Edit
-                                </button>
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => openEditPackage(pkg)}
+                                        className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-100"
+                                        title="Edit Package"
+                                    >
+                                        <i className="bi bi-pencil-square" /> Edit
+                                    </button>
+                                    <button
+                                        onClick={() => deletePlan(pkg.planId)}
+                                        disabled={deletingId === pkg.planId}
+                                        className="px-3 py-1.5 text-sm border rounded-lg hover:bg-red-50 text-red-600 disabled:opacity-60"
+                                        title="Delete Package"
+                                    >
+                                        {deletingId === pkg.planId ? (
+                                            "Deleting…"
+                                        ) : (
+                                            <>
+                                                <i className="bi bi-trash" /> Delete
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -550,12 +717,21 @@ export default function Subscription() {
                                     <div className="text-gray-500">Number of batteries</div>
                                     <div className="font-semibold text-gray-900">{pkg.batteries}</div>
                                 </div>
+
+                                <div className="p-3 bg-gray-50 rounded-lg">
+                                    <div className="text-gray-500">Duration (days)</div>
+                                    <div className="font-semibold text-gray-900">
+                                        {pkg.durationDays}
+                                    </div>
+                                </div>
+
                                 <div className="p-3 bg-gray-50 rounded-lg">
                                     <div className="text-gray-500">Base mileage</div>
                                     <div className="font-semibold text-gray-900">
-                                        {(pkg.baseMileage || 0).toLocaleString("vi-VN")} km/mo
+                                        {displayMileage(pkg.baseMileage)}
                                     </div>
                                 </div>
+
                                 <div className="p-3 bg-gray-50 rounded-lg col-span-2">
                                     <div className="text-gray-500">Base price (VND / month)</div>
                                     <div className="font-semibold text-gray-900">
@@ -564,8 +740,18 @@ export default function Subscription() {
                                 </div>
                             </div>
 
-                            <div className="mt-4 text-xs text-gray-500">
-                                <div>Day create: {pkg.createdAt}</div>
+                            <div className="mt-3 flex items-center justify-between text-xs">
+                                <span
+                                    className={
+                                        "px-2 py-1 rounded-full " +
+                                        (String(pkg.status).toLowerCase().includes("active")
+                                            ? "bg-green-100 text-green-700"
+                                            : "bg-gray-200 text-gray-700")
+                                    }
+                                >
+                                    {pkg.status}
+                                </span>
+                                <div className="text-gray-500">Day create: {pkg.createdAt}</div>
                             </div>
                         </div>
                     ))
@@ -580,26 +766,52 @@ export default function Subscription() {
                             <div className="text-lg font-semibold">
                                 {pkgMode === "create" ? "Create Package" : "Update Package"}
                             </div>
-                            <button className="p-2 hover:bg-gray-100 rounded-lg" onClick={closePkgModal}>
+                            <button
+                                className="p-2 hover:bg-gray-100 rounded-lg"
+                                onClick={closePkgModal}
+                            >
                                 <i className="bi bi-x-lg" />
                             </button>
                         </div>
 
                         <form className="p-5 space-y-4" onSubmit={submitPackage}>
+                            {/* Plan ID chỉ hiện khi edit và disabled */}
+                            {pkgMode === "edit" && (
+                                <div>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Plan ID
+                                    </label>
+                                    <input
+                                        value={pkgForm.planId}
+                                        disabled
+                                        className="w-full border rounded-lg px-3 py-2 bg-gray-100 text-gray-600"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        ID của gói — không thể chỉnh sửa.
+                                    </p>
+                                </div>
+                            )}
+
                             <div>
-                                <label className="block text-sm text-gray-700 mb-1">Package Name</label>
+                                <label className="block text-sm text-gray-700 mb-1">
+                                    Package Name
+                                </label>
                                 <input
                                     value={pkgForm.name}
-                                    onChange={(e) => setPkgForm((s) => ({ ...s, name: e.target.value }))}
+                                    onChange={(e) =>
+                                        setPkgForm((s) => ({ ...s, name: e.target.value }))
+                                    }
                                     className="w-full border rounded-lg px-3 py-2"
                                     placeholder="VD: G1 Package, TP1 Package…"
                                     required
                                 />
                             </div>
 
-                            <div className="grid md:grid-cols-2 gap-4">
+                            <div className="grid md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Number of batteries</label>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Number of batteries
+                                    </label>
                                     <input
                                         type="number"
                                         min={1}
@@ -611,6 +823,44 @@ export default function Subscription() {
                                         required
                                     />
                                 </div>
+
+                                <div>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Duration (days)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={pkgForm.durationDays}
+                                        onChange={(e) =>
+                                            setPkgForm((s) => ({
+                                                ...s,
+                                                durationDays: e.target.value,
+                                            }))
+                                        }
+                                        className="w-full border rounded-lg px-3 py-2"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Swap limit (per month)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        value={pkgForm.swapLimit}
+                                        onChange={(e) =>
+                                            setPkgForm((s) => ({ ...s, swapLimit: e.target.value }))
+                                        }
+                                        className="w-full border rounded-lg px-3 py-2"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm text-gray-700 mb-1">
                                         Base mileage (km/month)
@@ -620,10 +870,33 @@ export default function Subscription() {
                                         min={0}
                                         value={pkgForm.baseMileage}
                                         onChange={(e) =>
-                                            setPkgForm((s) => ({ ...s, baseMileage: e.target.value }))
+                                            setPkgForm((s) => ({
+                                                ...s,
+                                                baseMileage: e.target.value,
+                                            }))
                                         }
                                         className="w-full border rounded-lg px-3 py-2"
                                     />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Nhập <strong>0</strong> để thiết lập <em>Unlimited</em>.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Status
+                                    </label>
+                                    <select
+                                        className="w-full border rounded-lg px-3 py-2"
+                                        value={pkgForm.status}
+                                        onChange={(e) =>
+                                            setPkgForm((s) => ({ ...s, status: e.target.value }))
+                                        }
+                                        required
+                                    >
+                                        <option value="Active">Active</option>
+                                        <option value="Inactive">Inactive</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -695,14 +968,27 @@ export default function Subscription() {
                                                     <input
                                                         value={f.amountText}
                                                         onChange={(e) =>
-                                                            onSimpleChange(idx, "amountText", formatCurrencyInput(e.target.value))
+                                                            setSimpleFeeEdits((prev) => {
+                                                                const copy = [...prev];
+                                                                copy[idx] = {
+                                                                    ...copy[idx],
+                                                                    amountText: formatCurrencyInput(e.target.value),
+                                                                };
+                                                                return copy;
+                                                            })
                                                         }
                                                         className="w-full border rounded-lg px-3 py-2"
                                                         placeholder="số tiền"
                                                     />
                                                     <input
                                                         value={f.unit}
-                                                        onChange={(e) => onSimpleChange(idx, "unit", e.target.value)}
+                                                        onChange={(e) =>
+                                                            setSimpleFeeEdits((prev) => {
+                                                                const copy = [...prev];
+                                                                copy[idx] = { ...copy[idx], unit: e.target.value };
+                                                                return copy;
+                                                            })
+                                                        }
                                                         className="w-36 border rounded-lg px-3 py-2"
                                                         placeholder="đơn vị"
                                                     />
@@ -715,7 +1001,18 @@ export default function Subscription() {
 
                             {/* Tiered fees */}
                             <div>
-                                <h4 className="font-semibold mb-2">Tiered Fees</h4>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h4 className="font-semibold">Tiered Fees</h4>
+                                    <button
+                                        type="button"
+                                        onClick={addExcessMileageTier}
+                                        className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
+                                        title="Thêm bậc mới cho Excess Mileage"
+                                    >
+                                        + Thêm bậc (Excess Mileage)
+                                    </button>
+                                </div>
+
                                 {tierFeeEdits.length === 0 ? (
                                     <div className="text-sm text-gray-500">Không có biểu phí bậc thang.</div>
                                 ) : (
@@ -730,6 +1027,7 @@ export default function Subscription() {
                                                             <th className="p-2 text-left">Max</th>
                                                             <th className="p-2 text-left">Amount</th>
                                                             <th className="p-2 text-left">Unit</th>
+                                                            <th className="p-2 text-left">Description</th>
                                                             <th className="p-2"></th>
                                                         </tr>
                                                     </thead>
@@ -780,6 +1078,16 @@ export default function Subscription() {
                                                                     />
                                                                 </td>
                                                                 <td className="p-2">
+                                                                    <input
+                                                                        className="border rounded px-2 py-1 w-64"
+                                                                        placeholder="Mô tả (optional)"
+                                                                        value={t.description || ""}
+                                                                        onChange={(e) =>
+                                                                            onTierChange(feeIdx, rowIdx, "description", e.target.value)
+                                                                        }
+                                                                    />
+                                                                </td>
+                                                                <td className="p-2">
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => removeTierRow(feeIdx, rowIdx)}
@@ -793,7 +1101,8 @@ export default function Subscription() {
                                                     </tbody>
                                                 </table>
                                             </div>
-                                            <div className="mt-2">
+
+                                            <div className="mt-2 flex items-center gap-2">
                                                 <button
                                                     type="button"
                                                     onClick={() => addTierRow(feeIdx)}
@@ -801,6 +1110,9 @@ export default function Subscription() {
                                                 >
                                                     + Thêm bậc
                                                 </button>
+                                                <span className="text-xs text-gray-500">
+                                                    * Khi thêm bậc mới, <em>Min</em> sẽ gợi ý = <em>Max</em> của bậc cuối + 1 để tránh overlap.
+                                                </span>
                                             </div>
                                         </div>
                                     ))

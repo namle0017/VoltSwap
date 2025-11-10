@@ -28,6 +28,7 @@ namespace VoltSwap.DAL.UnitOfWork
         private IFeeRepository? feeRepository;
         private IBatterySessionRepository? batsessionRepository;
         private IReportTypeRepository? reportTypeRepository;
+        private IRatingRepository? ratingRepository;
 
 
         public UnitOfWork(VoltSwapDbContext context)
@@ -224,7 +225,18 @@ namespace VoltSwap.DAL.UnitOfWork
                 return reportTypeRepository;
             }
         }
+        public IRatingRepository Ratings
+        {
+            get
+            {
+                if (ratingRepository == null)
+                {
+                    ratingRepository = (IRatingRepository)new RatingRepository(_context);
+                }
+                return ratingRepository;
+            }
+        }
 
 
-    }
+    } 
 }

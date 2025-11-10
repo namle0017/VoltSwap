@@ -73,6 +73,7 @@ export default function Overview() {
             // Lưu stationName
             const sn = data.stationName || "Station";
             setStationName(sn);
+            // eslint-disable-next-line no-empty
             try { localStorage.setItem("stationName", sn); } catch { }
 
             // Map số liệu numberOfBat

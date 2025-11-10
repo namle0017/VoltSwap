@@ -20,7 +20,7 @@ namespace VoltSwap.DAL.Repositories
             _context = context;
         }
 
-        //Bin: Lấy danh sách pin trong kho của trạm theo StaffId
+        //Bin: Lấy danh sách pin trong kho của trạm theo StationId
         public async Task<List<Battery>> GetBatteriesInventoryByStationId(string StationId)
         {
             var result = await _context.Batteries

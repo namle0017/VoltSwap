@@ -185,6 +185,14 @@ export default function StationSwap() {
 
   const [selectedSlotIds, setSelectedSlotIds] = useState([]);
 
+  // === Rating (optional) ===
+  const [ratingScore, setRatingScore] = useState(0);          // 0-5
+  const [ratingComment, setRatingComment] = useState("");
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingDone, setRatingDone] = useState(false);        // đã gửi hoặc đã bỏ qua
+  const [ratingError, setRatingError] = useState("");
+
+
   // ✅ các slot rỗng cho Swap-In do BE cung cấp (chỉ dùng slotEmpty)
   const [allowedSwapIn, setAllowedSwapIn] = useState(new Set());
 
@@ -291,6 +299,7 @@ export default function StationSwap() {
   };
 
   // === validate subscription ===
+  // === validate subscription ===
   const doValidate = async (sub, sta) => {
     setSubError("");
     setSwapInError(null);
@@ -302,7 +311,23 @@ export default function StationSwap() {
     setSubmitting(true);
     setLoading(true);
     try {
-      const res = await validateSubscription(subTrim, sta);
+      // 🔐 Gắn token cho call validate
+      const token = localStorage.getItem("token");
+      if (token) {
+        // set tạm cho instance axios dùng chung
+        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      } else {
+        // nếu không có token thì vẫn để trống (BE có thể trả 401)
+        delete api.defaults.headers.common["Authorization"];
+      }
+
+      // gọi hàm helper như cũ (giữ logic)
+      // Lưu ý: nếu batterySwapApi.validateSubscription hỗ trợ options,
+      // bạn có thể truyền thêm tham số thứ 3: { headers: { Authorization: `Bearer ${token}` } }
+      const res = await validateSubscription(subTrim, sta /* , {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    } */);
+
       const data = res.data;
       if (!data || typeof data !== "object") throw new Error("BE trả dữ liệu không hợp lệ");
 
@@ -334,23 +359,20 @@ export default function StationSwap() {
       setPillarSlotsMap(new Map(pMap));
       setSlotIdToPillar(indexMap);
 
-      // ❗ CHỈ dùng slotEmpty từ BE (không derive)
       const slotEmptyIds = (extractSlotEmptyIds(info) || []).map((x) => String(x));
       const allowedSet = new Set(slotEmptyIds);
       setAllowedSwapIn(allowedSet);
 
-      // auto chọn trụ chứa slotEmpty đầu tiên (nếu có)
       if (slotEmptyIds.length > 0 && !selectedPillarId) {
         const first = String(slotEmptyIds[0]);
         const pid = indexMap.get(first);
         if (pid) setSelectedPillarId(pid);
       }
 
-      // --- auto-fill BatteryId nhưng KHÔNG khóa input ---
-      const batteriesToReturn = extractReturnBatteryIds(info); // ['BT-xxx', ...]
+      const batteriesToReturn = extractReturnBatteryIds(info);
       if (batteriesToReturn.length > 0) {
-        setBatteryIdsInput(batteriesToReturn.join("\n")); // prefill
-        setBatteryIdsLocked(false);                       // cho phép sửa
+        setBatteryIdsInput(batteriesToReturn.join("\n"));
+        setBatteryIdsLocked(false);
         setSwapInCount(batteriesToReturn.length);
       } else {
         setBatteryIdsInput("");
@@ -358,7 +380,6 @@ export default function StationSwap() {
         setSwapInCount(0);
       }
 
-      // --- nếu BE có batTake → chuẩn bị step 3
       const batTake = extractBatTake(info);
       if (Array.isArray(batTake) && batTake.length > 0) {
         const picked = batTake
@@ -388,6 +409,7 @@ export default function StationSwap() {
       setLoading(false);
     }
   };
+
 
   const handleValidate = (e) => {
     e.preventDefault();
@@ -551,6 +573,58 @@ export default function StationSwap() {
       setLoading(false);
     }
   };
+
+  const submitRating = async () => {
+    // rating là optional — nếu chưa chọn sao thì khuyến khích chọn, hoặc user có thể bấm "Bỏ qua"
+    if (!ratingScore) {
+      alert("Vui lòng chọn số sao trước khi gửi (hoặc bấm 'Bỏ qua').");
+      return;
+    }
+
+    const driverId =
+      localStorage.getItem("userId") ||
+      localStorage.getItem("driverId") ||
+      ""; // tuỳ app bạn lưu khoá nào
+
+    if (!driverId) {
+      alert("Không xác định được driverId. Vui lòng đăng nhập lại.");
+      return;
+    }
+    if (!stationId) {
+      alert("Thiếu stationId.");
+      return;
+    }
+
+    const payload = {
+      driverId,
+      stationId,
+      ratingScore: Number(ratingScore),
+      comment: ratingComment.trim(),
+    };
+
+    try {
+      setRatingSubmitting(true);
+      setRatingError("");
+
+      const token = localStorage.getItem("token");
+      await api.post("/Rating/create-rating", payload, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+
+      setRatingDone(true);
+      alert("✅ Cảm ơn bạn đã đánh giá!");
+    } catch (e) {
+      console.error("create-rating error:", e?.response?.data || e);
+      setRatingError(
+        e?.response?.data?.message ||
+        e?.response?.data?.title ||
+        "❌ Gửi đánh giá thất bại."
+      );
+    } finally {
+      setRatingSubmitting(false);
+    }
+  };
+
 
   // === Xác nhận đã lấy pin → Swap-Out ===
   const confirmTakeBatteries = async () => {
@@ -759,26 +833,45 @@ export default function StationSwap() {
                           Trụ {pid}
                           {step === 2 && selectedPillarId === pid ? " • (đã chọn)" : ""}
                         </h4>
+
+                        {/* === LƯỚI SLOT: có label SlotId trong từng ô === */}
                         <div className="grid grid-cols-4 gap-2">
                           {slots.map((slot, i) => {
                             const pickedIdx =
                               selectedSlotIds.findIndex((x) => x === String(slot?.slotId)) + 1;
+
                             const canPick =
                               step === 2 &&
                               selectedPillarId === pid &&
                               allowedSwapIn.has(String(slot?.slotId));
+
+                            const labelTextClass =
+                              canPick || slot.__green ? "text-white/95" : "text-gray-900";
+
                             return (
                               <div
                                 key={slot?.slotId ?? `${pid}-${i}`}
                                 onClick={() => canPick && togglePickSlot(slot)}
                                 className={[
-                                  "h-10 rounded-md transition-all relative",
+                                  "h-10 rounded-md transition-all relative overflow-hidden",
                                   slotColorClass(canPick || slot.__green),
-                                  canPick ? "cursor-pointer hover:ring-2 hover:ring-blue-400" : "cursor-default",
+                                  canPick
+                                    ? "cursor-pointer hover:ring-2 hover:ring-blue-400"
+                                    : "cursor-default",
                                   pickedIdx ? "ring-4 ring-blue-500" : "",
                                 ].join(" ")}
-                                title={`Slot ${slot?.slotNumber ?? i + 1}${slot?.batteryId ? ` • ${slot.batteryId}` : ""}`}
+                                title={`Slot ${slot?.slotNumber ?? i + 1} • SlotId: ${slot?.slotId || "N/A"}${slot?.batteryId ? ` • ${slot.batteryId}` : ""}`}
                               >
+                                {/* label slotId */}
+                                <span
+                                  className={`absolute inset-0 grid place-items-center pointer-events-none ${labelTextClass}`}
+                                >
+                                  <span className="px-1 text-[10px] leading-none font-mono max-w-full truncate">
+                                    {String(slot?.slotId || "")}
+                                  </span>
+                                </span>
+
+                                {/* badge thứ tự pick */}
                                 {pickedIdx ? (
                                   <span className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white">
                                     {pickedIdx}
@@ -927,6 +1020,7 @@ export default function StationSwap() {
                 Trên lưới bên trên: chỉ <b>trụ cấp pin</b> sáng và chỉ <b>các ô xanh</b> là ô đã mở để lấy.
               </div>
 
+              {/* ĐÃ XOÁ nút quay lại bước 2 */}
               <div className="flex gap-2">
                 <button
                   className="btn-primary"
@@ -934,9 +1028,6 @@ export default function StationSwap() {
                   disabled={loading || mustPickList.length === 0}
                 >
                   {loading ? "Đang xác nhận..." : "✅ Tôi đã lấy đủ pin — Xác nhận"}
-                </button>
-                <button className="btn-ghost" onClick={() => setStep(2)} disabled={loading}>
-                  ⬅ Quay lại bước 2
                 </button>
               </div>
 
@@ -952,10 +1043,89 @@ export default function StationSwap() {
           )}
 
           {step === 4 && (
-            <div className="card p-6 space-y-2">
+            <div className="card p-6 space-y-3">
               <h2 className="text-base font-semibold">✅ Hoàn tất đổi pin</h2>
               <div>Trạm: <b>{stationTitle}</b> ({stationId})</div>
               <div>Subscription: <b>{subscriptionId}</b></div>
+
+              {/* Rating optional */}
+              <div className="mt-4 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Đánh giá trải nghiệm (tuỳ chọn)</h3>
+                  {ratingDone && (
+                    <span className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700">
+                      Đã ghi nhận đánh giá
+                    </span>
+                  )}
+                </div>
+
+                {!ratingDone ? (
+                  <div className="space-y-3">
+                    {/* Stars */}
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setRatingScore(n)}
+                          className={`text-3xl transition-transform ${ratingScore >= n
+                            ? "text-yellow-400 scale-110"
+                            : "text-gray-300 hover:text-yellow-300"
+                            }`}
+                          title={`${n} sao`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                      <span className="text-sm text-gray-600 ml-2">
+                        {ratingScore ? `${ratingScore}/5` : "Chưa chọn"}
+                      </span>
+                    </div>
+
+
+                    {/* Comment */}
+                    <textarea
+                      className="w-full border rounded-lg p-3"
+                      rows={3}
+                      placeholder="Viết nhận xét (tuỳ chọn)…"
+                      value={ratingComment}
+                      onChange={(e) => setRatingComment(e.target.value)}
+                    />
+
+                    {ratingError && (
+                      <div className="text-sm text-red-600">{ratingError}</div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={submitRating}
+                        disabled={ratingSubmitting}
+                        title="Gửi đánh giá (tuỳ chọn)"
+                      >
+                        {ratingSubmitting ? "Đang gửi..." : "Gửi đánh giá"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        onClick={() => setRatingDone(true)} // bỏ qua
+                        disabled={ratingSubmitting}
+                        title="Bỏ qua đánh giá"
+                      >
+                        Bỏ qua
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-600">
+                    Cảm ơn bạn đã sử dụng dịch vụ! Bạn có thể đóng trang hoặc tiếp tục đổi pin.
+                  </div>
+                )}
+              </div>
+
+              {/* Action buttons giữ nguyên */}
               <div className="pt-2 flex gap-2">
                 <button className="btn-secondary" onClick={() => setStep(2)}>
                   Đổi tiếp

@@ -10,6 +10,7 @@ const isNullishStr = (v) =>
     v == null ||
     String(v).trim().toLowerCase() === "null" ||
     String(v).trim() === "";
+
 const valOrDash = (v) => (isNullishStr(v) ? "—" : v);
 
 function normalizeList(payload) {
@@ -89,9 +90,7 @@ export default function BatterySwap() {
     const fetchData = async () => {
         try {
             if (!userId) {
-                setErr(
-                    "Missing userId in localStorage. Please sign in again."
-                );
+                setErr("Missing userId in localStorage. Please sign in again.");
                 setRows([]);
                 setLoading(false);
                 return;
@@ -132,9 +131,7 @@ export default function BatterySwap() {
     }, [rows, search]);
 
     const sorted = useMemo(() => {
-        const arr = [...filtered].sort((a, b) =>
-            collator.compare(a.id, b.id)
-        );
+        const arr = [...filtered].sort((a, b) => collator.compare(a.id, b.id));
         return sortDir === "desc" ? arr.reverse() : arr;
     }, [filtered, sortDir, collator]);
 
@@ -144,10 +141,6 @@ export default function BatterySwap() {
             <div className="row-between">
                 <div>
                     <h2 className="h1 m-0">Battery Swap</h2>
-                    <p className="muted">
-                        Battery swap history at the station (based on staff
-                        UserId).
-                    </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <input
@@ -163,7 +156,6 @@ export default function BatterySwap() {
                     >
                         ↻ {loading ? "Loading..." : "Refresh"}
                     </button>
-
                 </div>
             </div>
 
@@ -255,8 +247,6 @@ export default function BatterySwap() {
                     </tbody>
                 </table>
             </div>
-
-
 
             {/* Local styles (scoped) */}
             <style>{`

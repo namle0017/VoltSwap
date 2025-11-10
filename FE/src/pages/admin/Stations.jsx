@@ -35,7 +35,16 @@ const pick = (obj, paths, fallback = undefined) => {
 function normalizeMonthlySwaps(raw) {
     // raw là payload /Overview/admin-overview
     const bsm =
-        pick(raw, ["batterySwapMonthly.batterySwapMonthlyLists", "batterySwapMonthly", "swaps.monthly", "monthlySwaps"], []) || [];
+        pick(
+            raw,
+            [
+                "batterySwapMonthly.batterySwapMonthlyLists",
+                "batterySwapMonthly",
+                "swaps.monthly",
+                "monthlySwaps",
+            ],
+            []
+        ) || [];
     const arr = Array.isArray(bsm)
         ? bsm
         : Array.isArray(bsm?.batterySwapMonthlyLists)
@@ -98,7 +107,9 @@ export default function Stations() {
         active && payload?.length ? (
             <div className="bg-white p-3 rounded-lg shadow-lg border">
                 <p className="font-semibold">{label}</p>
-                <p className="text-sm text-gray-600">{formatNumber(payload[0].value)} swaps</p>
+                <p className="text-sm text-gray-600">
+                    {formatNumber(payload[0].value)} swaps
+                </p>
             </div>
         ) : null;
 
@@ -208,6 +219,95 @@ export default function Stations() {
     const [searchText, setSearchText] = useState(""); // NEW: search battery/status/station
     const [page, setPage] = useState(1); // NEW
     const [pageSize, setPageSize] = useState(10); // NEW
+
+    // ================== NEW: Create Station (Modal + Form) ==================
+    const [showCreate, setShowCreate] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [createErr, setCreateErr] = useState("");
+
+    const [form, setForm] = useState({
+        stationName: "",
+        address: "",
+        numberOfPillar: 1,
+        openTime: "08:00",   // HH:mm
+        closeTime: "22:00",  // HH:mm
+        pillarCapicity: 1,   // (giữ nguyên đúng key BE yêu cầu)
+    });
+
+    const onChangeForm = (k, v) =>
+        setForm((f) => ({ ...f, [k]: v }));
+
+    const validateForm = () => {
+        const name = form.stationName.trim();
+        const addr = form.address.trim();
+        const open = form.openTime.trim();
+        const close = form.closeTime.trim();
+        const pillars = Number(form.numberOfPillar);
+        const cap = Number(form.pillarCapicity);
+
+        if (!name) return "Vui lòng nhập Station Name.";
+        if (!addr) return "Vui lòng nhập Address.";
+        if (!/^\d{2}:\d{2}$/.test(open)) return "Open Time phải dạng HH:mm (vd: 08:00).";
+        if (!/^\d{2}:\d{2}$/.test(close)) return "Close Time phải dạng HH:mm (vd: 22:00).";
+        if (!Number.isInteger(pillars) || pillars < 1)
+            return "Number of Pillar phải là số nguyên ≥ 1.";
+        if (!Number.isInteger(cap) || cap < 1)
+            return "Pillar Capicity phải là số nguyên ≥ 1.";
+        return "";
+    };
+
+    const handleCreateStation = async () => {
+        const err = validateForm();
+        if (err) {
+            setCreateErr(err);
+            return;
+        }
+        setCreateErr("");
+
+        const payload = {
+            stationName: form.stationName.trim(),
+            address: form.address.trim(),
+            numberOfPillar: Number(form.numberOfPillar),
+            openTime: form.openTime.trim(),
+            closeTime: form.closeTime.trim(),
+            pillarCapicity: Number(form.pillarCapicity),
+        };
+
+        try {
+            setCreating(true);
+            const token = localStorage.getItem("token");
+            await api.post(
+                "Station/create-new-station",
+                payload,
+                { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+            );
+
+            alert("✅ Tạo trạm mới thành công!");
+            setShowCreate(false);
+            // reset form nhẹ
+            setForm({
+                stationName: "",
+                address: "",
+                numberOfPillar: 1,
+                openTime: "08:00",
+                closeTime: "22:00",
+                pillarCapicity: 1,
+            });
+            // refresh danh sách trạm
+            await loadStations();
+        } catch (e) {
+            console.error("create-new-station error:", e?.response?.data || e);
+            const msg =
+                e?.response?.data?.message ||
+                e?.response?.data?.title ||
+                e?.message ||
+                "Tạo trạm thất bại.";
+            setCreateErr(msg);
+        } finally {
+            setCreating(false);
+        }
+    };
+    // ======================================================================
 
     // reset page khi filter/search đổi
     useEffect(() => {
@@ -346,11 +446,13 @@ export default function Stations() {
                     <p className="text-gray-600">Battery Swap Station Management</p>
                 </div>
                 <div className="flex gap-2">
-                    <button className="px-4 py-2 border rounded-lg hover:bg-gray-100 flex items-center">
-                        <i className="bi bi-funnel"></i>{" "}
-                        <span className="ml-2">Filter</span>
-                    </button>
-                    <button className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 flex items-center">
+                    <button
+                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 flex items-center"
+                        onClick={() => {
+                            setCreateErr("");
+                            setShowCreate(true);
+                        }}
+                    >
                         <i className="bi bi-plus-lg"></i>
                         <span className="ml-2">Add New Station</span>
                     </button>
@@ -673,6 +775,119 @@ export default function Stations() {
                     ))
                 )}
             </div>
+
+            {/* =============== CREATE STATION MODAL =============== */}
+            {showCreate && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                    onClick={() => !creating && setShowCreate(false)}
+                >
+                    <div
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="p-5 border-b flex items-center justify-between">
+                            <h3 className="text-xl font-semibold">Create New Station</h3>
+                            <button
+                                className="p-2 rounded-lg hover:bg-gray-100"
+                                onClick={() => !creating && setShowCreate(false)}
+                            >
+                                <i className="bi bi-x-lg" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            {createErr && (
+                                <div className="p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200">
+                                    {createErr}
+                                </div>
+                            )}
+
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm text-gray-700 mb-1">Station Name</label>
+                                    <input
+                                        className="w-full border rounded-lg px-3 py-2"
+                                        value={form.stationName}
+                                        onChange={(e) => onChangeForm("stationName", e.target.value)}
+                                        placeholder="VD: EVSwap - District 1"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm text-gray-700 mb-1">Address</label>
+                                    <input
+                                        className="w-full border rounded-lg px-3 py-2"
+                                        value={form.address}
+                                        onChange={(e) => onChangeForm("address", e.target.value)}
+                                        placeholder="123 Lê Lợi, Q.1, TP.HCM"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm text-gray-700 mb-1">Number of Pillar</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        className="w-full border rounded-lg px-3 py-2"
+                                        value={form.numberOfPillar}
+                                        onChange={(e) => onChangeForm("numberOfPillar", e.target.value)}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm text-gray-700 mb-1">Pillar Capicity (per pillar)</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        className="w-full border rounded-lg px-3 py-2"
+                                        value={form.pillarCapicity}
+                                        onChange={(e) => onChangeForm("pillarCapicity", e.target.value)}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm text-gray-700 mb-1">Open Time</label>
+                                    <input
+                                        type="time"
+                                        className="w-full border rounded-lg px-3 py-2"
+                                        value={form.openTime}
+                                        onChange={(e) => onChangeForm("openTime", e.target.value)}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm text-gray-700 mb-1">Close Time</label>
+                                    <input
+                                        type="time"
+                                        className="w-full border rounded-lg px-3 py-2"
+                                        value={form.closeTime}
+                                        onChange={(e) => onChangeForm("closeTime", e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-5 border-t flex justify-end gap-2">
+                            <button
+                                className="px-4 py-2 rounded-lg border"
+                                onClick={() => setShowCreate(false)}
+                                disabled={creating}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="px-4 py-2 rounded-lg bg-gray-900 text-white disabled:opacity-50"
+                                onClick={handleCreateStation}
+                                disabled={creating}
+                            >
+                                {creating ? "Creating..." : "Create"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* ==================================================== */}
         </div>
     );
 }

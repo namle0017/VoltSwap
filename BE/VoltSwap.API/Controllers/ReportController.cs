@@ -85,6 +85,24 @@ namespace VoltSwap.API.Controllers
                 message = result.Message,
                 data = result.Data
             });
+<<<<<<< HEAD
+=======
+        }
+
+        [HttpPost("staff-create-report")]
+        public async Task<IActionResult> CreateReport([FromBody] StaffReportRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _reportService.StaffCreateReport(request);
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+                data = result.Data
+            });
+>>>>>>> 354d6b5d3fecf06f56e5d479b8d856ef98ce1610
 
         }
 
