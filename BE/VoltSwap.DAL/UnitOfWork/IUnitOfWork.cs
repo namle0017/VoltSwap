@@ -29,6 +29,7 @@ namespace VoltSwap.DAL.UnitOfWork
         IFeeRepository Fees { get; }
         IBatterySessionRepository BatSession { get; }
         IReportTypeRepository ReportType { get; }
+        IRatingRepository Ratings  { get; }
 
 
     }

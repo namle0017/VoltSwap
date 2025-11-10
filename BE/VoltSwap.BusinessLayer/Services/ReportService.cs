@@ -100,6 +100,45 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = respone
             };
         }
+        public async Task<ServiceResult> StaffCreateReport(StaffReportRequest requestDto)
+        {
+            var getreport = await _unitOfWork.ReportType.GetReportTypeName(requestDto.ReportTypeId);
+            var result = new Report
+            {
+                UserAdminId = await GetAdminId(),
+                UserStaffId = requestDto.StaffId,
+                UserDriverId = requestDto.DriverId,
+                ReportTypeId = requestDto.ReportTypeId,
+                Note = requestDto.ReportNote,
+                CreateAt = DateTime.UtcNow.ToLocalTime(),
+                Status = "Processing",
+                ProcessesAt = null,
+            };
+            await _reportRepo.CreateAsync(result);
+            await _unitOfWork.SaveChangesAsync();
+
+            var respone = new UserReportRespone
+            {
+                ReportId = result.ReportId,
+                UserAdminId = result.UserAdminId,
+                UserStaffId = result.UserStaffId,
+                UserDriverId = result.UserDriverId,
+                ReportTypeId = result.ReportTypeId,
+                ReportTypeName = getreport,
+                Note = result.Note,
+                CreateAt =result.CreateAt,
+                Status = result.Status,
+                ProcessesAt = result.ProcessesAt,
+            };
+
+
+            return new ServiceResult
+            {
+                Status = 201,
+                Message = "Report created successfully",
+                Data = respone
+            };
+        }
 
 
         //Nemo: Lấy các thông tin về report cho Fe

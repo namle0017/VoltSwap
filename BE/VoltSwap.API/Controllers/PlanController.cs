@@ -89,5 +89,39 @@ namespace VoltSwap.API.Controllers
                 getplan.Data
             });
         }
+
+        //Bin: Update Plan
+        [HttpPost("update-plan")]
+        public async Task<IActionResult> UpdatePlan(PlanDtos x)
+        {
+            var getplan = await _planService.UpdatePlanAsync(x);
+            return StatusCode(getplan.Status, new
+            {
+                getplan.Message,
+                getplan.Data
+            });
+        }
+
+        //Bin: Tạo thêm plan
+        [HttpPost("create-plan")]
+        public async Task<IActionResult> CreatePlan(PlanCreateRequest x)
+        {
+            var getplan = await _planService.CreatePlanAsync(x);
+            return StatusCode(getplan.Status, new
+            {
+                getplan.Message,
+                getplan.Data
+            });
+        }
+        [HttpPost("delete-plan")]
+        public async Task<IActionResult> DeletePlan(string planId)
+        {
+            var getplan = await _planService.DeletePlanAsync(planId);
+            return StatusCode(getplan.Status, new
+            {
+                getplan.Message,
+                getplan.Data
+            });
+        }
     }
 }

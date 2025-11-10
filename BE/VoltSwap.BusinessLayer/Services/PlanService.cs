@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Azure.Core;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -467,8 +468,132 @@ namespace VoltSwap.BusinessLayer.Services
 
         }
 
-        //Bin: Cập nhật fee:
+        //Bin: Cập nhật plan:
+        public async Task<ServiceResult> UpdatePlanAsync(PlanDtos plan)
+        {
+            var getplan = await _unitOfWork.Plans.GetPlanAsync(plan.PlanId);
+            if(getplan == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "This plan Id was not found.",
+                };
+            }
 
+            getplan.PlanId = plan.PlanId;
+            getplan.PlanName = plan.PlanName;
+            getplan.DurationDays = plan.DurationDays;
+            getplan.NumberOfBattery = plan.NumberBattery;
+            getplan.MileageBaseUsed = plan.MilleageBaseUsed;
+            getplan.SwapLimit = plan.SwapLimit;
+            getplan.Price = plan.Price;
+            getplan.Status = plan.Status;
+            await _planRepo.UpdateAsync(getplan);
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Update Succces!",
+                Data = getplan
+            };
+        }
+        public async Task<ServiceResult> DeletePlanAsync(string planId)
+        {
+
+            var plan = await _planRepo.GetByIdAsync(planId);
+            if (plan == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = $"Plan with ID '{planId}' not found."
+                };
+            }
+
+            var fees = await _unitOfWork.Plans.GetAllFeeAsync(planId);
+
+            foreach (var fee in fees)
+            {
+                await _feeRepo.RemoveAsync(fee);
+            }
+
+            await _planRepo.RemoveAsync(plan);
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = $"Deleted plan {plan.PlanName} and all related fees successfully."
+            };
+        }
+        public async Task<ServiceResult> CreatePlanAsync(PlanCreateRequest plan)
+        {
+
+            var groupKey = GetGroupKey(plan.PlanName);
+            var newPlanId = await GeneratePlanId();
+            var AdminId = await GetAdminId();
+
+            var newPLan = new Plan()
+            {
+                PlanId = newPlanId,
+                PlanName = plan.PlanName,
+                DurationDays = plan.DurationDays,
+                NumberOfBattery = plan.NumberBattery,
+                MileageBaseUsed = plan.MilleageBaseUsed,
+                SwapLimit = plan.SwapLimit,
+                Price = plan.Price,
+                Status = plan.Status,
+                CreateAt = DateTime.Now.ToLocalTime(),
+                UserAdmin = AdminId,
+            };
+
+            await _planRepo.CreateAsync(newPLan);
+            await _unitOfWork.SaveChangesAsync();
+
+            var plans = await _unitOfWork.Plans.GetAllAsync();
+            var targetPlans = plans
+                .Where(p => GetGroupKey(p.PlanName) == groupKey)
+                .FirstOrDefault();
+
+            if (targetPlans != null)
+            {
+                var sampleFees = await _unitOfWork.Plans.GetAllFeeAsync(targetPlans.PlanId);
+
+                foreach (var fee in sampleFees)
+                {
+                    var newFee = new Fee
+                    {
+                        PlanId = newPlanId,
+                        UserAdminId = AdminId.UserId,
+                        TypeOfFee = fee.TypeOfFee,
+                        Amount = fee.Amount,
+                        Unit = fee.Unit,
+                        MinValue = fee.MinValue,
+                        MaxValue = fee.MaxValue,
+                        CalculationMethod = fee.CalculationMethod,
+                        Description = fee.Description,
+                        Status = fee.Status,
+                    };
+
+                    await _feeRepo.CreateAsync(newFee);
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+            }
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Plan created successfully!.",
+                Data = new
+                {
+                    PlanId = newPlanId,
+                    GroupKey = groupKey
+                }
+            };
+        }
+      
 
         //Hàm để lấy nhóm plan
         private string GetGroupKey(string? planName)
@@ -479,6 +604,33 @@ namespace VoltSwap.BusinessLayer.Services
             if (name.StartsWith("G", StringComparison.OrdinalIgnoreCase)) return "G";
             return "Other";
         }
+
+        //Tao ra planId
+        public async Task<string> GeneratePlanId()
+        {
+            string planId;
+            bool isDuplicated;
+
+            do
+            {
+                // Sinh 10 chữ số ngẫu nhiên
+                var random = new Random();
+                planId = $"PLAN-{string.Concat(Enumerable.Range(0, 5)
+                                       .Select(_ => random.Next(0, 10).ToString()))}";
+
+                // Kiểm tra xem có trùng không
+                isDuplicated = await _planRepo.AnyAsync(u => u.PlanId == planId);
+
+            } while (isDuplicated);
+            return planId;
+        }
+        private async Task<User> GetAdminId()
+        {
+            var userAdmin = await _unitOfWork.Users.GetAdminAsync();
+
+            return userAdmin;
+        }
+
     }
 }
 
