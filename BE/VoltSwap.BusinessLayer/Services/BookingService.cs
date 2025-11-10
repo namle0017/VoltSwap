@@ -648,7 +648,9 @@ namespace VoltSwap.BusinessLayer.Services
             await _bookingRepo.CreateAsync(appointmentDB);
             await _unitOfWork.SaveChangesAsync();
 
+            var calculatetime = CalculateCancelCountdownSeconds(appointmentDB);
 
+            ScheduleAutoCancel(appointmentDB.AppointmentId, calculatetime);
             var appointment = new BookingResponse
             {
                 TransactionId = null,
