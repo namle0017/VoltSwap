@@ -5,8 +5,22 @@ import PageTransition from "@/components/PageTransition";
 import AuthModal from "../components/AuthModal";
 import api from "@/api/api";
 
-const fmtVND = (n) =>
-  Number(n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+/* ===== Format helpers ===== */
+const fmtVND = (n, { code = false } = {}) => {
+  const num = typeof n === "string" ? Number(n.replace(/[^\d.-]/g, "")) || 0 : Number(n || 0);
+  // code=false -> ₫ ; code=true -> VND
+  return num.toLocaleString("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    currencyDisplay: code ? "code" : "symbol",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+};
+const fmtNum = (n, { min = 0, max = 0 } = {}) => {
+  const num = typeof n === "string" ? Number(n.replace(/[^\d.-]/g, "")) || 0 : Number(n || 0);
+  return num.toLocaleString("vi-VN", { minimumFractionDigits: min, maximumFractionDigits: max });
+};
 
 /** Quy ước nhãn “Unlimited” cho GU, TP3U (không có milleageBaseUsed) */
 const isUnlimitedPlan = (planName) => {
@@ -23,7 +37,6 @@ const groupPlans = (planList = []) => {
     if (name.startsWith("G")) swap.push(p);
     else if (name.startsWith("TP")) selfCharge.push(p);
   }
-  // sắp xếp theo tên
   swap.sort((a, b) => String(a.planName).localeCompare(String(b.planName)));
   selfCharge.sort((a, b) => String(a.planName).localeCompare(String(b.planName)));
   return { swap, selfCharge };
@@ -32,6 +45,20 @@ const groupPlans = (planList = []) => {
 /** Lấy feeGroup theo groupKey (“G” hoặc “TP”) */
 const getFeeGroup = (feeGroups = [], key) =>
   feeGroups.find((g) => String(g.groupKey || "").toUpperCase() === String(key).toUpperCase())?.feeSummary || null;
+
+/** Tạo label khoảng km từ min/max BE */
+const bandLabel = (minValue, maxValue) => {
+  const min = Number(minValue ?? 0);
+  const max = Number(maxValue ?? 0);
+
+  // “999999” hay giá trị cực lớn coi như vô hạn
+  const isMaxInfinity = !isFinite(max) || max >= 999999;
+
+  if (min <= 0 && !isMaxInfinity) return `Up to ${fmtNum(max)} km`;
+  if (min > 0 && !isMaxInfinity) return `From ${fmtNum(min)} to ${fmtNum(max)} km`;
+  if (min > 0 && isMaxInfinity) return `From ${fmtNum(min)} km onwards`;
+  return `${fmtNum(min)} - ${isMaxInfinity ? "∞" : fmtNum(max)} km`;
+};
 
 export default function ServicesPage() {
   // Modal đăng nhập / đăng ký
@@ -50,7 +77,6 @@ export default function ServicesPage() {
       setLoading(true);
       setErr("");
       try {
-        // nhớ có "/" đầu để ăn chung baseURL `${VITE_API_BASE_URL}/api`
         const res = await api.get("/Plan/view-plan-landscape");
         const data = res?.data?.data ?? res?.data ?? {};
         const plans = Array.isArray(data?.planList) ? data.planList : [];
@@ -67,26 +93,24 @@ export default function ServicesPage() {
     load();
   }, []);
 
-  const { swap: swapPlans, selfCharge: selfPlans } = useMemo(
-    () => groupPlans(planList),
-    [planList]
-  );
+  const { swap: swapPlans, selfCharge: selfPlans } = useMemo(() => groupPlans(planList), [planList]);
 
   // Fee cho từng nhóm
   const feeG = useMemo(() => getFeeGroup(feeGroups, "G"), [feeGroups]);
   const feeTP = useMemo(() => getFeeGroup(feeGroups, "TP"), [feeGroups]);
 
-  // Helpers render
+  /* ================== RENDER HELPERS ================== */
+
   const renderPlanCard = (pkg, highlightUnlimited = false) => {
     const name = pkg.planName;
     const tagUnlimited = isUnlimitedPlan(name);
     const tag = tagUnlimited ? "Unlimited" : "Limited";
 
-    const priceText = `${Number(pkg.price || 0).toLocaleString("vi-VN")}`;
+    const priceText = fmtVND(pkg.price, { code: true }); // “123.000 VND”
     const mileage =
       tagUnlimited || pkg.milleageBaseUsed == null
         ? "Unlimited"
-        : `${pkg.milleageBaseUsed} km/month`;
+        : `${fmtNum(pkg.milleageBaseUsed)} km / month`;
 
     return (
       <div
@@ -94,7 +118,7 @@ export default function ServicesPage() {
         className={[
           "p-8 text-center rounded-2xl shadow-md border transition transform hover:-translate-y-2 hover:shadow-2xl duration-300",
           highlightUnlimited && tagUnlimited
-            ? "border-2 border-primary bg-gradient-to-b from-white via-blue-50 to-blue-100"
+            ? "border-2 border-[var(--brand-end)] bg-gradient-to-b from-white via-blue-50 to-blue-100"
             : "bg-white",
         ].join(" ")}
       >
@@ -102,8 +126,8 @@ export default function ServicesPage() {
           className={[
             "px-3 py-1 rounded-full text-xs font-semibold mb-4 inline-block",
             tagUnlimited
-              ? "bg-gradient-to-r from-primary to-blue-500 text-white shadow-md"
-              : "bg-primary text-white",
+              ? "brand-gradient text-white shadow-md"
+              : "bg-[var(--brand-50)] text-[var(--brand-end)]",
           ].join(" ")}
         >
           {tag}
@@ -111,9 +135,9 @@ export default function ServicesPage() {
 
         <h4 className="text-2xl font-bold text-gray-900 mb-3">{name}</h4>
 
-        <div className="text-3xl font-extrabold text-primary mb-4 animate-pulse">
-          {priceText}
-          <span className="text-sm text-gray-600"> VND/month</span>
+        <div className="text-3xl font-extrabold text-[var(--brand-end)] mb-4">
+          <span className="block">{priceText}</span>
+          <span className="text-sm text-gray-600">per month</span>
         </div>
 
         <ul className="space-y-2 text-gray-600 mb-6 text-sm">
@@ -124,7 +148,7 @@ export default function ServicesPage() {
 
         <button
           onClick={() => openAuthModal("signup")}
-          className="btn-primary w-full text-sm py-2 rounded-full font-semibold hover:scale-105 hover:bg-blue-600 transition"
+          className="w-full text-sm py-2 rounded-full font-semibold brand-gradient text-white hover:opacity-95 transition"
         >
           Choose Plan
         </button>
@@ -132,25 +156,28 @@ export default function ServicesPage() {
     );
   };
 
+  /** Bảng fee theo dải km — dựng hoàn toàn theo BE, hỗ trợ n cột */
   const renderExcessTable = (feeSummary, title = "Excess Mileage Fee") => {
     if (!feeSummary) return null;
-    const rows = Array.isArray(feeSummary.excessMileage)
-      ? feeSummary.excessMileage
-      : [];
+    const rows = Array.isArray(feeSummary.excessMileage) ? feeSummary.excessMileage.slice() : [];
+    if (!rows.length) return null;
 
-    // cột: <=2000; 2001-4000; >=4001
-    const col1 = rows.find((r) => (r.minValue ?? 0) <= 0 && (r.maxValue ?? 0) === 2000)?.amount ?? "-";
-    const col2 = rows.find((r) => (r.minValue ?? 0) === 2001 && (r.maxValue ?? 0) === 4000)?.amount ?? "-";
-    const col3 = rows.find((r) => (r.minValue ?? 0) === 4001)?.amount ?? "-";
+    // sắp xếp theo minValue tăng dần
+    rows.sort((a, b) => Number(a.minValue ?? 0) - Number(b.minValue ?? 0));
+
+    const chip = (label, value) => (
+      <div className="px-4 py-2 rounded-full text-sm font-semibold text-white brand-gradient shadow">
+        {label}: <span className="font-bold text-yellow-200 ml-1">{value}</span>
+      </div>
+    );
 
     const booking = feeSummary.booking ? fmtVND(feeSummary.booking.amount) : null;
     const deposit = feeSummary.batteryDeposit ? fmtVND(feeSummary.batteryDeposit.amount) : null;
-    const swapFee =
-      feeSummary.batterySwap ? fmtVND(feeSummary.batterySwap.amount) : null;
+    const swapFee = feeSummary.batterySwap ? fmtVND(feeSummary.batterySwap.amount) : null;
 
     return (
       <div className="mt-16 bg-gradient-to-b from-blue-50 to-green-50 p-8 rounded-3xl shadow-inner">
-        <h4 className="text-2xl font-extrabold text-primary text-center mb-6 tracking-wide uppercase">
+        <h4 className="text-2xl font-extrabold text-[var(--brand-end)] text-center mb-6 tracking-wide uppercase">
           {title}
         </h4>
 
@@ -161,51 +188,41 @@ export default function ServicesPage() {
                 <th className="py-3 px-4 border border-blue-200 rounded-tl-2xl">
                   Monthly mileage (km)
                 </th>
-                <th className="py-3 px-4 border border-blue-200">Up to 2,000</th>
-                <th className="py-3 px-4 border border-blue-200">
-                  From 2,001 to 4,000
-                </th>
+                {rows.map((r, idx) => (
+                  <th key={idx} className="py-3 px-4 border border-blue-200">
+                    {bandLabel(r.minValue, r.maxValue)}
+                  </th>
+                ))}
                 <th className="py-3 px-4 border border-blue-200 rounded-tr-2xl">
-                  From 4,001 onwards
+                  Unit
                 </th>
               </tr>
             </thead>
             <tbody>
               <tr className="text-gray-700">
                 <td className="py-4 px-4 border border-blue-100 font-medium text-sm bg-blue-50">
-                  Extra fee (VND/km) – VAT included
+                  Extra fee – VAT included
                 </td>
-                <td className="py-4 px-4 border border-blue-100 font-semibold text-primary">
-                  {col1}
-                </td>
-                <td className="py-4 px-4 border border-blue-100 font-semibold text-primary">
-                  {col2}
-                </td>
-                <td className="py-4 px-4 border border-blue-100 font-semibold text-primary">
-                  {col3}
+                {rows.map((r, idx) => (
+                  <td key={idx} className="py-4 px-4 border border-blue-100 font-semibold text-[var(--brand-end)]">
+                    {fmtNum(r.amount)}
+                  </td>
+                ))}
+                <td className="py-4 px-4 border border-blue-100 text-sm text-gray-600">
+                  {rows[0]?.unit || "VND/km"}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-4 mt-8">
-          {swapFee && (
-            <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-8 py-3 rounded-full font-semibold text-sm shadow-lg hover:shadow-xl hover:scale-105 transition duration-300">
-              Swap Fee per Time: <span className="font-bold text-yellow-300">{swapFee}</span>
-            </div>
-          )}
-          {deposit && (
-            <div className="bg-gradient-to-r from-indigo-600 to-blue-500 text-white px-8 py-3 rounded-full font-semibold text-sm shadow-lg hover:shadow-xl hover:scale-105 transition duration-300">
-              Battery Deposit: <span className="font-bold text-yellow-300">{deposit}</span>
-            </div>
-          )}
-          {booking && (
-            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 text-white px-8 py-3 rounded-full font-semibold text-sm shadow-lg hover:shadow-xl hover:scale-105 transition duration-300">
-              Booking Fee: <span className="font-bold text-yellow-300">{booking}</span>
-            </div>
-          )}
-        </div>
+        {(booking || deposit || swapFee) && (
+          <div className="flex flex-wrap justify-center gap-4 mt-8">
+            {swapFee && chip("Swap Fee per Time", swapFee)}
+            {deposit && chip("Battery Deposit", deposit)}
+            {booking && chip("Booking Fee", booking)}
+          </div>
+        )}
       </div>
     );
   };
@@ -219,7 +236,7 @@ export default function ServicesPage() {
           <div className="max-w-7xl mx-auto">
             {/* Title */}
             <div className="text-center mb-16">
-              <h2 className="text-5xl font-extrabold bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent mb-4">
+              <h2 className="text-5xl font-extrabold text-brand-gradient mb-4">
                 Service Packages
               </h2>
               <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
@@ -245,8 +262,6 @@ export default function ServicesPage() {
                   <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
                     {swapPlans.map((p) => renderPlanCard(p, true))}
                   </div>
-
-                  {/* Excess fee table for G */}
                   {renderExcessTable(feeG, "Excess Mileage Fee")}
                 </>
               )}
@@ -270,8 +285,6 @@ export default function ServicesPage() {
                   <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
                     {selfPlans.map((p) => renderPlanCard(p, true))}
                   </div>
-
-                  {/* Excess fee table for TP */}
                   {renderExcessTable(feeTP, "Excess Mileage Fee")}
                 </>
               )}
@@ -280,11 +293,7 @@ export default function ServicesPage() {
         </section>
 
         {/* Modal đăng nhập / đăng ký */}
-        <AuthModal
-          isOpen={authModal.isOpen}
-          onClose={closeAuthModal}
-          initialMode={authModal.mode}
-        />
+        <AuthModal isOpen={authModal.isOpen} onClose={closeAuthModal} initialMode={authModal.mode} />
       </main>
     </PageTransition>
   );
