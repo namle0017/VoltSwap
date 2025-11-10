@@ -1,3 +1,4 @@
+/* eslint-disable no-empty */
 // pages/AdminPage.jsx
 /* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,7 +19,8 @@ import PageTransition from "@/components/PageTransition";
 import api from "@/api/api";
 
 const MONTH_LABELS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 ];
 const formatNumber = (n) => (typeof n === "number" ? n.toLocaleString("vi-VN") : "0");
 const formatCurrencyVND = (n) =>
@@ -32,14 +34,12 @@ const pick = (obj, paths, fallback = undefined) => {
     try {
       const val = p.split(".").reduce((o, k) => (o ?? {})[k], obj);
       if (val !== undefined && val !== null) return val;
-      // eslint-disable-next-line no-empty
     } catch (_) { }
   }
   return fallback;
 };
 
-/** Chuẩn hoá nhiều biến thể payload từ BE về 1 shape thống nhất */
-/** Chuẩn hoá nhiều biến thể payload từ BE về 1 shape thống nhất */
+/** Chuẩn hoá payload Overview */
 function normalizeOverview(raw) {
   if (!raw || typeof raw !== "object") return null;
 
@@ -61,7 +61,16 @@ function normalizeOverview(raw) {
   const totalStation =
     Number(pick(raw, ["stationOverview.totalStation", "stations.total", "station.total"])) || 0;
 
-  // === Plan summary (BE mới: planSummary.reportSummary.*) ===
+  // === NEW: Lấy planMonthSummary để chia pie theo gói ===
+  const planMonthSummary =
+    pick(raw, ["planSummary.planMonthSummary"], []) || [];
+  const planByPackage = (Array.isArray(planMonthSummary) ? planMonthSummary : []).map((p, idx) => ({
+    name: String(p?.planName ?? `Plan-${idx + 1}`),
+    users: Number(p?.totalUsers ?? 0),
+    revenue: Number(p?.totalRevenue ?? 0),
+  }));
+
+  // (Giữ lại reportSummary nếu muốn hiển thị ở chỗ khác — KHÔNG dùng cho pie nữa)
   const report = pick(raw, ["planSummary.reportSummary"], {}) || {};
   const planActiveCustomer = Number(report.activeCustomer || 0);
   const planSwapTimes = Number(report.swapTimes || 0);
@@ -95,11 +104,18 @@ function normalizeOverview(raw) {
     totalSwapToday,
     activeStation,
     totalStation,
+
+    // giữ lại nhưng KHÔNG dùng cho pie
     planActiveCustomer,
     planSwapTimes,
     planTotalMonthlyRevenue,
+
+    // dùng cho bar
     monthlySwapsData,
-    avgBatterySwap, // <- dùng nếu BE đã tính sẵn
+    avgBatterySwap,
+
+    // dùng cho pie theo gói
+    planByPackage,
   };
 }
 
@@ -107,7 +123,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [ov, setOv] = useState(null);
-  const fetchedRef = useRef(false); // chặn fetch 2 lần do StrictMode dev
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
     if (fetchedRef.current) return;
@@ -145,11 +161,13 @@ export default function AdminPage() {
   const activeStation = ov?.activeStation ?? 0;
   const totalStation = ov?.totalStation ?? 0;
 
+  // giữ lại nếu bạn còn dùng nơi khác
   const planActiveCustomer = ov?.planActiveCustomer ?? 0;
   const planSwapTimes = ov?.planSwapTimes ?? 0;
   const planTotalMonthlyRevenue = ov?.planTotalMonthlyRevenue ?? 0;
 
   const monthlySwapsData = Array.isArray(ov?.monthlySwapsData) ? ov.monthlySwapsData : [];
+  const planByPackage = Array.isArray(ov?.planByPackage) ? ov.planByPackage : [];
 
   const avg = useMemo(() => {
     if (!monthlySwapsData.length) return 0;
@@ -157,15 +175,28 @@ export default function AdminPage() {
     return Math.round(sum / monthlySwapsData.length);
   }, [monthlySwapsData]);
 
-  // Pie: quy đổi totalMonthlyRevenue về "nghìn VND" để dễ nhìn
-  const revenueInThousands = Math.round(planTotalMonthlyRevenue / 1000);
-  const pieData = [
-    { name: "Active Customers", value: Number(planActiveCustomer) || 0, color: "#10B981" },
-    { name: "Swap Times", value: Number(planSwapTimes) || 0, color: "#3B82F6" },
-    { name: "Total Revenue (x1k ₫)", value: revenueInThousands || 0, color: "#F59E0B" },
-  ];
+  // ======= PIE THEO GÓI (sử dụng totalUsers làm value) =======
+  // map màu cố định theo tên gói (có fallback)
+  const PLAN_COLORS = {
+    G1: "#6366F1",
+    G2: "#06B6D4",
+    G3: "#22C55E",
+    GU: "#84CC16",
+    TP1: "#F59E0B",
+    TP2: "#EC4899",
+    TP3: "#3B82F6",
+    TP3U: "#10B981",
+  };
+  const FALLBACK_COLORS = ["#60A5FA", "#F472B6", "#34D399", "#FBBF24", "#A78BFA", "#F97316", "#22D3EE", "#4ADE80"];
 
-  const allPieZero = pieData.every((d) => !Number(d.value));
+  const pieData = planByPackage.map((p, idx) => ({
+    name: p.name,
+    value: Number(p.users || 0),       // slice theo totalUsers
+    revenue: Number(p.revenue || 0),   // hiển thị thêm trong tooltip/legend
+    color: PLAN_COLORS[p.name] || FALLBACK_COLORS[idx % FALLBACK_COLORS.length],
+  }));
+
+  const allPieZero = pieData.length === 0 || pieData.every((d) => !Number(d.value));
   const barEmpty = monthlySwapsData.length === 0;
 
   const statisticCards = [
@@ -207,7 +238,10 @@ export default function AdminPage() {
     active && payload?.length ? (
       <div className="bg-white p-3 rounded-lg shadow-lg border">
         <p className="font-semibold">{payload[0].name}</p>
-        <p className="text-sm text-gray-600">{formatNumber(payload[0].value)}</p>
+        <p className="text-sm text-gray-600">Users: {formatNumber(payload[0].value)}</p>
+        {typeof payload[0].payload?.revenue === "number" && (
+          <p className="text-sm text-gray-600">Revenue: {formatCurrencyVND(payload[0].payload.revenue)}</p>
+        )}
       </div>
     ) : null;
 
@@ -282,7 +316,7 @@ export default function AdminPage() {
         {/* Charts */}
         {!loading && !err && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            {/* Pie */}
+            {/* Pie theo gói */}
             <motion.div
               className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300"
               initial={{ opacity: 0, x: -30 }}
@@ -290,11 +324,11 @@ export default function AdminPage() {
               transition={{ duration: 0.6, delay: 0.3 }}
               whileHover={{ y: -2 }}
             >
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Plan Summary Breakdown</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Packages Breakdown (by Users)</h2>
               <div className="h-80">
                 {allPieZero ? (
                   <div className="h-full flex items-center justify-center text-sm text-gray-500">
-                    No plan summary data (all zeros).
+                    No package data (all zeros).
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
@@ -305,7 +339,7 @@ export default function AdminPage() {
                         cy="50%"
                         outerRadius={100}
                         innerRadius={40}
-                        paddingAngle={5}
+                        paddingAngle={4}
                         dataKey="value"
                       >
                         {pieData.map((entry, i) => (
@@ -328,7 +362,10 @@ export default function AdminPage() {
                       <div className="w-4 h-4 rounded-full" style={{ backgroundColor: item.color }} />
                       <span className="text-sm font-medium text-gray-700">{item.name}</span>
                     </div>
-                    <span className="text-sm text-gray-600">{formatNumber(item.value)}</span>
+                    <div className="text-right">
+                      <div className="text-sm text-gray-700">Users: {formatNumber(item.value)}</div>
+                      <div className="text-xs text-gray-500">Revenue: {formatCurrencyVND(item.revenue)}</div>
+                    </div>
                   </motion.div>
                 ))}
               </div>
