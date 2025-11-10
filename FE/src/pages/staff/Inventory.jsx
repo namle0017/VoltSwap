@@ -1,911 +1,411 @@
 // src/pages/staff/Inventory.jsx
-// ===================
-// UI: English
-// Comment: Tiếng Việt
-// Yêu cầu:
-// - Chỉ hiển thị 20 pin đầu; có nút "View more" để xem toàn bộ (và "View less" để thu về).
-// - Sắp xếp: Pin thường lên trước, Maintenance xuống dưới; trong nhóm sort theo SOC ↓, SOH ↓, ID ↑.
-// - API: GET /Station/station-inventory?staffId=...
-// - Search theo Battery ID (lọc theo id, không phân biệt hoa/thường).
-// ===================
-
 import React from "react";
-import api from "@/api/api";
-
-/* ===== Helpers ===== */
-// Ép SOC/SOH về 0..100 (làm tròn)
-function clamp01(n) {
-    const x = Number(n);
-    if (!Number.isFinite(x)) return 0;
-    const r = Math.round(x);
-    return Math.max(0, Math.min(100, r));
-}
-
-// BE đôi khi viết sai chính tả "mantaince" → vẫn coi là maintenance
-function isMaintenance(item) {
-    const a = (item?.status || "").toLowerCase();
-    const b = (item?.batteryStatus || "").toLowerCase();
-    return (
-        a === "maintenance" ||
-        b === "maintenance" ||
-        a === "mantaince" ||
-        b === "mantaince"
-    );
-}
-
-// Tone màu cho thẻ theo trạng thái
-function statusTone(item) {
-    if (isMaintenance(item)) {
-        return {
-            bg: "rgba(239,68,68,.10)",
-            fg: "#991b1b",
-            br: "#ef4444",
-            label: "Maintenance",
-        };
-    }
-    return {
-        bg: "rgba(16,185,129,.10)",
-        fg: "#047857",
-        br: "#10b981",
-        label: item?.status || "Normal",
-    };
-}
-
-// Chuẩn hoá 1 bản ghi pin về shape dùng cho UI
-function mapBattery(it) {
-    return {
-        id: it.batteryId || it.id || "",
-        soh: clamp01(it.soh),
-        soc: clamp01(it.soc),
-        capacityKWh: Number(it.capacity ?? it.capacityKWh ?? 0),
-        status: it.status || it.batteryStatus || "Normal",
-        batteryStatus: it.batteryStatus,
-        stationId: it.stationId,
-    };
-}
-
-// Sort: pin thường trước, Maintenance sau; SOC desc → SOH desc → ID asc
-function compareBattery(a, b) {
-    const aMaint = isMaintenance(a) ? 1 : 0;
-    const bMaint = isMaintenance(b) ? 1 : 0;
-    if (aMaint !== bMaint) return aMaint - bMaint;
-    if ((b.soc ?? 0) !== (a.soc ?? 0)) return (b.soc ?? 0) - (a.soc ?? 0);
-    if ((b.soh ?? 0) !== (a.soh ?? 0)) return (b.soh ?? 0) - (a.soh ?? 0);
-    return String(a.id).localeCompare(String(b.id));
-}
-
-const PAGE_SIZE = 20;
+import api from "@/api/api"; // axios instance của bạn (đã set baseURL)
 
 export default function Inventory() {
-    // StaffId gửi cho BE
-    const staffId =
-        localStorage.getItem("StaffId") ||
-        localStorage.getItem("staffId") ||
-        localStorage.getItem("userId") ||
-        "";
+    /* ===== Constants ===== */
+    const ROWS = ["A", "B", "C", "D", "E"]; // 5 hàng x 4 cột = 20 ô (chỉ dùng để sắp, KHÔNG hiển thị)
+    const COLS = 4;
+    const toPos = (i) => `${ROWS[Math.floor(i / COLS)]}${(i % COLS) + 1}`; // nội bộ
 
-    const [list, setList] = React.useState([]); // toàn bộ pin đã sort
+    /* ===== State ===== */
+    const [slots, setSlots] = React.useState([]);       // [{ slot, battery|null }]
+    const [openSlot, setOpenSlot] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState("");
+    const [error, setError] = React.useState(null);
+    const [lastUpdated, setLastUpdated] = React.useState(null);
 
-    // Tên trạm nếu BE có trả
+    // Hiển thị tên trạm: ưu tiên localStorage.stationName; fallback stationId từ payload
     const [stationName, setStationName] = React.useState(
         localStorage.getItem("stationName") || "Station"
     );
 
-    // Modal Battery detail
-    const [openSlot, setOpenSlot] = React.useState(null);
+    // StaffId gửi cho BE (chú ý key — tuỳ hệ thống bạn đang lưu)
+    const staffId =
+        localStorage.getItem("staffId") ||
+        localStorage.getItem("StaffId") ||
+        localStorage.getItem("userId") ||
+        "";
 
-    // View more / less
-    const [limit, setLimit] = React.useState(PAGE_SIZE);
+    /* ===== Helpers ===== */
+    const buildEmptyGrid = React.useCallback(
+        () => Array.from({ length: ROWS.length * COLS }, (_, i) => ({ slot: toPos(i), battery: null })),
+        []
+    );
 
-    // Search theo Battery ID
-    const [query, setQuery] = React.useState("");
+    const clamp01 = (n) => {
+        const x = Number(n);
+        if (!Number.isFinite(x)) return 0;
+        return Math.max(0, Math.min(100, Math.round(x)));
+    };
 
-    // Fetch inventory
+    const fmtTime = (iso) => (iso ? new Date(iso).toLocaleString() : "—");
+
+    // Tone theo status từ BE:
+    // - Maintenance/mantaince -> đỏ
+    // - Warehouse/Full/FullPin/Best -> xanh
+    // - khác -> xám
+    const statusTone = (status) => {
+        const raw = (status || "").trim();
+        const s = raw.toLowerCase();
+
+        const isMaintenance = /maintain/.test(s); // bắt cả "maintenance" & "mantaince"
+        if (isMaintenance) {
+            return {
+                bg: "rgba(239,68,68,.12)", // red-500/12
+                fg: "#991b1b",             // red-800
+                br: "#ef4444",             // red-500
+                label: raw || "Maintenance",
+            };
+        }
+
+        const isGreen =
+            s.includes("warehouse") ||
+            s === "full" ||
+            s === "fullpin" ||
+            s === "best";
+        if (isGreen) {
+            return {
+                bg: "rgba(16,185,129,.12)", // emerald-500/12
+                fg: "#065f46",               // emerald-900
+                br: "#10b981",               // emerald-500
+                label: raw || "Warehouse",
+            };
+        }
+
+        // Default (xám)
+        return {
+            bg: "rgba(148,163,184,.12)", // slate-400/12
+            fg: "#334155",               // slate-700
+            br: "#94a3b8",               // slate-400
+            label: raw,                  // giữ nguyên status BE
+        };
+    };
+
+    // Map 1 item BE -> battery chuẩn UI
+    const mapBattery = (it) => ({
+        id: it.batteryId,
+        soh: clamp01(it.soh),
+        soc: clamp01(it.soc),
+        capacityKWh: Number(it.capacity),
+        status: it.status || "Warehouse",
+        updatedAt: new Date().toISOString(), // BE chưa trả time cập nhật
+        stationId: it.stationId,
+        stationName: it.stationName,
+    });
+
+    // Lấy tối đa 20 pin, gán tuần tự vào 20 ô; phần còn lại để trống
+    const buildGridFromApi = (list) => {
+        const grid = buildEmptyGrid();
+        if (!Array.isArray(list)) return grid;
+
+        if (list.length > 20) {
+            console.warn(`[Inventory] API returned ${list.length} items; using first 20.`);
+        }
+        const items = list.slice(0, 20).map(mapBattery);
+
+        return grid.map((g, idx) => ({
+            slot: g.slot,               // vẫn giữ để sắp xếp nội bộ
+            battery: items[idx] || null,
+        }));
+    };
+
+    /* ===== Fetch ===== */
     const fetchInventory = React.useCallback(async () => {
         try {
-            setLoading(true);
-            setError("");
-            setLimit(PAGE_SIZE); // reset về 20 mỗi lần refresh
-
             if (!staffId) {
-                setError(
-                    "Missing staffId in localStorage. Please sign in again."
-                );
-                setList([]);
+                setError("Thiếu staffId trong localStorage. Vui lòng đăng nhập lại.");
+                setSlots(buildEmptyGrid());
+                setLoading(false);
                 return;
             }
 
+            setError(null);
+            setLoading(true);
             const res = await api.get("/Station/station-inventory", {
-                params: { staffId },
+                params: { StaffId: staffId }, // đúng key theo BE
             });
 
-            const payload = Array.isArray(res.data)
-                ? res.data
-                : res.data?.data || [];
+            const payload = Array.isArray(res.data) ? res.data : res.data?.data || [];
+            const grid = buildGridFromApi(payload);
+            setSlots(grid);
 
-            const mapped = payload.map(mapBattery).sort(compareBattery);
-            setList(mapped);
+            // Cập nhật tên trạm nếu có stationId trong payload
+            const stId = payload?.[0]?.stationId;
+            if (stId) setStationName(stId);
 
-            const stName =
-                res.data?.stationName ||
-                res.data?.data?.stationName ||
-                payload?.[0]?.stationName;
-            if (stName) setStationName(stName);
+            setLastUpdated(new Date().toISOString());
         } catch (e) {
-            console.error(e);
-            setError(
-                e?.response?.data?.message ||
-                e?.message ||
-                "Failed to load station inventory."
-            );
-            setList([]);
+            console.error("Fetch station inventory failed:", e);
+            setError(e?.response?.data?.message || e?.message || "Không thể tải kho pin.");
+            setSlots(buildEmptyGrid());
         } finally {
             setLoading(false);
         }
-    }, [staffId]);
+    }, [staffId, buildEmptyGrid]);
 
     React.useEffect(() => {
         fetchInventory();
     }, [fetchInventory]);
 
-    // Đổi search → thu về 20
-    React.useEffect(() => {
-        setLimit(PAGE_SIZE);
-    }, [query]);
-
-    // Lọc theo Battery ID (case-insensitive)
-    const filtered = React.useMemo(() => {
-        const q = query.trim().toLowerCase();
-        if (!q) return list;
-        return list.filter((b) =>
-            String(b.id || "").toLowerCase().includes(q)
-        );
-    }, [list, query]);
-
-    // Danh sách hiển thị
-    const visible = loading
-        ? []
-        : filtered.slice(0, Math.min(limit, filtered.length));
-    const canViewMore = !loading && limit < filtered.length;
-    const canViewLess = !loading && limit > PAGE_SIZE;
-
+    /* ===== UI ===== */
     return (
-        <section className="inventory-page">
+        <section>
             {/* Header */}
-            <header className="row-between header">
+            <header className="row-between">
                 <div className="header-left">
-                    <div className="chip">Station inventory</div>
-                    <h2 className="title">{stationName}</h2>
-                    {!loading && (
-                        <div className="subtitle">
-                            Showing{" "}
-                            <strong>{visible.length}</strong> of{" "}
-                            <strong>{filtered.length}</strong>{" "}
-                            {query ? "matches" : "batteries"}
-                            {query && (
-                                <>
-                                    {" "}
-                                    (total <strong>{list.length}</strong>)
-                                </>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                <div className="header-actions">
-                    {/* Search by Battery ID */}
-                    <div className="search">
-                        <i className="bi bi-search" aria-hidden="true" />
-                        <input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Search by Battery ID"
-                            aria-label="Search by Battery ID"
-                        />
-                        {query && (
-                            <button
-                                type="button"
-                                className="clear-btn"
-                                onClick={() => setQuery("")}
-                                aria-label="Clear search"
-                            >
-                                <i className="bi bi-x-lg" />
-                            </button>
-                        )}
+                    <span className="kho-chip">Kho trạm</span>
+                    <h2 className="h1 m-0">{stationName}</h2>
+                    <div className="muted small">
+                        {lastUpdated ? `Cập nhật: ${fmtTime(lastUpdated)}` : ""}
                     </div>
-
-                    <button
-                        className="btn refresh-btn"
-                        onClick={fetchInventory}
-                        disabled={loading}
-                    >
-                        <i className="bi bi-arrow-clockwise" />
-                        <span>{loading ? "Loading..." : "Refresh"}</span>
+                </div>
+                <div className="actions">
+                    <button className="btn" onClick={fetchInventory} disabled={loading}>
+                        <i className="bi bi-arrow-clockwise" /> {loading ? "Loading..." : "Refresh"}
                     </button>
                 </div>
             </header>
 
             {/* Error */}
             {error && (
-                <div className="alert error">
-                    <i className="bi bi-exclamation-triangle-fill" />
-                    <span>{error}</span>
+                <div className="card card-padded mt-3 error">
+                    <i className="bi bi-exclamation-triangle" /> {error}
                 </div>
             )}
 
-            {/* Grid Batteries */}
-            <section className="card">
-                <div className="row-between card-head">
-                    <h3 className="card-title">Batteries</h3>
+            {/* Grid 20 ô (KHÔNG hiển thị vị trí) */}
+            <section className="card card-padded mt-4">
+                <div className="row-between">
+                    <h3 className="h4 m-0">Kho Pin</h3>
                     <div className="legend">
-                        <span className="legend-item">
-                            <span className="dot normal" />
-                            Normal
-                        </span>
-                        <span className="legend-item">
-                            <span className="dot maint" />
-                            Maintenance
-                        </span>
+                        <span className="legend-dot full" /> Warehouse/Full
+                        <span className="legend-dot maint" /> Maintenance
+                        <span className="legend-dot empty" /> Khác / Empty
                     </div>
                 </div>
 
-                {!loading && filtered.length === 0 ? (
-                    <div className="empty">
-                        No batteries found
-                        {query ? " for this search." : "."}
-                    </div>
-                ) : (
-                    <div
-                        className="slots-grid"
-                        role="grid"
-                        aria-label="Station batteries"
-                    >
-                        {(loading
-                            ? Array.from({ length: PAGE_SIZE })
-                            : visible
-                        ).map((b, i) => {
-                            if (loading)
-                                return (
-                                    <div
-                                        key={i}
-                                        className="slot-card skeleton"
-                                    />
-                                );
+                <div className="slots-grid mt-3" role="grid" aria-label="Danh sách Pin trong kho">
+                    {(loading && slots.length === 0 ? buildEmptyGrid() : slots).map(({ slot, battery }) => {
+                        const tone = statusTone(battery?.status);
+                        const pct = battery ? clamp01(battery.soc) : 0;
 
-                            const tone = statusTone(b);
-                            const pct = clamp01(b.soc);
-
-                            return (
-                                <button
-                                    key={b.id || i}
-                                    role="gridcell"
-                                    className="slot-card"
-                                    onClick={() => setOpenSlot({ battery: b })}
-                                    aria-label={
-                                        b.id
-                                            ? `Battery ${b.id}, SOC ${pct}%`
-                                            : "Battery"
-                                    }
-                                >
-                                    <div className="slot-top">
-                                        <span
-                                            className="status-badge"
-                                            style={{
-                                                backgroundColor: tone.bg,
-                                                color: tone.fg,
-                                                borderColor: tone.br,
-                                            }}
-                                        >
-                                            {tone.label}
-                                        </span>
-                                    </div>
-
-                                    <div className="slot-body">
-                                        <div className="slot-id">
-                                            {b.id || "—"}
-                                        </div>
-
-                                        <div className="kv">
-                                            <span>SOH</span>
-                                            <strong>
-                                                {clamp01(b.soh)}
-                                                %
-                                            </strong>
-                                        </div>
-                                        <div className="kv">
-                                            <span>SOC</span>
-                                            <strong>{pct}%</strong>
-                                        </div>
-
-                                        <div
-                                            className="socbar"
-                                            title={`SOC ${pct}%`}
-                                        >
-                                            <span
-                                                className="socbar-fill"
-                                                style={{
-                                                    width: `${pct}%`,
-                                                    backgroundColor: tone.br,
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="kv">
-                                            <span>Capacity</span>
-                                            <strong>
-                                                {b.capacityKWh
-                                                    ? `${b.capacityKWh} kWh`
-                                                    : "—"}
-                                            </strong>
-                                        </div>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {/* View more / View less */}
-                {!loading && filtered.length > 0 && (
-                    <div className="view-controls">
-                        {canViewMore && (
+                        return (
                             <button
-                                className="btn ghost"
-                                onClick={() =>
-                                    setLimit(filtered.length)
-                                }
+                                key={slot}
+                                role="gridcell"
+                                className={`slot-card ${loading && !battery ? "skeleton" : ""}`}
+                                style={{
+                                    borderColor: tone.br,
+                                    background: battery ? "#fff" : "linear-gradient(#f8fafc,#f1f5f9)",
+                                }}
+                                onClick={() => setOpenSlot({ slot, battery })}
+                                disabled={loading && slots.length === 0}
+                                aria-label={battery ? `Pin ${battery.id}, SOC ${pct}%` : "Ô trống"}
+                                type="button"
                             >
-                                View more
+                                <div className="slot-head">
+                                    {/* ĐÃ BỎ nhãn vị trí (A1..E4) */}
+                                    <span
+                                        className="status-badge"
+                                        style={{ background: tone.bg, color: tone.fg, borderColor: tone.br }}
+                                    >
+                                        {battery ? (tone.label || "—") : ""}
+                                    </span>
+                                </div>
+
+                                <div className="slot-body">
+                                    <div className="slot-id">{battery?.id || "—"}</div>
+
+                                    {battery ? (
+                                        <>
+                                            <div className="kv">
+                                                <span>SOH</span>
+                                                <b>{clamp01(battery.soh)}%</b>
+                                            </div>
+                                            <div className="kv">
+                                                <span>SOC</span>
+                                                <b>{pct}%</b>
+                                            </div>
+                                            <div className="socbar">
+                                                <span
+                                                    className="socbar-fill"
+                                                    style={{ width: `${pct}%`, background: tone.br }}
+                                                />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="muted small">Chưa có Pin</div>
+                                    )}
+                                </div>
                             </button>
-                        )}
-                        {canViewLess && (
-                            <button
-                                className="btn ghost"
-                                onClick={() => setLimit(PAGE_SIZE)}
-                            >
-                                View less
-                            </button>
-                        )}
-                    </div>
-                )}
+                        );
+                    })}
+                </div>
             </section>
 
-            {/* Battery detail modal */}
+            {/* Drawer detail (KHÔNG hiển thị vị trí) */}
             {openSlot && (
-                <div
-                    className="overlay"
-                    onClick={() => setOpenSlot(null)}
-                >
-                    <div
-                        className="modal"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="modal-head">
-                            <h4>Battery detail</h4>
-                            <button
-                                className="icon-btn"
-                                onClick={() => setOpenSlot(null)}
-                                aria-label="Close"
-                            >
-                                <i className="bi bi-x-lg" />
+                <div className="overlay" onClick={() => setOpenSlot(null)}>
+                    <aside className="drawer" onClick={(e) => e.stopPropagation()}>
+                        <header className="drawer-head">
+                            <h4 className="m-0">Chi tiết Pin</h4>
+                            <button className="btn-close" onClick={() => setOpenSlot(null)} aria-label="Đóng" type="button">
+                                ×
                             </button>
-                        </div>
+                        </header>
 
-                        <div className="modal-body">
-                            <div className="info-grid">
-                                <div className="info-card">
-                                    <div className="label">
-                                        Battery ID
-                                    </div>
-                                    <div className="value strong">
-                                        {openSlot.battery?.id ||
-                                            "—"}
-                                    </div>
+                        <div className="drawer-body">
+                            <dl className="details">
+                                <div className="detail">
+                                    <dt>Mã Pin</dt>
+                                    <dd>{openSlot.battery?.id || "—"}</dd>
                                 </div>
-                                <div className="info-card">
-                                    <div className="label">SOH</div>
-                                    <div className="value strong">
-                                        {clamp01(
-                                            openSlot.battery?.soh
-                                        )}
-                                        %
-                                    </div>
+                                <div className="detail">
+                                    <dt>SOH</dt>
+                                    <dd>
+                                        {openSlot.battery?.soh != null ? `${clamp01(openSlot.battery.soh)}%` : "—"}
+                                    </dd>
                                 </div>
-                                <div className="info-card">
-                                    <div className="label">SOC</div>
-                                    <div className="value strong">
-                                        {clamp01(
-                                            openSlot.battery?.soc
-                                        )}
-                                        %
-                                    </div>
+                                <div className="detail">
+                                    <dt>SOC</dt>
+                                    <dd>
+                                        {openSlot.battery?.soc != null ? `${clamp01(openSlot.battery.soc)}%` : "—"}
+                                    </dd>
                                 </div>
-                                <div className="info-card">
-                                    <div className="label">
-                                        Capacity
-                                    </div>
-                                    <div className="value strong">
-                                        {openSlot.battery?.capacityKWh
+                                <div className="detail">
+                                    <dt>Capacity</dt>
+                                    <dd>
+                                        {openSlot.battery?.capacityKWh != null
                                             ? `${openSlot.battery.capacityKWh} kWh`
                                             : "—"}
-                                    </div>
+                                    </dd>
                                 </div>
-                                <div className="info-card wide">
-                                    <div className="label">
-                                        Status
-                                    </div>
-                                    <div className="value strong">
-                                        {isMaintenance(
-                                            openSlot.battery
-                                        )
-                                            ? "Maintenance"
-                                            : openSlot.battery
-                                                ?.status ||
-                                            "Normal"}
-                                    </div>
+                                <div className="detail">
+                                    <dt>Trạng thái</dt>
+                                    <dd>
+                                        {openSlot.battery ? (
+                                            (() => {
+                                                const t = statusTone(openSlot.battery.status);
+                                                return (
+                                                    <span
+                                                        className="status-badge"
+                                                        style={{ background: t.bg, color: t.fg, borderColor: t.br }}
+                                                    >
+                                                        {t.label || "—"}
+                                                    </span>
+                                                );
+                                            })()
+                                        ) : (
+                                            ""
+                                        )}
+                                    </dd>
                                 </div>
-                            </div>
+                                <div className="detail">
+                                    <dt>Station</dt>
+                                    <dd>{openSlot.battery?.stationId || stationName}</dd>
+                                </div>
+                                <div className="detail">
+                                    <dt>Updated</dt>
+                                    <dd>{fmtTime(openSlot.battery?.updatedAt)}</dd>
+                                </div>
+                            </dl>
                         </div>
 
-                        <div className="modal-foot">
-                            <button
-                                className="btn ghost"
-                                onClick={() => setOpenSlot(null)}
-                            >
-                                Close
+                        <footer className="drawer-foot">
+                            <button className="btn ghost" onClick={() => setOpenSlot(null)} type="button">
+                                Đóng
                             </button>
-                        </div>
-                    </div>
+                        </footer>
+                    </aside>
                 </div>
             )}
 
-            {/* Styles cục bộ */}
+            {/* Styles scoped */}
             <style>{`
-                .inventory-page {
-                    --line: #e2e8f0;
-                    --muted: #6b7280;
-                    --bg-soft: #f9fafb;
-                    --purple: #4b1fa6;
-                    color: #0f172a;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 16px;
-                }
+        .row-between { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
+        .card-padded { padding: 16px 20px; }
+        .m-0 { margin: 0; }
+        .h4 { font-size:16px; font-weight:600; }
+        .h5 { font-size:18px; font-weight:700; }
+        .small { font-size:12px; }
+        .muted { color: var(--muted); }
 
-                .row-between {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    gap: 16px;
-                }
+        .kho-chip {
+          display:inline-block; padding:4px 10px; border-radius:999px;
+          background:#eef2ff; color:#3730a3; font-weight:600; font-size:12px; border:1px solid #c7d2fe;
+          margin-bottom:6px;
+        }
+        .actions .btn { height:36px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:#fff; }
+        .error { color:#991b1b; background:#fee2e2; border:1px solid #fecaca; }
 
-                .header {
-                    margin-bottom: 4px;
-                }
+        .legend { display:flex; align-items:center; gap:12px; color:var(--muted); font-size:12px; }
+        .legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; border:1px solid var(--line); margin-right:4px; }
+        .legend .full { background:#10b98133; border-color:#10b981; }
+        .legend .maint { background:#ef444433; border-color:#ef4444; }
+        .legend .empty { background:#94a3b833; border-color:#94a3b8; }
 
-                .chip {
-                    display: inline-flex;
-                    align-items: center;
-                    padding: 4px 12px;
-                    border-radius: 999px;
-                    font-size: 11px;
-                    font-weight: 600;
-                    color: #3730a3;
-                    background: #eef2ff;
-                    border: 1px solid #c7d2fe;
-                    margin-bottom: 4px;
-                }
+        .slots-grid {
+          display:grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap:12px;
+        }
+        .slot-card {
+          border:1px solid var(--line);
+          border-radius:14px;
+          padding:12px;
+          display:flex; flex-direction:column; gap:8px;
+          text-align:left; cursor:pointer;
+          transition: box-shadow .2s, transform .1s;
+          background:#fff;
+        }
+        .slot-card:hover { box-shadow:0 4px 16px rgba(2,6,23,.06); transform: translateY(-1px); }
+        .slot-card:active { transform: translateY(0); }
+        .slot-card.skeleton { position:relative; overflow:hidden; }
+        .slot-card.skeleton::after {
+          content:""; position:absolute; inset:0;
+          background: linear-gradient(90deg, transparent, rgba(148,163,184,.1), transparent);
+          animation: shimmer 1.2s infinite;
+        }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
-                .title {
-                    margin: 0;
-                    font-size: 22px;
-                    font-weight: 700;
-                }
+        .slot-head { display:flex; align-items:center; justify-content:flex-end; gap:8px; } /* bỏ chỗ cho nhãn vị trí */
+        .status-badge { font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid; white-space:nowrap; }
 
-                .subtitle {
-                    margin-top: 2px;
-                    font-size: 13px;
-                    color: var(--muted);
-                }
+        .slot-body { display:flex; flex-direction:column; gap:6px; }
+        .slot-id { font-weight:600; font-size:14px; }
 
-                .header-actions {
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                }
+        .kv { display:flex; align-items:center; justify-content:space-between; font-size:12px; }
+        .socbar { height:6px; border-radius:999px; background:#e2e8f0; overflow:hidden; }
+        .socbar-fill { display:block; height:100%; border-radius:999px; }
 
-                /* Search box */
-                .search {
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    padding: 0 10px;
-                    height: 36px;
-                    border-radius: 10px;
-                    border: 1px solid var(--line);
-                    background: #ffffff;
-                    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
-                }
+        /* Drawer + overlay */
+        .overlay {
+          position:fixed; inset:0; background: rgba(15,23,42,0.25);
+          backdrop-filter: blur(2px);
+          display:flex; justify-content:flex-end; z-index: 50;
+        }
+        .drawer {
+          width: 380px; max-width: 90vw; height: 100%;
+          background: #fff; border-left: 1px solid var(--line);
+          display:flex; flex-direction:column;
+          animation: slideIn .18s ease-out;
+        }
+        @keyframes slideIn { from { transform: translateX(20px); opacity:0 } to { transform: translateX(0); opacity:1 } }
 
-                .search i {
-                    font-size: 14px;
-                    color: var(--muted);
-                }
+        .drawer-head { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line); }
+        .drawer-body { padding:16px 18px; display:flex; flex-direction:column; gap:14px; }
+        .drawer-foot { padding:12px 18px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:8px; }
 
-                .search input {
-                    border: none;
-                    outline: none;
-                    font-size: 13px;
-                    color: #111827;
-                    background: transparent;
-                    min-width: 200px;
-                }
+        .details { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin:0; }
+        .detail { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border:1px solid var(--line); border-radius:10px; }
+        .detail dt { color:var(--muted); font-weight:500; }
+        .detail dd { margin:0; font-weight:700; }
 
-                .clear-btn {
-                    border: none;
-                    background: transparent;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 22px;
-                    height: 22px;
-                    border-radius: 999px;
-                    color: var(--muted);
-                }
-
-                .clear-btn:hover {
-                    background: #f3f4f6;
-                }
-
-                .btn {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
-                    padding: 0 12px;
-                    height: 36px;
-                    border-radius: 10px;
-                    border: 1px solid var(--line);
-                    background: #ffffff;
-                    font-size: 13px;
-                    color: #111827;
-                    cursor: pointer;
-                    transition: all .16s ease;
-                }
-
-                .btn i {
-                    font-size: 14px;
-                }
-
-                .btn:hover:not(:disabled) {
-                    box-shadow: 0 2px 6px rgba(15,23,42,0.10);
-                    transform: translateY(-1px);
-                }
-
-                .btn:disabled {
-                    opacity: 0.6;
-                    cursor: default;
-                    box-shadow: none;
-                    transform: none;
-                }
-
-                .btn.ghost {
-                    background: #f9fafb;
-                }
-
-                .refresh-btn span {
-                    white-space: nowrap;
-                }
-
-                .alert.error {
-                    display: flex;
-                    align-items: flex-start;
-                    gap: 8px;
-                    padding: 10px 12px;
-                    border-radius: 10px;
-                    border: 1px solid #fecaca;
-                    background: #fef2f2;
-                    color: #991b1b;
-                    font-size: 13px;
-                }
-
-                .alert.error i {
-                    margin-top: 2px;
-                }
-
-                .card {
-                    margin-top: 4px;
-                    padding: 14px 16px 12px;
-                    border-radius: 16px;
-                    background: #ffffff;
-                    border: 1px solid #e5e7eb;
-                    box-shadow: 0 4px 14px rgba(15,23,42,0.04);
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                }
-
-                .card-head {
-                    align-items: flex-end;
-                }
-
-                .card-title {
-                    margin: 0;
-                    font-size: 16px;
-                    font-weight: 600;
-                }
-
-                .legend {
-                    display: flex;
-                    gap: 12px;
-                    font-size: 11px;
-                    color: var(--muted);
-                    align-items: center;
-                }
-
-                .legend-item {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 5px;
-                }
-
-                .dot {
-                    width: 9px;
-                    height: 9px;
-                    border-radius: 999px;
-                    border: 1px solid var(--line);
-                }
-
-                .dot.normal {
-                    background: #bbf7d0;
-                    border-color: #22c55e;
-                }
-
-                .dot.maint {
-                    background: #fee2e2;
-                    border-color: #ef4444;
-                }
-
-                .empty {
-                    padding: 14px 4px 6px;
-                    font-size: 13px;
-                    color: var(--muted);
-                }
-
-                .slots-grid {
-                    display: grid;
-                    grid-template-columns: repeat(4, minmax(0, 1fr));
-                    gap: 10px;
-                    margin-top: 6px;
-                }
-
-                @media (max-width: 1200px) {
-                    .slots-grid {
-                        grid-template-columns: repeat(3, minmax(0, 1fr));
-                    }
-                }
-                @media (max-width: 900px) {
-                    .slots-grid {
-                        grid-template-columns: repeat(2, minmax(0, 1fr));
-                    }
-                }
-
-                .slot-card {
-                    border-radius: 14px;
-                    border: 1px solid var(--line);
-                    background: #ffffff;
-                    padding: 10px 10px 9px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 6px;
-                    align-items: stretch;
-                    cursor: pointer;
-                    transition: all .16s ease;
-                    text-align: left;
-                }
-
-                .slot-card:hover {
-                    box-shadow: 0 4px 12px rgba(15,23,42,0.08);
-                    transform: translateY(-2px);
-                }
-
-                .slot-card:active {
-                    transform: translateY(0);
-                    box-shadow: 0 2px 6px rgba(15,23,42,0.06);
-                }
-
-                .slot-card.skeleton {
-                    position: relative;
-                    overflow: hidden;
-                    min-height: 110px;
-                }
-
-                .slot-card.skeleton::after {
-                    content: "";
-                    position: absolute;
-                    inset: 0;
-                    background: linear-gradient(
-                        90deg,
-                        transparent,
-                        rgba(148,163,253,0.12),
-                        transparent
-                    );
-                    animation: shimmer 1.1s infinite;
-                }
-
-                @keyframes shimmer {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(100%); }
-                }
-
-                .slot-top {
-                    display: flex;
-                    justify-content: flex-end;
-                }
-
-                .status-badge {
-                    padding: 2px 8px;
-                    font-size: 10px;
-                    border-radius: 999px;
-                    border-width: 1px;
-                    border-style: solid;
-                    font-weight: 500;
-                }
-
-                .slot-body {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 4px;
-                }
-
-                .slot-id {
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: #111827;
-                }
-
-                .kv {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    font-size: 11px;
-                    color: var(--muted);
-                }
-
-                .kv strong {
-                    font-size: 12px;
-                    color: #111827;
-                }
-
-                .socbar {
-                    margin-top: 3px;
-                    width: 100%;
-                    height: 6px;
-                    background: #f3f4f6;
-                    border-radius: 999px;
-                    overflow: hidden;
-                }
-
-                .socbar-fill {
-                    display: block;
-                    height: 100%;
-                    border-radius: 999px;
-                    transition: width .18s ease;
-                }
-
-                .view-controls {
-                    display: flex;
-                    justify-content: center;
-                    gap: 8px;
-                    margin-top: 10px;
-                }
-
-                /* Modal */
-                .overlay {
-                    position: fixed;
-                    inset: 0;
-                    background: rgba(15,23,42,0.35);
-                    backdrop-filter: blur(2px);
-                    display: flex;
-                    align-items: flex-start;
-                    justify-content: center;
-                    padding-top: 48px;
-                    z-index: 60;
-                }
-
-                .modal {
-                    width: 420px;
-                    max-width: 92vw;
-                    background: #ffffff;
-                    border-radius: 18px;
-                    box-shadow: 0 18px 60px rgba(15,23,42,0.35);
-                    border: 1px solid #e5e7eb;
-                    display: flex;
-                    flex-direction: column;
-                    max-height: calc(100vh - 80px);
-                }
-
-                .modal-head {
-                    padding: 14px 18px 10px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    border-bottom: 1px solid var(--line);
-                }
-
-                .modal-head h4 {
-                    margin: 0;
-                    font-size: 16px;
-                    font-weight: 600;
-                }
-
-                .icon-btn {
-                    border: none;
-                    background: transparent;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 26px;
-                    height: 26px;
-                    border-radius: 999px;
-                    color: #6b7280;
-                    transition: background .14s ease, color .14s ease;
-                }
-
-                .icon-btn:hover {
-                    background: #f3f4f6;
-                    color: #111827;
-                }
-
-                .modal-body {
-                    padding: 14px 18px 4px;
-                    overflow-y: auto;
-                }
-
-                .info-grid {
-                    display: grid;
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                    gap: 10px;
-                }
-
-                .info-card {
-                    padding: 10px 12px;
-                    border-radius: 12px;
-                    border: 1px solid var(--line);
-                    background: var(--bg-soft);
-                    display: flex;
-                    flex-direction: column;
-                    gap: 3px;
-                }
-
-                .info-card.wide {
-                    grid-column: 1 / -1;
-                }
-
-                .label {
-                    font-size: 11px;
-                    color: var(--muted);
-                }
-
-                .value {
-                    font-size: 13px;
-                    color: #111827;
-                }
-
-                .value.strong {
-                    font-weight: 600;
-                }
-
-                .modal-foot {
-                    padding: 10px 18px 12px;
-                    border-top: 1px solid var(--line);
-                    display: flex;
-                    justify-content: flex-end;
-                }
-            `}</style>
+        .btn { height:36px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:#fff; }
+        .btn.ghost:hover { background:#f8fafc; }
+        .btn-close { background:transparent; border:none; font-size:22px; line-height:1; cursor:pointer; color:#0f172a; }
+      `}</style>
         </section>
     );
 }

@@ -554,9 +554,7 @@ export default function StaffManagement() {
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                                             Station
                                         </th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                                            Shifts
-                                        </th>
+                                        {/* Removed Shifts column */}
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                                             Status
                                         </th>
@@ -565,6 +563,7 @@ export default function StaffManagement() {
                                         </th>
                                     </tr>
                                 </thead>
+
                                 <tbody className="divide-y divide-gray-200">
                                     {filteredStaffs.map((s) => (
                                         <tr key={s.staffId} className="hover:bg-gray-50 transition-colors">
@@ -572,6 +571,7 @@ export default function StaffManagement() {
                                                 <div className="font-medium text-gray-900">{s.name}</div>
                                                 <div className="text-sm text-gray-500">{s.email}</div>
                                             </td>
+
                                             <td className="px-6 py-4">
                                                 <span
                                                     className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${roleBadge(
@@ -581,8 +581,11 @@ export default function StaffManagement() {
                                                     {s.role}
                                                 </span>
                                             </td>
+
                                             <td className="px-6 py-4 text-gray-900">{s.stationName}</td>
-                                            <td className="px-6 py-4 text-gray-900">{s.shifts}</td>
+
+                                            {/* Removed Shifts cell */}
+
                                             <td className="px-6 py-4">
                                                 <span
                                                     className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${statusBadge(
@@ -592,6 +595,7 @@ export default function StaffManagement() {
                                                     {s.status}
                                                 </span>
                                             </td>
+
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
                                                     <button
@@ -602,7 +606,6 @@ export default function StaffManagement() {
                                                         <i className="bi bi-eye" />
                                                     </button>
 
-                                                    {/* NEW: Edit button */}
                                                     <button
                                                         onClick={() => openEditFromRow(s)}
                                                         className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
@@ -614,8 +617,8 @@ export default function StaffManagement() {
                                                     <button
                                                         onClick={() => deleteStaff(s)}
                                                         className={`p-2 rounded-lg ${deletingId === s.staffId
-                                                                ? "text-gray-400 cursor-not-allowed"
-                                                                : "text-red-600 hover:bg-red-50"
+                                                            ? "text-gray-400 cursor-not-allowed"
+                                                            : "text-red-600 hover:bg-red-50"
                                                             }`}
                                                         disabled={deletingId === s.staffId}
                                                         title="Delete staff"

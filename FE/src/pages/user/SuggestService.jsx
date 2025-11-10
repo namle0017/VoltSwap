@@ -164,11 +164,10 @@ export default function SuggestService() {
                 plans.map((p) => (
                   <tr
                     key={p.planId}
-                    className={`border-b transition ${
-                      p.isSuggest
+                    className={`border-b transition ${p.isSuggest
                         ? "bg-green-100 hover:bg-green-200"
                         : "hover:bg-gray-50"
-                    } ${selected?.planId === p.planId ? "bg-yellow-200" : ""}`}
+                      } ${selected?.planId === p.planId ? "bg-yellow-200" : ""}`}
                   >
                     <td className="p-3 font-semibold text-gray-800">
                       {p.planName}
@@ -198,11 +197,10 @@ export default function SuggestService() {
                       </button>
                       <button
                         onClick={() => setSelected(p)}
-                        className={`px-3 py-1 rounded-full ${
-                          selected?.planId === p.planId
+                        className={`px-3 py-1 rounded-full ${selected?.planId === p.planId
                             ? "bg-yellow-400 font-semibold"
                             : "bg-yellow-200 hover:bg-yellow-300"
-                        }`}
+                          }`}
                       >
                         {selected?.planId === p.planId ? "Selected" : "Choose"}
                       </button>
@@ -218,11 +216,10 @@ export default function SuggestService() {
           <button
             onClick={register}
             disabled={!selected}
-            className={`px-6 py-2 rounded-lg font-semibold ${
-              selected
+            className={`px-6 py-2 rounded-lg font-semibold ${selected
                 ? "bg-green-600 text-white hover:bg-green-700"
                 : "bg-gray-400 text-gray-100 cursor-not-allowed"
-            }`}
+              }`}
           >
             <i
               className="bi bi-check-circle-fill"
