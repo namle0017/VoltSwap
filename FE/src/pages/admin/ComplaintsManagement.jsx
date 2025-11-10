@@ -44,6 +44,9 @@ const ComplaintsManagement = () => {
   const [contactByDriver, setContactByDriver] = useState({}); // { [driverId]: email }
   const [contactLoading, setContactLoading] = useState({});    // { [driverId]: boolean }
 
+  // Mark-resolve loading theo từng complaint
+  const [resolving, setResolving] = useState({}); // { [complaintId]: true }
+
   // ==== Effects: fetch complaints on mount ====
   useEffect(() => {
     (async () => {
@@ -260,24 +263,59 @@ const ComplaintsManagement = () => {
     setResponseModal(null);
   };
 
-  const markResolved = (id) => {
-    setComplaints((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? {
-            ...c,
-            status: STATUS.RESOLVED,
-            timeline: [
-              ...c.timeline,
-              {
-                time: new Date().toISOString().slice(0, 16).replace("T", " "),
-                text: "Marked as Resolved",
-              },
-            ],
-          }
-          : c
-      )
-    );
+  // ✅ GỌI BE: /Report/mark-resolve
+  const handleMarkResolved = async (c) => {
+    if (!c?.reportId) {
+      alert("Thiếu reportId – không thể mark resolved.");
+      return;
+    }
+    // bật trạng thái loading cho nút của complaint này
+    setResolving((m) => ({ ...m, [c.id]: true }));
+    try {
+      const token = localStorage.getItem("token");
+      await api.patch(
+        "/Report/mark-resolve",
+        {
+          reportId: c.reportId,
+          reportStatus: "", // theo spec BE yêu cầu payload có trường này
+        },
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        }
+      );
+
+      // Nếu OK: cập nhật UI
+      setComplaints((prev) =>
+        prev.map((x) =>
+          x.id === c.id
+            ? {
+              ...x,
+              status: STATUS.RESOLVED,
+              timeline: [
+                ...x.timeline,
+                {
+                  time: new Date().toISOString().slice(0, 16).replace("T", " "),
+                  text: "Marked as Resolved",
+                },
+              ],
+            }
+            : x
+        )
+      );
+    } catch (e) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.title ||
+        e?.message ||
+        "Đánh dấu resolved thất bại.";
+      alert(`❌ ${msg}`);
+    } finally {
+      setResolving((m) => {
+        const copy = { ...m };
+        delete copy[c.id];
+        return copy;
+      });
+    }
   };
 
   // ==== Render ====
@@ -352,6 +390,7 @@ const ComplaintsManagement = () => {
                 const driverId = String(c.driverId || "");
                 const email = c.customerEmail || contactByDriver[driverId] || "";
                 const isLoadingEmail = contactLoading[driverId];
+                const isResolving = !!resolving[c.id];
 
                 return (
                   <motion.div
@@ -426,16 +465,25 @@ const ComplaintsManagement = () => {
                         </motion.button>
                       )}
 
-                      {/* Không còn mailto – đã show email phía trên */}
-
                       {c.status !== STATUS.RESOLVED && (
                         <motion.button
-                          className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                          className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60"
                           whileHover={{ scale: 1.02 }}
-                          onClick={() => markResolved(c.id)}
+                          onClick={() => handleMarkResolved(c)}
+                          disabled={isResolving}
+                          title={isResolving ? "Marking..." : "Mark resolved"}
                         >
-                          <i className="bi bi-check2-circle mr-1" />
-                          Mark Resolved
+                          {isResolving ? (
+                            <span className="inline-flex items-center gap-2">
+                              <span className="inline-block h-4 w-4 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+                              Processing…
+                            </span>
+                          ) : (
+                            <>
+                              <i className="bi bi-check2-circle mr-1" />
+                              Mark Resolved
+                            </>
+                          )}
                         </motion.button>
                       )}
                     </div>

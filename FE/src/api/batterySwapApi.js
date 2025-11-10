@@ -8,6 +8,15 @@ export const batteryApi = axios.create({
 
 batteryApi.interceptors.request.use((config) => {
   const fullUrl = (config.baseURL || "") + (config.url || "");
+  // attach ngrok skip header and bearer token if available
+  try {
+    config.headers = config.headers || {};
+    config.headers["ngrok-skip-browser-warning"] = "true";
+    const token = localStorage.getItem("token");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  } catch {
+    // ignore if localStorage not available in some environments
+  }
   console.log(`[HTTP] ${config.method?.toUpperCase()} ${fullUrl}`, config);
   return config;
 });
