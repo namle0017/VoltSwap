@@ -15,7 +15,20 @@ namespace VoltSwap.Common.DTOs
         public decimal? MilleageBaseUsed { get; set; }
         public int? SwapLimit { get; set; }
         public decimal? Price { get; set; }
+        public string Status { get; set; }
     }
+    public class PlanCreateRequest
+    {
+
+        public string PlanName { get; set; }
+        public int? NumberBattery { get; set; }
+        public int? DurationDays { get; set; }
+        public decimal? MilleageBaseUsed { get; set; }
+        public int? SwapLimit { get; set; }
+        public decimal? Price { get; set; }
+        public string Status { get; set; }
+    }
+  
     public class PlanRespone
     {
         public string PlanId { get; set; }
@@ -30,6 +43,10 @@ namespace VoltSwap.Common.DTOs
     public class PlanSuggestRequest
     {
         public string PlanName { get; set; }
+    }
+    public class PlanDeleteRequest
+    {
+        public string planId { get; set; }
     }
     public class PlanSuggestRespone
     {

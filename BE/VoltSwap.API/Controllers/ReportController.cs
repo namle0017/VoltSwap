@@ -68,7 +68,7 @@ namespace VoltSwap.API.Controllers
         }
 
         [HttpPost("Driver-create-report")]
-        public  async Task<IActionResult> CreateReport([FromBody] UserReportRequest request)
+        public async Task<IActionResult> CreateReport([FromBody] UserReportRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -76,10 +76,25 @@ namespace VoltSwap.API.Controllers
             }
             var result = await _reportService.DriverCreateReport(request);
             return StatusCode(result.Status, new
-                                            { 
-                                                message = result.Message,
-                                                data = result.Data
-                                            });
+            {
+                message = result.Message,
+                data = result.Data
+            });
+        }
+
+        [HttpPost("staff-create-report")]
+        public async Task<IActionResult> CreateReport([FromBody] StaffReportRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _reportService.StaffCreateReport(request);
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+                data = result.Data
+            });
 
         }
 

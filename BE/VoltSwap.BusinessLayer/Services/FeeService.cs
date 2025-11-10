@@ -54,17 +54,42 @@ namespace VoltSwap.BusinessLayer.Services
                             .OrderBy(f => f.MinValue)
                             .ToListAsync();
 
-                        for (int i = 0; i < feeReq.Tiers.Count && i < fees.Count; i++)
+                        for (int i = 0; i < feeReq.Tiers.Count; i++)
                         {
-                            var dbFee = fees[i];
                             var reqTier = feeReq.Tiers[i];
 
-                            dbFee.MinValue = reqTier.MinValue;
-                            dbFee.MaxValue = reqTier.MaxValue;
-                            dbFee.Amount = reqTier.Amount;
-                            dbFee.Unit = reqTier.Unit;
+                            if (i < fees.Count)
+                            {
+                                var dbFee = fees[i];
+                                dbFee.MinValue = reqTier.MinValue;
+                                dbFee.MaxValue = reqTier.MaxValue;
+                                dbFee.Amount = reqTier.Amount;
+                                dbFee.Unit = reqTier.Unit;
+                                dbFee.Description = $"Excess mileage fee for monthly mileage from {reqTier.MinValue:N0} to {reqTier.MaxValue:N0} km";
 
-                            _unitOfWork.Fees.Update(dbFee);
+                                _unitOfWork.Fees.Update(dbFee);
+                            }
+                            else
+                            {
+                                var admin = await GetAdminId();
+
+                                var newFee = new Fee
+                                {
+                                    PlanId = plan.PlanId,
+                                    TypeOfFee = "Excess Mileage",
+                                    MinValue = reqTier.MinValue,
+                                    MaxValue = reqTier.MaxValue,
+                                    Amount = reqTier.Amount,
+                                    Unit = reqTier.Unit,
+                                    Description = $"Excess mileage fee for monthly mileage from {reqTier.MinValue:N0} to {reqTier.MaxValue:N0} km",
+                                    CalculationMethod = "tiered_per_km",
+                                    Status = "Active",
+                                    UserAdmin = admin,
+   
+                                };
+
+                                await _unitOfWork.Fees.CreateAsync(newFee);
+                            }
                         }
                     }
                     else
@@ -72,10 +97,28 @@ namespace VoltSwap.BusinessLayer.Services
                         var fee = await _unitOfWork.Fees.GetByIdAsync(f =>
                             f.PlanId == plan.PlanId &&
                             f.TypeOfFee == feeReq.TypeOfFee);
-                        fee.Amount = (decimal)(feeReq.Amount ?? 0);
-                        fee.Unit = feeReq.Unit;
 
-                        _unitOfWork.Fees.Update(fee);
+                        if (fee == null)
+                        {
+                            var admin = await GetAdminId();
+                            var newFee = new Fee
+                            {
+                                PlanId = plan.PlanId,
+                                TypeOfFee = feeReq.TypeOfFee,
+                                Amount = (decimal)(feeReq.Amount ?? 0),
+                                Unit = feeReq.Unit,
+                                CalculationMethod = "fixed",
+                                Status = "Active",
+                                UserAdmin = admin,
+                            };
+                            await _unitOfWork.Fees.CreateAsync(newFee);
+                        }
+                        else
+                        {
+                            fee.Amount = (decimal)(feeReq.Amount ?? 0);
+                            fee.Unit = feeReq.Unit;
+                            _unitOfWork.Fees.Update(fee);
+                        }
                     }
                 }
             }
@@ -98,6 +141,13 @@ namespace VoltSwap.BusinessLayer.Services
             if (name.StartsWith("TP", StringComparison.OrdinalIgnoreCase)) return "TP";
             if (name.StartsWith("G", StringComparison.OrdinalIgnoreCase)) return "G";
             return "Other";
+        }
+
+        private async Task<User> GetAdminId()
+        {
+            var userAdmin = await _unitOfWork.Users.GetAdminAsync();
+
+            return userAdmin;
         }
 
     }
