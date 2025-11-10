@@ -5,7 +5,7 @@ import api from "@/api/api";
 const LIST_ENDPOINT = "/Booking/station-booking-list";
 const CREATE_TRANS_EP = "/BatterySwap/create-cancel-plan";
 const CONFIRM_TX_EP = "/Transaction/staff-confirm-transaction";
-const CANCEL_EP = "/Booking/cancel-booking-by-user";
+const CANCEL_EP = "/Booking/expire-check";
 
 /* ========== Helpers ========== */
 function parseLocalDateTime(dateStr, timeStr) {
