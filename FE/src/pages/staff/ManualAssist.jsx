@@ -331,7 +331,7 @@ export default function ManualAssist() {
                                     }}
                                     disabled={!hasCustomerBatteries}
                                 />
-                                Pin In (customer returns faulty battery)
+                                Pin In
                             </label>
 
                             <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -345,27 +345,10 @@ export default function ManualAssist() {
                                         setSuccessMsg("");
                                     }}
                                 />
-                                Pin Out (machine didn’t release battery)
+                                Pin Out
                             </label>
                         </div>
 
-                        <div className="small muted" style={{ alignSelf: "flex-start" }}>
-                            * Choose what happened so we know if customer gave us a broken
-                            battery (Pin In) or machine failed to give them one (Pin Out).
-                            {!hasCustomerBatteries && (
-                                <span
-                                    className="small"
-                                    style={{
-                                        color: "#b45309",
-                                        display: "block",
-                                        marginTop: 6,
-                                    }}
-                                >
-                                    Note: No customer battery found for this subscription — only{" "}
-                                    <b>Pin Out</b> is available.
-                                </span>
-                            )}
-                        </div>
                     </div>
                 </div>
             )}
@@ -420,10 +403,7 @@ export default function ManualAssist() {
                                 </button>
                             </div>
                         </label>
-                        <p className="small muted" style={{ marginTop: 6 }}>
-                            * Only batteries with status <b>warehouse</b> are shown in
-                            warehouse picker.
-                        </p>
+
                     </div>
                 </div>
             )}
@@ -431,7 +411,7 @@ export default function ManualAssist() {
             {/* ===== STEP 3B: PIN OUT ===== */}
             {validated && errorType === "pinOut" && (
                 <div className="card" style={{ marginTop: 16 }}>
-                    <h3 style={{ marginTop: 0 }}>Step 3B. Give Battery to Customer</h3>
+                    <h3 style={{ marginTop: 0 }}>Step 3 B. Give Battery to Customer</h3>
                     <label>
                         Out Battery ID
                         <div style={{ display: "flex", gap: 8 }}>
@@ -459,10 +439,7 @@ export default function ManualAssist() {
                             </button>
                         </div>
                     </label>
-                    <p className="small muted" style={{ marginTop: 6 }}>
-                        * Only batteries with status <b>warehouse</b> are shown in
-                        warehouse picker.
-                    </p>
+
                 </div>
             )}
 
