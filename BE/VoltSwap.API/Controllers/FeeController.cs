@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VoltSwap.BusinessLayer.Services;
 using static VoltSwap.Common.DTOs.FeeDtos;
@@ -15,6 +16,7 @@ namespace VoltSwap.API.Controllers
             _feeService = feeService;
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("update-fee")]
         public async Task<IActionResult> UpdateFee([FromBody]UpdateFeeGroupRequest request)
         {

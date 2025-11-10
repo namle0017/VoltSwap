@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Runtime.CompilerServices;
 using System.Transactions;
@@ -18,6 +19,7 @@ namespace VoltSwap.API.Controllers
             _transService = transService;
         }
         //Nemo: hàm này để admin create transaction vào mỗi tháng
+        [Authorize(Roles = "Admin")]
         [HttpPost("admin-create-transaction")]
         public async Task<IActionResult> ApproveTransactionAdmin()
         {
@@ -30,6 +32,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Nemo: Người dùng đăng ký mua gói
+        [Authorize(Roles = "Driver")]
         [HttpPost("transaction-register")]
         public async Task<IActionResult> TransactionApiClient([FromBody] RegisterNewPlanRequest requestDto)
         {
@@ -42,6 +45,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Hàm này để cho user trả transaction
+        [Authorize(Roles = "Admin")]
         [HttpGet("transaction-detail")]
         public async Task<IActionResult> CreateTransaction(string requestTransactionId)
         {
@@ -54,6 +58,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Hàm này để trả về transaction histoy của user
+        [Authorize(Roles = "Driver")]
         [HttpGet("user-transaction-history-list/{userDriverId}")]
         public async Task<IActionResult> UserTransactionHistory(string userDriverId)
         {
@@ -65,7 +70,7 @@ namespace VoltSwap.API.Controllers
             return Ok(result);
         }
 
-
+        [Authorize(Roles = "Admin")]
         [HttpGet("admin-transaction-list")]
         public async Task<IActionResult> AdminTransaction()
         {
@@ -88,7 +93,7 @@ namespace VoltSwap.API.Controllers
         //    return StatusCode(result.Status, new { message = result.Message });
         //}
 
-
+        [AllowAnonymous]
         [HttpGet("payment-detail")]
         public async Task<IActionResult> GetPaymentDetail([FromQuery] string transactionId)
         {
@@ -105,6 +110,7 @@ namespace VoltSwap.API.Controllers
         }
 
         // Nemo: API cho confirm chuyển tiền
+        [AllowAnonymous]
         [HttpPost("confirm-payment")]
         public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentRequest request)
         {
@@ -120,6 +126,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: staff confirm transaction huy goi 
+        [Authorize(Roles = "Staff")]
         [HttpPost("staff-confirm-transaction")]
         public async Task<IActionResult> ConfirmByStaff([FromBody] ConfirmTransactionRequest request)
         {
@@ -134,6 +141,7 @@ namespace VoltSwap.API.Controllers
             });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPatch("recreate-transaction")]
         public async Task<IActionResult> RecreateTransactionAsync(string transactionId)
         {
@@ -145,7 +153,6 @@ namespace VoltSwap.API.Controllers
             return StatusCode(result.Status, new
             {
                 message = result.Message,
-                Data = result,
             });
         }
     }

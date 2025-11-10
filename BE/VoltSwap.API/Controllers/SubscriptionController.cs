@@ -20,7 +20,7 @@ namespace VoltSwap.API.Controllers
             _overviewService = overviewService;
         }
 
-
+        [Authorize(Roles = "Driver")]
         [HttpGet("subscription-user-list")]
         public async Task<IActionResult> GetSubscriptionUserList([FromQuery] CheckSubRequest req)
         {
@@ -40,18 +40,18 @@ namespace VoltSwap.API.Controllers
         //        result.Data
         //    });
         //}
-
+        [AllowAnonymous]
         [HttpPost("renew")]
         public async Task<IActionResult> RenewPlan([FromBody] SubRequest req)
         {
             var result = await _subService.RenewSubcriptionAsync(req.DriverId, req.SubId);
-            return StatusCode(result.Status, new 
-            { 
+            return StatusCode(result.Status, new
+            {
                 result.Message,
                 result.Data
             });
         }
-
+        [AllowAnonymous]
         [HttpPost("change")]
         public async Task<IActionResult> CanChange([FromBody] ChangePlanRequest req)
         {
@@ -64,6 +64,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: lấy sub của driver
+        [Authorize(Roles = "Staff")]
         [HttpGet("staff-get-battery")]
         public async Task<IActionResult> GetBatteryUser([FromQuery] string StaffId, string SubscriptionId)
         {
@@ -71,7 +72,7 @@ namespace VoltSwap.API.Controllers
             {
                 return BadRequest(ModelState);
             }
-            var result = await _subService.GetBatteryBySubcription( StaffId,SubscriptionId);
+            var result = await _subService.GetBatteryBySubcription(StaffId, SubscriptionId);
             return StatusCode(result.Status, new
             {
                 message = result.Message,

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.Common.DTOs;
@@ -15,7 +16,7 @@ namespace VoltSwap.API.Controllers
             _planService = planService;
         }
 
-
+        [Authorize(Roles = "Driver")]
         [HttpGet("plan-list")]
         public async Task<IActionResult> GetPlanList()
         {
@@ -28,6 +29,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: lấy danh sách plan đề xuất
+        [Authorize(Roles = "Driver")]
         [HttpGet("plan-suggest-list")]
         public async Task<IActionResult> GetPlanSuggestList([FromQuery] PlanSuggestRequest? request)
         {
@@ -42,7 +44,7 @@ namespace VoltSwap.API.Controllers
                 getList.Data
             });
         }
-
+        [Authorize(Roles = "Driver")]
         [HttpGet("plan-detail/{planId}")]
         public async Task<IActionResult> GetPlanDetail(string planId)
         {
@@ -55,6 +57,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: Admin xem danh sách plan 
+        [Authorize(Roles = "Admin")]
         [HttpGet("view-plan-list")]
         public async Task<IActionResult> ViewPlanList(int month , int year)
         {
@@ -67,6 +70,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: Admin xem chi tiết plan
+        [Authorize(Roles = "Admin")]
         [HttpGet("view-plan-detail")]
         public async Task<IActionResult> ViewPlanDetail()
         {
@@ -79,6 +83,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: lấy thông tin plan ngoài landscap
+        [AllowAnonymous]
         [HttpGet("view-plan-landscape")]
         public async Task<IActionResult> ViewPlan()
         {

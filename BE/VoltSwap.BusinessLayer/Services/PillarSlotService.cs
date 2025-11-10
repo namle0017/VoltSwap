@@ -80,7 +80,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = new
                 {
                     stationName = getstation.BatterySwapStationName,
-                     PillarList = dtoList,
+                    PillarList = dtoList,
                 }
             };
         }
@@ -271,7 +271,7 @@ namespace VoltSwap.BusinessLayer.Services
         }
 
         //Bin: hàm để Lock pin khi booking xog
-        public async Task<List<PillarSlotDto>> LockSlotsAsync(string stationId, string subscriptionId,string bookingId)
+        public async Task<List<PillarSlotDto>> LockSlotsAsync(string stationId, string subscriptionId, string bookingId)
         {
             var result = new List<PillarSlotDto>();
 
@@ -332,6 +332,21 @@ namespace VoltSwap.BusinessLayer.Services
             return result;
         }
 
-
+        public async Task CreateSlotChain(string pillarId, int pillarCapacity)
+        {
+            for (int i = 1; i <= pillarCapacity; i++)
+            {
+                var slot = new PillarSlot
+                {
+                    BatterySwapPillarId = pillarId,
+                    BatteryId = null,
+                    AppointmentId = null,
+                    SlotNumber = i,
+                    PillarStatus = "Available",
+                    UpdateAt = DateTime.UtcNow.ToLocalTime(),
+                };
+                await _slotRepo.CreateAsync(slot);
+            }
+        }
     }
 }

@@ -20,5 +20,8 @@ namespace VoltSwap.BusinessLayer.IServices
 
         //Nemo: Lấy các trạm active
         Task<StationOverviewResponse> GetStationOverviewAsync();
+
+        //Nemo: Add thêm station
+        Task<ServiceResult> CreateStationAsync(StationRequest requestDto);
     }
 }

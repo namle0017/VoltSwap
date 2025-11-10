@@ -13,7 +13,16 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// ==== CONFIG ====
+/* ================== VOLTSWAP THEME ================== */
+const BRAND = {
+  "--brand-start": "#1ee3b3", // mint/teal (Volt)
+  "--brand-end": "#2f66ff",   // blue (Swap)
+  "--brand-50": "#f5faff",
+  "--brand-500": "#2f66ff",
+  "--brand-600": "#2856d4",
+};
+
+/* ================== CONFIG ================== */
 const WARNING_THRESHOLD = 30; // giây — mốc chuyển sang trạng thái cảnh báo
 const MUTE_KEY = "bookingMuted"; // cờ tắt thông báo nếu user bấm Navigate sớm
 
@@ -28,13 +37,13 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 });
 
-// User location icon
+// User location icon (dùng brand-500)
 const userIcon = L.divIcon({
   className: "user-pin",
   html: `<div style="
     display:grid;place-items:center;width:28px;height:28px;border-radius:50%;
-    background:#2563eb;color:#fff;font-size:14px;font-weight:700;
-    box-shadow:0 0 0 3px rgba(37,99,235,.2)
+    background:#2f66ff;color:#fff;font-size:14px;font-weight:700;
+    box-shadow:0 0 0 3px rgba(47,102,255,.2)
   ">🧍</div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 14],
@@ -62,7 +71,7 @@ const formatMMSS = (sec) => {
   return `${mm}m ${String(ss).padStart(2, "0")}s`;
 };
 
-// ==== Small sticky banner for active booking ====
+/* ================== COUNTDOWN BANNER ================== */
 function BookingCountdownBanner({
   remain,
   stationName,
@@ -72,33 +81,31 @@ function BookingCountdownBanner({
   onDismiss,
 }) {
   if (remain <= 0) return null;
-
   const danger = remain <= WARNING_THRESHOLD;
 
   return (
-    <div className={`sticky top-0 z-[60] mb-4`}>
+    <div className="sticky top-0 z-[60] mb-4">
       <div
-        className={`mx-auto max-w-4xl rounded-xl border shadow
-        ${danger ? "border-red-300 bg-red-50" : "border-amber-300 bg-amber-50"}
-        px-4 py-3`}
+        className={[
+          "mx-auto max-w-5xl rounded-xl border shadow px-4 py-3",
+          danger
+            ? "border-red-300 bg-red-50"
+            : "border-[color:rgba(47,102,255,0.25)] bg-[color:rgba(47,102,255,0.06)]",
+        ].join(" ")}
       >
         <div className="flex items-start gap-3">
-          <div
-            className={`text-xl ${danger ? "text-red-600" : "text-amber-600"}`}
-          >
+          <div className={`text-xl ${danger ? "text-red-600" : "text-[var(--brand-600)]"}`}>
             ⏳
           </div>
           <div className="flex-1">
-            <div className="font-semibold">
-              You have an active booking{" "}
-              {stationName ? `at ${stationName}` : ""}.
+            <div className="font-semibold text-gray-900">
+              You have an active booking {stationName ? `at ${stationName}` : ""}.
             </div>
             <div className="text-sm text-gray-700 mt-0.5">
               Auto-cancel in{" "}
-              <b className={danger ? "text-red-600" : ""}>
+              <b className={danger ? "text-red-600" : "text-[var(--brand-600)]"}>
                 {formatMMSS(remain)}
-              </b>
-              .
+              </b>.
               {transactionId ? (
                 <>
                   {" "}
@@ -116,11 +123,12 @@ function BookingCountdownBanner({
           <div className="flex items-center gap-2">
             <button
               onClick={onNavigate}
-              className={`px-3 py-1.5 rounded-lg text-white text-sm
-                ${danger
+              className={[
+                "px-3 py-1.5 rounded-lg text-white text-sm shadow",
+                danger
                   ? "bg-red-600 hover:bg-red-700"
-                  : "bg-amber-600 hover:bg-amber-700"
-                }`}
+                  : "bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90",
+              ].join(" ")}
             >
               Navigate now
             </button>
@@ -138,6 +146,7 @@ function BookingCountdownBanner({
   );
 }
 
+/* ================== PAGE ================== */
 export default function Station() {
   const navigate = useNavigate();
 
@@ -163,7 +172,7 @@ export default function Station() {
   const [route, setRoute] = useState(null);
   const mapRef = useRef(null);
 
-  // ==== Active booking banner state ====
+  // countdown banner state
   const [bannerRemain, setBannerRemain] = useState(0);
   const [bannerInfo, setBannerInfo] = useState({
     stationName: "",
@@ -171,9 +180,8 @@ export default function Station() {
     appointmentId: "",
   });
   const [bannerHidden, setBannerHidden] = useState(false);
-  const [bannerMuted, setBannerMuted] = useState(false); // tắt thông báo/banner khi user đã Navigate sớm
+  const [bannerMuted, setBannerMuted] = useState(false);
 
-  // Browser notification helper (optional)
   const notify = (title, body) => {
     if (!("Notification" in window)) return;
     if (Notification.permission === "granted") {
@@ -237,7 +245,6 @@ export default function Station() {
       setBannerRemain((s) => {
         const next = s - 1;
         if (next <= 0) {
-          // hết thời gian — dọn local hint (BE sẽ tự huỷ)
           localStorage.removeItem("lockExpireAt");
           return 0;
         }
@@ -289,7 +296,7 @@ export default function Station() {
     setShowModal(true);
   };
 
-  // ===== NAVIGATE MODAL flow =====
+  // NAVIGATE MODAL
   const openNavigateModal = (station) => {
     setNavStation(station);
     setNavSub(selectedSub || "");
@@ -324,7 +331,7 @@ export default function Station() {
     setNavSub("");
   };
 
-  // ====== Booking flow (UPDATED to show banner/countdown) ======
+  // BOOKING FLOW
   const confirmBooking = async () => {
     if (!selectedSub || !bookingDate || !bookingTime)
       return alert("Please complete all fields");
@@ -361,7 +368,6 @@ export default function Station() {
       const lockSeconds =
         Number(res?.data?.data?.time ?? res?.data?.time ?? 0) || 0;
 
-      // Persist for other pages
       localStorage.setItem("swap_stationId", selectedStation.stationId);
       localStorage.setItem(
         "swap_stationName",
@@ -374,11 +380,9 @@ export default function Station() {
         localStorage.setItem("lastAppointmentId", booking.appointmentId);
       localStorage.setItem("lastPlanId", booking.subscriptionId || selectedSub);
 
-      // Reset mute flag for booking mới
       localStorage.removeItem(MUTE_KEY);
       setBannerMuted(false);
 
-      // Save client-side expire hint and show banner immediately
       if (lockSeconds > 0) {
         const expireAt = Date.now() + lockSeconds * 1000;
         localStorage.setItem("lockExpireAt", String(expireAt));
@@ -390,11 +394,11 @@ export default function Station() {
         setBannerHidden(false);
         setBannerRemain(lockSeconds);
 
-        // Thông báo nhẹ cho người dùng lúc tạo (không phải cảnh báo muộn)
         notify(
           "Booking created",
-          `Batteries locked at ${selectedStation.stationName
-          }. Expires in ${formatMMSS(lockSeconds)}`
+          `Batteries locked at ${selectedStation.stationName}. Expires in ${formatMMSS(
+            lockSeconds
+          )}`
         );
       }
 
@@ -414,7 +418,6 @@ export default function Station() {
       );
 
       setShowModal(false);
-      // KHÔNG ép điều hướng ngay; user sẽ thấy banner
     } catch (err) {
       const v = err?.response?.data;
       const msg =
@@ -428,13 +431,12 @@ export default function Station() {
 
   if (loading)
     return (
-      <div className="flex justify-center mt-20">
-        <div className="h-10 w-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
+      <div className="flex justify-center mt-20" style={BRAND}>
+        <div className="h-10 w-10 border-4 border-[var(--brand-500)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
 
   const defaultCenter = [10.7769, 106.7009];
-
   const subOptionLabel = (s) =>
     `${s.planName} — ID: ${s.subId} — ${s.planStatus}`;
 
@@ -442,7 +444,7 @@ export default function Station() {
     const s = subs.find((x) => x.subId === subId);
     if (!s) return null;
     return (
-      <div className="text-xs text-gray-600 bg-gray-50 border rounded-md px-2 py-1">
+      <div className="text-xs text-gray-600 bg-[var(--brand-50)] border border-[var(--brand-500)]/20 rounded-md px-2 py-1" style={BRAND}>
         Selected: <span className="font-medium">{s.planName}</span> —{" "}
         <span className="font-mono">ID: {s.subId}</span>
       </div>
@@ -450,7 +452,7 @@ export default function Station() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-white p-6" style={BRAND}>
       {/* Booking countdown banner */}
       {!bannerHidden && !bannerMuted && bannerRemain > 0 && (
         <BookingCountdownBanner
@@ -459,13 +461,11 @@ export default function Station() {
           transactionId={bannerInfo.transactionId}
           appointmentId={bannerInfo.appointmentId}
           onNavigate={() => {
-            // Nếu user bấm Navigate khi vẫn còn > WARNING_THRESHOLD giây => mute tất cả cảnh báo sau đó
             if (bannerRemain > WARNING_THRESHOLD) {
               localStorage.setItem(MUTE_KEY, "1");
-              setBannerMuted(true); // ẩn banner ngay
-              setBannerHidden(true); // đảm bảo UI không còn nhắc nữa
+              setBannerMuted(true);
+              setBannerHidden(true);
             }
-            // mở modal chọn subscription nếu chưa có
             const st =
               stations.find((s) => s.stationName === bannerInfo.stationName) ||
               stations.find(
@@ -475,7 +475,6 @@ export default function Station() {
               handleNavigateVisual(st);
               openNavigateModal(st);
             } else {
-              // fallback: chuyển thẳng sang giả lập nếu đã lưu station
               navigate("/stations", {
                 state: {
                   stationId: localStorage.getItem("swap_stationId") || "",
@@ -492,15 +491,28 @@ export default function Station() {
         />
       )}
 
-      <h2 className="text-2xl font-bold mb-3">🗺️ Battery Swap Stations</h2>
+      {/* Header */}
+      <div className="max-w-7xl mx-auto mb-4">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--brand-50)] border border-[var(--brand-500)]/20 text-[var(--brand-600)] text-xs font-medium">
+          <span className="h-2 w-2 rounded-full bg-[var(--brand-500)]" />
+          Station Explorer
+        </div>
+        <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 mt-2">
+          Battery Swap Stations
+        </h2>
+        <p className="text-gray-600 text-sm mt-1">
+          Find a nearby station, book a time slot, and navigate with a live route preview.
+        </p>
+      </div>
 
-      {/* ==== MAP (Leaflet) ==== */}
-      <div className="rounded-2xl mb-6 shadow overflow-hidden">
+      {/* Map */}
+      <div className="max-w-7xl mx-auto rounded-3xl border border-gray-100 shadow overflow-hidden mb-6">
+        <div className="h-2 bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)]" />
         <MapContainer
           center={defaultCenter}
           zoom={6}
           scrollWheelZoom
-          className="h-80 w-full z-0"
+          className="h-96 w-full z-0"
           whenCreated={(m) => (mapRef.current = m)}
         >
           <TileLayer
@@ -508,7 +520,6 @@ export default function Station() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {/* Station markers */}
           {stations.map((st) => (
             <Marker
               key={st.stationId}
@@ -516,9 +527,9 @@ export default function Station() {
             >
               <Popup>
                 <div className="text-sm">
-                  <strong>{st.stationName}</strong>
+                  <strong className="text-gray-900">{st.stationName}</strong>
                   <p className="text-gray-600">{st.stationAddress}</p>
-                  <p className="text-gray-500">
+                  <p className="text-gray-700">
                     ⚡ {st.batteryAvailable}/{st.totalBattery} batteries
                   </p>
 
@@ -545,16 +556,16 @@ export default function Station() {
                   <div className="mt-2 flex gap-2">
                     <button
                       onClick={() => handleBookSwap(st)}
-                      className="px-2 py-1 bg-black text-white text-xs rounded-lg"
+                      className="px-2.5 py-1.5 text-xs rounded-lg text-white bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90 shadow"
                     >
                       🔋 Book Swap
                     </button>
                     <button
                       onClick={() => {
-                        handleNavigateVisual(st); // preview route
-                        openNavigateModal(st); // open modal to go to simulation
+                        handleNavigateVisual(st);
+                        openNavigateModal(st);
                       }}
-                      className="px-2 py-1 border text-xs rounded-lg hover:bg-gray-100"
+                      className="px-2.5 py-1.5 text-xs rounded-lg border hover:bg-[var(--brand-50)]"
                     >
                       📍 Navigate
                     </button>
@@ -567,8 +578,8 @@ export default function Station() {
                   center={[st.locationLat, st.locationLon]}
                   radius={450}
                   pathOptions={{
-                    color: "#22c55e",
-                    fillColor: "#22c55e",
+                    color: "#1ee3b3",
+                    fillColor: "#1ee3b3",
                     fillOpacity: 0.15,
                   }}
                 />
@@ -576,183 +587,204 @@ export default function Station() {
             </Marker>
           ))}
 
-          {userPos && (
-            <Marker position={[userPos.lat, userPos.lng]} icon={userIcon} />
-          )}
+          {userPos && <Marker position={[userPos.lat, userPos.lng]} icon={userIcon} />}
           {route && (
             <Polyline
               positions={route}
               dashArray="6 8"
-              color="#2563eb"
+              color="#2f66ff"
               weight={4}
             />
           )}
         </MapContainer>
       </div>
 
-      {/* ==== Station list ==== */}
-      <h3 className="font-semibold mb-3">Nearby Stations</h3>
-      <div className="space-y-4">
-        {stations.map((st) => {
-          const color =
-            st.availablePercent >= 70
-              ? "bg-green-400"
-              : st.availablePercent >= 40
-                ? "bg-yellow-400"
-                : "bg-red-400";
-          return (
-            <div
-              key={st.stationId}
-              className="bg-white p-4 rounded-xl shadow flex justify-between items-center"
-            >
-              <div>
-                <h4 className="font-semibold">{st.stationName}</h4>
-                <p className="text-sm text-gray-500">
-                  {st.batteryAvailable}/{st.totalBattery} batteries
-                </p>
-                <div className="w-40 bg-gray-200 rounded-full h-2 mt-2">
-                  <div
-                    className={`${color} h-2 rounded-full`}
-                    style={{ width: `${st.availablePercent}%` }}
-                  />
+      {/* Station list */}
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-900">Nearby Stations</h3>
+          <span className="text-xs text-gray-500">
+            {stations.length} station{stations.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          {stations.map((st) => {
+            const pct = Number(st.availablePercent ?? 0);
+            const band =
+              pct >= 70 ? "from-emerald-400 to-emerald-500"
+                : pct >= 40 ? "from-amber-400 to-amber-500"
+                  : "from-rose-400 to-rose-500";
+
+            return (
+              <div
+                key={st.stationId}
+                className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{st.stationName}</h4>
+                    <p className="text-sm text-gray-500">{st.stationAddress}</p>
+                    <p className="text-sm text-gray-700 mt-1">
+                      ⚡ {st.batteryAvailable}/{st.totalBattery} batteries
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-xs text-gray-500">Availability</div>
+                    <div className="mt-1 w-40 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-2 bg-gradient-to-r ${band}`}
+                        style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">{pct}%</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleNavigateVisual(st)}
+                    className="px-3 py-1.5 border rounded-lg hover:bg-[var(--brand-50)] text-gray-700"
+                  >
+                    👀 Preview Route
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleNavigateVisual(st);
+                      openNavigateModal(st);
+                    }}
+                    className="px-3 py-1.5 border rounded-lg hover:bg-[var(--brand-50)] text-gray-700"
+                  >
+                    📍 Navigate
+                  </button>
+                  <button
+                    onClick={() => handleBookSwap(st)}
+                    className="px-3 py-1.5 rounded-lg text-white bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90 shadow"
+                  >
+                    🔋 Book Swap
+                  </button>
                 </div>
               </div>
-              <div className="space-x-2">
-                <button
-                  onClick={() => handleNavigateVisual(st)}
-                  className="px-3 py-1 border rounded-lg hover:bg-gray-100"
-                >
-                  👀 Preview Route
-                </button>
-                <button
-                  onClick={() => {
-                    handleNavigateVisual(st);
-                    openNavigateModal(st);
-                  }}
-                  className="px-3 py-1 border rounded-lg hover:bg-gray-100"
-                >
-                  📍 Navigate
-                </button>
-                <button
-                  onClick={() => handleBookSwap(st)}
-                  className="px-3 py-1 bg-black text-white rounded-lg hover:bg-gray-900"
-                >
-                  🔋 Book Swap
-                </button>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
-      {/* ==== Modal Booking ==== */}
+      {/* Modal Booking */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-          <div className="bg-white rounded-2xl p-6 shadow-lg w-[380px]">
-            <h3 className="text-lg font-semibold mb-3 text-center">
-              Booking at {selectedStation?.stationName}
-            </h3>
+          <div className="bg-white rounded-2xl shadow-2xl w-[420px] overflow-hidden border border-gray-100">
+            <div className="h-2 bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)]" />
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-3 text-center text-gray-900">
+                Booking at {selectedStation?.stationName}
+              </h3>
 
-            <label className="block text-sm font-medium mb-1">
-              Select Subscription
-            </label>
-            <select
-              value={selectedSub}
-              onChange={(e) => setSelectedSub(e.target.value)}
-              className="w-full border p-2 rounded-lg mb-2"
-            >
-              <option value="">Choose plan</option>
-              {subs.length > 0 ? (
-                subs.map((s) => (
-                  <option key={s.subId} value={s.subId}>
-                    {subOptionLabel(s)}
-                  </option>
-                ))
-              ) : (
-                <option disabled>No active subscriptions</option>
-              )}
-            </select>
-            <SelectedSubInfo subId={selectedSub} />
-
-            <label className="block text-sm font-medium mb-1 mt-3">Date</label>
-            <input
-              type="date"
-              value={bookingDate}
-              onChange={(e) => setBookingDate(e.target.value)}
-              className="w-full border p-2 rounded-lg mb-3"
-            />
-
-            <label className="block text-sm font-medium mb-1">Time</label>
-            <input
-              type="time"
-              value={bookingTime}
-              onChange={(e) => setBookingTime(e.target.value)}
-              className="w-full border p-2 rounded-lg mb-4"
-            />
-
-            <div className="flex justify-between">
-              <button
-                onClick={confirmBooking}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              <label className="block text-sm font-medium mb-1">Select Subscription</label>
+              <select
+                value={selectedSub}
+                onChange={(e) => setSelectedSub(e.target.value)}
+                className="w-full border p-2.5 rounded-xl mb-2 focus:outline-none focus:ring-4 focus:ring-[color:rgba(47,102,255,0.15)] focus:border-[var(--brand-500)]"
+                style={BRAND}
               >
-                Confirm
-              </button>
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-              >
-                Cancel
-              </button>
+                <option value="">Choose plan</option>
+                {subs.length > 0 ? (
+                  subs.map((s) => (
+                    <option key={s.subId} value={s.subId}>
+                      {subOptionLabel(s)}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No active subscriptions</option>
+                )}
+              </select>
+              <SelectedSubInfo subId={selectedSub} />
+
+              <label className="block text-sm font-medium mb-1 mt-3">Date</label>
+              <input
+                type="date"
+                value={bookingDate}
+                onChange={(e) => setBookingDate(e.target.value)}
+                className="w-full border p-2.5 rounded-xl mb-3 focus:outline-none focus:ring-4 focus:ring-[color:rgba(47,102,255,0.15)] focus:border-[var(--brand-500)]"
+                style={BRAND}
+              />
+
+              <label className="block text-sm font-medium mb-1">Time</label>
+              <input
+                type="time"
+                value={bookingTime}
+                onChange={(e) => setBookingTime(e.target.value)}
+                className="w-full border p-2.5 rounded-xl mb-4 focus:outline-none focus:ring-4 focus:ring-[color:rgba(47,102,255,0.15)] focus:border-[var(--brand-500)]"
+                style={BRAND}
+              />
+
+              <div className="flex justify-between">
+                <button
+                  onClick={confirmBooking}
+                  className="px-4 py-2.5 rounded-xl text-white bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90 shadow"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2.5 rounded-xl border hover:bg-[var(--brand-50)]"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ==== Modal Navigate ==== */}
+      {/* Modal Navigate */}
       {navStation && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-          <div className="bg-white rounded-2xl p-6 shadow-lg w-[380px]">
-            <h3 className="text-lg font-semibold mb-3 text-center">
-              Navigate to {navStation?.stationName}
-            </h3>
+          <div className="bg-white rounded-2xl shadow-2xl w-[420px] overflow-hidden border border-gray-100">
+            <div className="h-2 bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)]" />
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-3 text-center text-gray-900">
+                Navigate to {navStation?.stationName}
+              </h3>
 
-            <label className="block text-sm font-medium mb-1">
-              Select Subscription
-            </label>
-            <select
-              value={navSub}
-              onChange={(e) => setNavSub(e.target.value)}
-              className="w-full border p-2 rounded-lg mb-2"
-            >
-              <option value="">Choose plan</option>
-              {subs.length > 0 ? (
-                subs.map((s) => (
-                  <option key={s.subId} value={s.subId}>
-                    {subOptionLabel(s)}
-                  </option>
-                ))
-              ) : (
-                <option disabled>No active subscriptions</option>
-              )}
-            </select>
-            <SelectedSubInfo subId={navSub} />
+              <label className="block text-sm font-medium mb-1">Select Subscription</label>
+              <select
+                value={navSub}
+                onChange={(e) => setNavSub(e.target.value)}
+                className="w-full border p-2.5 rounded-xl mb-2 focus:outline-none focus:ring-4 focus:ring-[color:rgba(47,102,255,0.15)] focus:border-[var(--brand-500)]"
+                style={BRAND}
+              >
+                <option value="">Choose plan</option>
+                {subs.length > 0 ? (
+                  subs.map((s) => (
+                    <option key={s.subId} value={s.subId}>
+                      {subOptionLabel(s)}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No active subscriptions</option>
+                )}
+              </select>
+              <SelectedSubInfo subId={navSub} />
 
-            <div className="flex justify-between mt-4">
-              <button
-                onClick={confirmNavigate}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Go to Simulation
-              </button>
-              <button
-                onClick={() => {
-                  setNavStation(null);
-                  setNavSub("");
-                }}
-                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-              >
-                Cancel
-              </button>
+              <div className="flex justify-between mt-4">
+                <button
+                  onClick={confirmNavigate}
+                  className="px-4 py-2.5 rounded-xl text-white bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90 shadow"
+                >
+                  Go to Simulation
+                </button>
+                <button
+                  onClick={() => {
+                    setNavStation(null);
+                    setNavSub("");
+                  }}
+                  className="px-4 py-2.5 rounded-xl border hover:bg-[var(--brand-50)]"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

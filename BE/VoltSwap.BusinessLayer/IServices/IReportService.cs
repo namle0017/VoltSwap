@@ -19,5 +19,8 @@ namespace VoltSwap.BusinessLayer.IServices
 
         //Nemo: Lấy Customer report list
         Task<IServiceResult> GetCustomerReportForStaff(UserRequest request);
+
+        //Nemo: Mark resolve cho admin
+        Task<IServiceResult> MarkResolveInSystem(MarkResolveDto requestDto);
     }
 }

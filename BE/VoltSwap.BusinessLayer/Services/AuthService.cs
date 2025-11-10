@@ -43,7 +43,7 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<ServiceResult> LoginAsync(LoginRequest requestDto)
         {
             var user = await _unitOfWork.Users.GetByEmailAsync(requestDto.Email);
-            if(user == null)
+            if (user == null)
             {
                 return new ServiceResult
                 {
@@ -76,7 +76,7 @@ namespace VoltSwap.BusinessLayer.Services
                 {
                     Token = token,
                     RefreshToken = refreshToken.Token,
-                    ExpiresAt = DateTime.UtcNow.AddHours(1), // JWT expires in 1 hour
+                    ExpiresAt = DateTime.UtcNow.AddHours(1).ToLocalTime(), // JWT expires in 1 hour
                     User = new UserInfo
                     {
                         UserId = user.UserId,
@@ -155,7 +155,7 @@ namespace VoltSwap.BusinessLayer.Services
             }
 
             var user = await _userRepo.GetByIdAsync(storedToken.UserId);
-            if (user == null || user.Status == "Active")
+            if (user == null || user.Status != "Active")
             {
                 return new ServiceResult
                 {
@@ -181,7 +181,7 @@ namespace VoltSwap.BusinessLayer.Services
                 {
                     Token = newToken,
                     RefreshToken = newRefreshToken.Token,
-                    ExpiresAt = DateTime.UtcNow.AddHours(1),
+                    ExpiresAt = DateTime.UtcNow.AddHours(1).ToLocalTime(),
                     User = new UserInfo
                     {
                         UserId = user.UserId,
@@ -237,7 +237,7 @@ namespace VoltSwap.BusinessLayer.Services
         private string GenerateJwtToken(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Token"]);
+            var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]);
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new[]
@@ -247,7 +247,7 @@ namespace VoltSwap.BusinessLayer.Services
                     new Claim(ClaimTypes.Name, user.UserName),
                     new Claim(ClaimTypes.Role, user.UserRole)
                 }),
-                Expires = DateTime.UtcNow.AddDays(1),
+                Expires = DateTime.UtcNow.AddHours(1).ToLocalTime(),
                 Issuer = _configuration["Jwt:Issuer"],
                 Audience = _configuration["Jwt:Audience"],
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
@@ -267,8 +267,8 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 TokenId = Guid.NewGuid().ToString(),
                 Token = Convert.ToBase64String(randomBytes),
-                ExpiresAt = DateTime.UtcNow.AddDays(7),
-                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(7).ToLocalTime(),
+                CreatedAt = DateTime.UtcNow.ToLocalTime(),
                 UserId = userId,
                 IsRevoked = false
             };

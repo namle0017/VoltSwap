@@ -23,7 +23,7 @@ namespace VoltSwap.API.Controllers
             _transService = transService;
             _configuration = configuration;
         }
-
+        [Authorize(Roles = "Driver,Staff,Admin")]
         [HttpPost("create")]
         public IActionResult CreatePaymentUrlVnpay(PaymentInformationModel model)
         {
@@ -33,6 +33,7 @@ namespace VoltSwap.API.Controllers
             return Ok(new { paymentUrl = url });
         }
 
+        [AllowAnonymous]
         [HttpGet("cPaymentCallbackVnpay")]
         public async Task<IActionResult> VnPayReturn()
         {
@@ -52,7 +53,7 @@ namespace VoltSwap.API.Controllers
             return Redirect(frontendUrl);
         }
 
-
+        [AllowAnonymous]
         [HttpGet("cPaymentIpnVnpay")]
         public IActionResult IpnVnpay()
         {
@@ -60,7 +61,7 @@ namespace VoltSwap.API.Controllers
             return Ok("OK");
         }
 
-
+        [Authorize(Roles = "Driver,Staff,Admin")]
         [HttpPost("create-payment")]
         public async Task<IActionResult> CreatePaymentUrlVnPay(string transactionId)
         {
@@ -70,6 +71,7 @@ namespace VoltSwap.API.Controllers
             return Ok(new { paymentUrl = url });
         }
 
+        [Authorize(Roles = "Driver,Staff,Admin")]
         [HttpGet("vnpay/callback")]
         public async Task<IActionResult> VnPayCallback()
         {

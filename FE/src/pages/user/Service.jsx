@@ -12,8 +12,14 @@ export default function Service() {
   const [apiMessage, setApiMessage] = useState("");
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelNote, setCancelNote] = useState("");
+
+  // NEW: chọn station, date, time để gửi đúng BE
   const [stations, setStations] = useState([]);
   const [selectedStation, setSelectedStation] = useState("");
+  const [cancelDate, setCancelDate] = useState(() => formatDateYYYYMMDD(new Date())); // YYYY-MM-DD
+  const [cancelTime, setCancelTime] = useState(() => formatTimeHHmm(new Date()));     // HH:mm
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+
   const [showAllBats, setShowAllBats] = useState(false); // UI-only
 
   function formatNumberVN(n, { min = 0, max = 2 } = {}) {
@@ -24,7 +30,6 @@ export default function Service() {
       maximumFractionDigits: max,
     });
   }
-
 
   useEffect(() => {
     const fetchSubs = async () => {
@@ -86,28 +91,42 @@ export default function Service() {
   const endTone =
     daysLeft == null ? "muted" : daysLeft <= 7 ? "danger" : daysLeft <= 14 ? "warn" : "muted";
 
+  // ===== NEW: Cancel API (đúng payload BE) =====
   const handleCancelSubscription = async () => {
+    if (!current?.subId) return alert("No subscription selected.");
     if (!selectedStation) return alert("Please select a station!");
+
     const driverId = localStorage.getItem("userId");
     const token = localStorage.getItem("token");
+
+    // Chuẩn hoá định dạng theo BE:
+    // dateBooking: "YYYY-MM-DD"
+    // timeBooking: "HH:mm" hoặc "HH:mm:ss" (thêm :00 cho an toàn)
+    const timeWithSec = cancelTime.length === 5 ? `${cancelTime}:00` : cancelTime;
+
     const payload = {
-      stationId: selectedStation,
-      driverId,
-      note: cancelNote,
-      subscriptionId: current.subId,
-      dateBooking: new Date().toISOString().split("T")[0],
-      timeBooking: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      stationId: String(selectedStation),
+      driverId: String(driverId),
+      note: String(cancelNote || "").trim(),
+      subscriptionId: String(current.subId),
+      dateBooking: String(cancelDate),    // YYYY-MM-DD
+      timeBooking: String(timeWithSec),   // HH:mm:ss
     };
+
     try {
+      setCancelSubmitting(true);
       await api.post("/Booking/booking-cancel-plan", payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      alert("✅ Subscription canceled successfully!");
+      alert("✅ Subscription cancel request created successfully!");
       setShowCancelModal(false);
+      // Điều hướng tới trang transaction để xem yêu cầu huỷ/hoàn
       navigate("/user/transaction");
     } catch (err) {
-      console.error("❌ Cancel failed:", err.response?.data || err);
-      alert(err.response?.data?.message || "Failed to cancel!");
+      console.error("❌ Cancel failed:", err?.response?.data || err);
+      alert(err?.response?.data?.message || "Failed to cancel!");
+    } finally {
+      setCancelSubmitting(false);
     }
   };
 
@@ -195,15 +214,15 @@ export default function Service() {
               </select>
             </div>
 
-            {/* Emphasis blocks (vertical) */}
+            {/* Emphasis blocks */}
             <div className="space-y-3 mb-6">
               <EmphasisBox tone={statusTone(current?.planStatus)}>
                 <p className="text-xs uppercase tracking-wide text-gray-500">Status</p>
                 <p className="mt-1 inline-flex items-center gap-2 text-sm font-semibold">
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${String(current?.planStatus || "Active").toLowerCase() === "active"
-                      ? "bg-emerald-500"
-                      : "bg-rose-500"
+                        ? "bg-emerald-500"
+                        : "bg-rose-500"
                       }`}
                   />
                   {current?.planStatus || "Active"}
@@ -219,8 +238,8 @@ export default function Service() {
                   {typeof daysLeft === "number" && daysLeft <= 14 && (
                     <span
                       className={`mt-1 text-[11px] px-2 py-0.5 rounded-full border ${daysLeft <= 7
-                        ? "bg-rose-50 border-rose-200 text-rose-700"
-                        : "bg-amber-50 border-amber-200 text-amber-700"
+                          ? "bg-rose-50 border-rose-200 text-rose-700"
+                          : "bg-amber-50 border-amber-200 text-amber-700"
                         }`}
                       title={`${daysLeft} days left`}
                     >
@@ -232,10 +251,13 @@ export default function Service() {
             </div>
 
             <div className="flex flex-col gap-3">
-              {/* Cancel: dịu màu, rõ icon */}
+              {/* Cancel */}
               <button
                 onClick={() => {
                   setShowCancelModal(true);
+                  // reset mặc định mỗi lần mở
+                  setCancelDate(formatDateYYYYMMDD(new Date()));
+                  setCancelTime(formatTimeHHmm(new Date()));
                   loadStations();
                 }}
                 className="w-full py-2.5 rounded-xl font-medium border border-rose-300 text-rose-600 hover:bg-rose-50 transition"
@@ -246,7 +268,7 @@ export default function Service() {
                 </span>
               </button>
 
-              {/* Register new Service: gradient brand */}
+              {/* Register new Service */}
               <button
                 onClick={() => navigate("/user/service/register")}
                 className="w-full py-2.5 rounded-xl font-medium text-white brand-gradient hover:opacity-95 transition"
@@ -266,7 +288,6 @@ export default function Service() {
               <span className="text-xs text-gray-500">Last update: {new Date().toLocaleTimeString()}</span>
             </div>
 
-            {/* 3 main stats with emphasis */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <StatTile
                 tone={swapTone}
@@ -276,26 +297,24 @@ export default function Service() {
                 hint="Remaining swaps in your plan"
                 chip={swapTone === "danger" ? "Low" : swapTone === "warn" ? "Watch" : "OK"}
               />
-              <StatTile tone="brand"
-                icon="speedometer2" label="Distance traveled"
-                value={formatAmountVN(current.current_miligate)}  // giống Billing: 23.457
-                unit="km"                                         // đơn vị ở dòng dưới
+              <StatTile
+                tone="brand"
+                icon="speedometer2"
+                label="Distance traveled"
+                value={formatAmountVN(current.current_miligate)}
+                unit="km"
                 hint="Total distance recorded"
                 chip="Odometer"
               />
-
               <StatTile
                 tone="brand"
                 icon="wallet2"
                 label="Total charge"
-                value={formatAmountVN(current.subFee)}   // chỉ số
-                unit="VND"                               // đơn vị tách riêng (dòng dưới)
+                value={formatAmountVN(current.subFee)}
+                unit="VND"
                 hint="Plan fee / billing"
                 chip="Billing"
               />
-
-
-
             </div>
 
             {/* Batteries assigned + Plan status */}
@@ -337,8 +356,8 @@ export default function Service() {
                 <div className="inline-flex items-center gap-2">
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${String(current?.planStatus || "Active").toLowerCase() === "active"
-                      ? "bg-emerald-500"
-                      : "bg-rose-500"
+                        ? "bg-emerald-500"
+                        : "bg-rose-500"
                       }`}
                   />
                   <span className="text-sm font-medium text-gray-900">{current?.planStatus || "Active"}</span>
@@ -368,6 +387,22 @@ export default function Service() {
               ))}
             </select>
 
+            <FieldLabel>Booking Date</FieldLabel>
+            <input
+              type="date"
+              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-end)]"
+              value={cancelDate}
+              onChange={(e) => setCancelDate(e.target.value)}
+            />
+
+            <FieldLabel>Booking Time</FieldLabel>
+            <input
+              type="time"
+              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-end)]"
+              value={cancelTime}
+              onChange={(e) => setCancelTime(e.target.value)}
+            />
+
             <FieldLabel>Reason (optional)</FieldLabel>
             <textarea
               className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-end)]"
@@ -378,11 +413,19 @@ export default function Service() {
             />
 
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setShowCancelModal(false)} className="px-4 py-2 rounded-xl border text-gray-700 hover:bg-gray-50">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="px-4 py-2 rounded-xl border text-gray-700 hover:bg-gray-50"
+                disabled={cancelSubmitting}
+              >
                 Close
               </button>
-              <button onClick={handleCancelSubscription} className="px-4 py-2 rounded-xl text-white bg-rose-600 hover:bg-rose-700">
-                Confirm
+              <button
+                onClick={handleCancelSubscription}
+                className="px-4 py-2 rounded-xl text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60"
+                disabled={!selectedStation || !cancelDate || !cancelTime || cancelSubmitting}
+              >
+                {cancelSubmitting ? "Submitting…" : "Confirm"}
               </button>
             </div>
           </div>
@@ -429,12 +472,12 @@ function StatTile({ label, value, unit, hint, icon = "circle", chip, tone = "mut
         {chip && (
           <span
             className={`text-[11px] px-2 py-0.5 rounded-full border ${tone === "danger"
-              ? "bg-rose-50 border-rose-200 text-rose-700"
-              : tone === "warn"
-                ? "bg-amber-50 border-amber-200 text-amber-700"
-                : tone === "brand"
-                  ? "bg-[var(--brand-50)] border-[var(--brand-end)]/30 text-[var(--brand-end)]"
-                  : "bg-white border-gray-200 text-gray-600"
+                ? "bg-rose-50 border-rose-200 text-rose-700"
+                : tone === "warn"
+                  ? "bg-amber-50 border-amber-200 text-amber-700"
+                  : tone === "brand"
+                    ? "bg-[var(--brand-50)] border-[var(--brand-end)]/30 text-[var(--brand-end)]"
+                    : "bg-white border-gray-200 text-gray-600"
               }`}
           >
             {chip}
@@ -445,24 +488,18 @@ function StatTile({ label, value, unit, hint, icon = "circle", chip, tone = "mut
       <div className="min-w-0 max-w-full">
         <p
           className={`leading-tight break-words ${tone === "danger"
-            ? "text-rose-600"
-            : tone === "warn"
-              ? "text-amber-600"
-              : tone === "brand"
-                ? "text-[var(--brand-end)]"
-                : "text-gray-900"
+              ? "text-rose-600"
+              : tone === "warn"
+                ? "text-amber-600"
+                : tone === "brand"
+                  ? "text-[var(--brand-end)]"
+                  : "text-gray-900"
             }`}
         >
-          {/* amount lớn ở dòng trên, tự co không tràn */}
           <span className="block text-[clamp(1.35rem,2.8vw,2rem)] font-extrabold whitespace-nowrap tracking-tight">
             {value}
           </span>
-          {/* unit nhỏ ở dòng dưới */}
-          {unit && (
-            <span className="block text-sm font-semibold text-gray-800 mt-0.5">
-              {unit}
-            </span>
-          )}
+          {unit && <span className="block text-sm font-semibold text-gray-800 mt-0.5">{unit}</span>}
         </p>
       </div>
 
@@ -471,8 +508,6 @@ function StatTile({ label, value, unit, hint, icon = "circle", chip, tone = "mut
     </div>
   );
 }
-
-
 
 function FieldLabel({ children }) {
   return <label className="block text-sm font-medium text-gray-700 mb-1">{children}</label>;
@@ -490,9 +525,22 @@ function Modal({ children, title, onClose, tone = "default" }) {
       </div>
     </div>
   );
-
 }
+
 function formatAmountVN(n) {
   const num = typeof n === "string" ? Number(n.replace(/[^\d.-]/g, "")) || 0 : Number(n || 0);
   return num.toLocaleString("vi-VN", { maximumFractionDigits: 0 });
+}
+
+// ========= NEW: tiny format helpers =========
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+function formatDateYYYYMMDD(d) {
+  const dt = d instanceof Date ? d : new Date(d);
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+}
+function formatTimeHHmm(d) {
+  const dt = d instanceof Date ? d : new Date(d);
+  return `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`; // HH:mm
 }

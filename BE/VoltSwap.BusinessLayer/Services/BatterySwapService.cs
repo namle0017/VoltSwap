@@ -451,7 +451,6 @@ namespace VoltSwap.BusinessLayer.Services
 
                     await _slotRepo.UpdateAsync(getSlot);
                     await _batRepo.UpdateAsync(updateBat);
-                    await _unitOfWork.SaveChangesAsync();
                 }
 
             }
@@ -901,10 +900,8 @@ namespace VoltSwap.BusinessLayer.Services
                         TotalAmount = mileageFee,
                         Currency = "VND",
                         PaymentMethod = "QR",
-
                         Status = "Waiting",
-                    
-                
+                        CreateAt = DateTime.UtcNow.ToLocalTime(),
                     };
 
                     await _unitOfWork.Trans.CreateAsync(transaction);

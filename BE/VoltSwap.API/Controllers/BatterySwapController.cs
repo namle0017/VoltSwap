@@ -1,4 +1,5 @@
 ﻿using Azure.Core;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VoltSwap.BusinessLayer.IServices;
@@ -20,6 +21,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Tài
+        [Authorize(Roles = "Driver")]
         [HttpGet("validate-subscription")]
         public async Task<IActionResult> ValidateSubscriptionSlots([FromQuery] AccessRequest request)
         {
@@ -32,6 +34,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //tài
+        [Authorize(Roles = "Driver")]
         [HttpPost("swap-in-battery")]
         public async Task<IActionResult> SwapInBattery([FromBody] BatterySwapListRequest request)
         {
@@ -44,6 +47,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Tài
+        [Authorize(Roles = "Driver")]
         [HttpPost("swap-out-battery")]
         public async Task<IActionResult> SwapOutBattery([FromBody] BatterySwapOutListRequest request)
         {
@@ -56,6 +60,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Tài
+        [Authorize(Roles = "Admin,Staff,Driver")]
         [HttpGet("get-station-list")]
         public async Task<IActionResult> GetStationList()
         {
@@ -65,6 +70,7 @@ namespace VoltSwap.API.Controllers
 
         //Kiệt
         //Hàm này để lấy ra danh sách pin trong trạm
+        [Authorize(Roles = "Staff")]
         [HttpPost("get-battery-in-station")]
         public async Task<IActionResult> GetBatteryInStation([FromBody] GetBatteryInStationRequest request)
         {
@@ -78,6 +84,7 @@ namespace VoltSwap.API.Controllers
 
         //Kiệt
         //Hàm này để staff hỗ trợ khách hàng đổi pin
+        [Authorize(Roles = "Staff")]
         [HttpPost("staff-help-customer")]
         public async Task<IActionResult> StaffHelpAsync([FromBody] StaffBatteryRequest requestDto)
         {
@@ -92,6 +99,7 @@ namespace VoltSwap.API.Controllers
 
         //Kiệt
         //Hàm này để staff check trạm có bao nhiêu cột, mỗi cột có bao nhiêu slot
+        [Authorize(Roles = "Staff")]
         [HttpGet("pillar-slot-in-station")]
         public async Task<IActionResult> GetPillarSlotInStation([FromQuery] string stationId)
         {
@@ -103,6 +111,7 @@ namespace VoltSwap.API.Controllers
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
 
+        [Authorize(Roles = "Staff")]
         [HttpGet("staff-add-new-battery")]
         //Hàm này để staff thêm pin mới vào trạm
         public async Task<IActionResult> StaffAddNewBattery([FromQuery] StaffNewBatteryInRequest requestDto)
@@ -116,6 +125,7 @@ namespace VoltSwap.API.Controllers
         }
 
         // Cái API này sẽ trả về 2 danh sách trạm ở 2 cột khác nhau sử dụng ListStationForTransferResponse
+        [Authorize(Roles = "Admin")]
         [HttpGet("get-station-for-transfer")]
         public async Task<IActionResult> GetStationForTransfer()
         {
@@ -127,7 +137,7 @@ namespace VoltSwap.API.Controllers
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }
 
-
+        [Authorize(Roles = "Admin")]
         [HttpPost("transfer-battery")]
         public async Task<IActionResult> TransferBattery(BatteryTranferRequest requestDto)
         {
@@ -139,7 +149,7 @@ namespace VoltSwap.API.Controllers
             return StatusCode(result.Status, new { message = result.Message });
         }
 
-
+        [AllowAnonymous]
         [HttpPost("create-cancel-plan")]
         public async Task<IActionResult> CreateCancelPlan(CheckCancelPlanRequest requestDto)
         {
@@ -158,6 +168,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: staff xem lich su swap cua tram
+        [Authorize(Roles = "Staff")]
         [HttpGet("staff-view-battery-swap")]
         public async Task<IActionResult> ViewBatterySwap([FromQuery] UserRequest request)
         {

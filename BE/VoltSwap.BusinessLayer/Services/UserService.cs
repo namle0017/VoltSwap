@@ -73,7 +73,8 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<IServiceResult> UpdateDriverInformationAsync(DriverUpdate requestDto)
         {
-            var getUser = await _unitOfWork.Users.CheckUserActive(requestDto.DriverId);
+            var getUser = await _unitOfWork.Users.GetAllQueryable().
+                        Where(x => x.UserId == requestDto.DriverId && x.Status == "Active").FirstOrDefaultAsync();
             if (getUser == null)
             {
                 return new ServiceResult
@@ -135,7 +136,7 @@ namespace VoltSwap.BusinessLayer.Services
                     StationStaff = new StationStaffResponse
                     {
                         StationId = staffStations.BatterySwapStationId,
-                       
+
                         ShiftStart = staffStations.ShiftStart,
                         ShiftEnd = staffStations.ShiftEnd
                     }
@@ -372,7 +373,7 @@ namespace VoltSwap.BusinessLayer.Services
                 }
 
                 var supervisorId = await GetAdminId();
-                var userId =  await GenerateStaffId();
+                var userId = await GenerateStaffId();
                 var newUser = new User()
                 {
                     UserId = userId,

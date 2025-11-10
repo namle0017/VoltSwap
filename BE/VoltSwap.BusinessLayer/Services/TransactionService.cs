@@ -252,7 +252,7 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 // Sinh 10 chữ số ngẫu nhiên
                 var random = new Random();
-                subscriptionId = $"SUB-{string.Concat(Enumerable.Range(0, 8).Select(_ => random.Next(0, 8).ToString()))}";
+                subscriptionId = $"SUB-{string.Concat(Enumerable.Range(0, 8).Select(_ => random.Next(0, 9).ToString()))}";
 
                 // Kiểm tra xem có trùng không
                 isDuplicated = await _subRepo.AnyAsync(u => u.SubscriptionId == subscriptionId);
@@ -268,10 +268,11 @@ namespace VoltSwap.BusinessLayer.Services
             //1. Update Status của các Transaction quá hạn
             var updateStatusTrans = await UpdateStatusExpiredTransaction();
             //2. Tìm tất cả các transaction có expired và pending và cả waiting
-            var transactions = await _transRepo.GetAllAsync(t => t.Status == "Pending"
-                                        && t.Status == "Waiting"
-                                        && t.Status == "Expired"
-                                        && t.Status == "Failed");
+            var transactions = await _transRepo.GetAllQueryable()
+                                        .Where(t => t.Status == "Pending"
+                                        || t.Status == "Waiting"
+                                        || t.Status == "Expired"
+                                        || t.Status == "Failed").ToListAsync();
             if (transactions == null || !transactions.Any())
             {
                 return new ServiceResult
@@ -815,6 +816,8 @@ namespace VoltSwap.BusinessLayer.Services
 
         private async Task HandleDepositSuccessAsync(Transaction depositTrans)
         {
+            // 0. Lấy ngày hôm nay
+            var getDate = DateTime.UtcNow.ToLocalTime().Day;
             // 1. Kích hoạt Subscription
             var subscription = await _subRepo.GetAllQueryable()
                 .FirstOrDefaultAsync(s => s.SubscriptionId == depositTrans.SubscriptionId);
@@ -835,13 +838,18 @@ namespace VoltSwap.BusinessLayer.Services
 
             if (plan != null)
             {
+                var getPlanPrice = plan.Price;
+                if (getDate >= 15)
+                {
+                    getPlanPrice = getPlanPrice / 2;
+                }
                 var monthlyTrans = new Transaction
                 {
                     TransactionId = await GenerateTransactionId(), // bạn đã có
                     SubscriptionId = depositTrans.SubscriptionId,
                     UserDriverId = depositTrans.UserDriverId,
                     TransactionType = "Monthly Fee",
-                    Amount = plan.Price ?? 0m,
+                    Amount = getPlanPrice ?? 0m,
                     Fee = 0m,
                     TotalAmount = plan.Price ?? 0m,
                     Currency = "VND",
@@ -866,7 +874,7 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 var monthlyFeeTrans = new Transaction
                 {
-                    TransactionId = await GenerateTransactionId(), // bạn đã có
+                    TransactionId = await GenerateTransactionId(),
                     SubscriptionId = subscription.SubscriptionId,
                     UserDriverId = subscription.UserDriverId,
                     TransactionType = "Monthly Fee",

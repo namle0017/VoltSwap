@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.Common.DTOs;
@@ -16,6 +17,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Nemo: api để cho ra các trụ trong trạm mà staff quản lý
+        [Authorize(Roles = "Staff")]
         [HttpGet("staff-pillar-slot")]
         public async Task<IActionResult> GetStaffPillarSlot([FromQuery] UserRequest requestDto)
         {
@@ -29,6 +31,7 @@ namespace VoltSwap.API.Controllers
 
 
         //Nemo: api để cho ra các pin mà trụ đó giữ
+        [Authorize(Roles = "Staff")]
         [HttpGet("battery-in-pillar")]
         public async Task<IActionResult> GetBatteryInPillar([FromQuery] string pillarId)
         {
@@ -41,6 +44,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: api để cho pin trong kho vào các slot trống trong trụ
+        [Authorize(Roles = "Staff")]
         [HttpPost("store-battery-inventory-to-pillar-slot")]
         public async Task<IActionResult> StoreBatteryInventoryToPillarSlot([FromBody] PlaceBattteryInPillarRequest requestDto)
         {
@@ -53,6 +57,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: api để lấy pin từ các slot LOCK trong trụ
+        [AllowAnonymous]
         [HttpGet("Lock-slot")]
         public async Task<IActionResult> GetBatteryInLockSlot([FromQuery] UserRequest request)
         {
@@ -65,6 +70,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: api để lấy pin từ các slot USE trong trụ
+        [AllowAnonymous]
         [HttpPost("take-out-slot")]
         public async Task<IActionResult> TakeOutBatteryFromPillarSlot([FromBody] TakeBattteryInPillarRequest requestDto)
         {
