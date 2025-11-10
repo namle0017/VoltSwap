@@ -164,7 +164,6 @@ export default function Vehicle() {
               </h2>
               <div className="space-y-3">
                 <div className="relative">
-                  <i className="bi bi-upc-scan absolute left-3 top-3 text-gray-400"></i>
                   <input
                     type="text"
                     placeholder="VIN"
@@ -176,7 +175,6 @@ export default function Vehicle() {
                   />
                 </div>
                 <div className="relative">
-                  <i className="bi bi-car-front absolute left-3 top-3 text-gray-400"></i>
                   <input
                     type="text"
                     placeholder="Model"
@@ -188,7 +186,6 @@ export default function Vehicle() {
                   />
                 </div>
                 <div className="relative">
-                  <i className="bi bi-battery-charging absolute left-3 top-3 text-gray-400"></i>
                   <input
                     type="number"
                     placeholder="Battery Count"
