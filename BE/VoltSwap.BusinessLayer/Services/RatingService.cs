@@ -53,7 +53,21 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<ServiceResult> ViewRating()
         {
-            var getrating = await _unitOfWork.Ratings.GetAllAsync();
+            var getrating = await _unitOfWork.Ratings.GetAllRating();
+            var list = new List<RatingRespone>();
+            foreach (var item in getrating)
+            {
+                list.Add(new RatingRespone
+                {
+                    DriverName = item.UserDriver.UserName,
+                    StationName = item.BatterySwapStation.BatterySwapStationName,
+                    RatingScore = item.RatingScore,
+                    Comment = item.Comment,
+                    createdAt = item.CreatedAt
+                });
+
+                
+            }
 
             return new ServiceResult
             {
@@ -61,7 +75,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "View Rating successfully",
                 Data = new 
                 {
-                    ratingList = getrating 
+                    ratingList = list
                 }
 
             };

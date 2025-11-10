@@ -102,7 +102,28 @@ namespace VoltSwap.BusinessLayer.Services
         }
         public async Task<ServiceResult> StaffCreateReport(StaffReportRequest requestDto)
         {
+            var results = new List<StaffReportResponse>();
+
             var getreport = await _unitOfWork.ReportType.GetReportTypeName(requestDto.ReportTypeId);
+
+            var reportList =  await _unitOfWork.Reports.GetReportForStaff(requestDto.StaffId); 
+
+            foreach (var item in reportList)
+            {
+
+
+                results.Add(new StaffReportResponse
+                {
+                    StaffId = item.UserStaffId,
+                    DriverId = item.UserDriverId,
+                    ReportType = item.ReportTypeId,
+                    ReportTypeName = item.ReportType.ReportTypeName,
+                    ReportNote = item.Note,
+                    CreateAt = item.CreateAt,
+                    ReportStatus = item.Status,
+                });
+            }
+            
             var result = new Report
             {
                 UserAdminId = await GetAdminId(),
@@ -136,7 +157,11 @@ namespace VoltSwap.BusinessLayer.Services
             {
                 Status = 201,
                 Message = "Report created successfully",
-                Data = respone
+                Data = new
+                {
+                  Report = respone,
+                  ReportList = results
+                }
             };
         }
 

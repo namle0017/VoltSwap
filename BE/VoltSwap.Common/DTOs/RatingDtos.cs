@@ -16,5 +16,14 @@ namespace VoltSwap.Common.DTOs
             public int RatingScore { get; set; }
             public string Comment { get; set; }
         }
+        public class RatingRespone
+        {
+
+            public string DriverName { get; set; }
+            public string StationName { get; set; }
+            public int RatingScore { get; set; }
+            public string Comment { get; set; }
+            public DateTime createdAt { get; set; }
+        }
     }
 }

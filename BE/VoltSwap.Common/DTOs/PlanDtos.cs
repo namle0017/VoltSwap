@@ -44,6 +44,10 @@ namespace VoltSwap.Common.DTOs
     {
         public string PlanName { get; set; }
     }
+    public class PlanDeleteRequest
+    {
+        public string planId { get; set; }
+    }
     public class PlanSuggestRespone
     {
         public string PlanId { get; set; }

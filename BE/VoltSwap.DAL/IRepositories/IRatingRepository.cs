@@ -10,5 +10,6 @@ namespace VoltSwap.DAL.IRepositories
 {
     public interface IRatingRepository: IGenericRepositories<Rating>
     {
+        Task<List<Rating>> GetAllRating();
     }
 }

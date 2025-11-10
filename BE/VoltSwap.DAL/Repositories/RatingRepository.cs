@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,6 +17,11 @@ namespace VoltSwap.DAL.Repositories
         public RatingRepository(VoltSwapDbContext context)
         {
             _context = context;
+        }
+
+        public async Task<List<Rating>> GetAllRating()
+        {
+            return await _context.Ratings.Include(u => u.UserDriver).Include(sta => sta.BatterySwapStation).Where(r => r.RatingScore == 5).ToListAsync();
         }
     }
 }

@@ -104,7 +104,7 @@ namespace VoltSwap.API.Controllers
 
         //Bin: Tạo thêm plan
         [HttpPost("create-plan")]
-        public async Task<IActionResult> CreatePlan(PlanCreateRequest x)
+        public async Task<IActionResult> CreatePlan([FromBody] PlanCreateRequest x)
         {
             var getplan = await _planService.CreatePlanAsync(x);
             return StatusCode(getplan.Status, new
@@ -114,9 +114,9 @@ namespace VoltSwap.API.Controllers
             });
         }
         [HttpPost("delete-plan")]
-        public async Task<IActionResult> DeletePlan(string planId)
+        public async Task<IActionResult> DeletePlan([FromBody] PlanDeleteRequest request)
         {
-            var getplan = await _planService.DeletePlanAsync(planId);
+            var getplan = await _planService.DeletePlanAsync(request.planId);
             return StatusCode(getplan.Status, new
             {
                 getplan.Message,
