@@ -840,7 +840,7 @@ namespace VoltSwap.BusinessLayer.Services
                 //Cập nhật pin vào (pin trả lại trạm)
                 batteryIn.BatterySwapStationId = stationId;
                 batteryIn.BatteryStatus = "Warehouse";
-                batteryIn.Soc = new Random().Next(20, 100); // giả lập SOC
+                batteryIn.Soc = new Random().Next(1, 100); // giả lập SOC
                 getBatteryIn.Status = "Returned";
                 await _batRepo.UpdateAsync(batteryIn);
 
@@ -858,9 +858,6 @@ namespace VoltSwap.BusinessLayer.Services
                     CreateAt = DateTime.UtcNow.ToLocalTime(),
                 };
                 await _batSwapRepo.CreateAsync(swapIn);
-
-
-
 
                 //Tạo session cho battery-in
                 var sessions = await GenerateBatterySessionForBattery(requestDto.BatteryInId, diff);
