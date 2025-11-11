@@ -124,8 +124,9 @@ export default function ChangeService() {
               {plans.map((p) => (
                 <tr
                   key={p.planId}
-                  className={`border-b hover:bg-yellow-50 transition ${selected?.planId === p.planId ? "bg-yellow-100" : ""
-                    }`}
+                  className={`border-b hover:bg-yellow-50 transition ${
+                    selected?.planId === p.planId ? "bg-yellow-100" : ""
+                  }`}
                 >
                   <td className="p-3 font-semibold">{p.planName}</td>
                   <td>{p.numberBattery}</td>
@@ -144,10 +145,11 @@ export default function ChangeService() {
                     ) : (
                       <button
                         onClick={() => setSelected(p)}
-                        className={`px-3 py-1 rounded-full ${selected?.planId === p.planId
+                        className={`px-3 py-1 rounded-full ${
+                          selected?.planId === p.planId
                             ? "bg-yellow-400 text-black font-semibold"
                             : "bg-yellow-200 hover:bg-yellow-300"
-                          }`}
+                        }`}
                       >
                         {selected?.planId === p.planId ? "Selected" : "Choose"}
                       </button>
@@ -164,10 +166,11 @@ export default function ChangeService() {
           <button
             onClick={handleChangePlan}
             disabled={!selected}
-            className={`px-6 py-2 rounded-lg font-semibold ${selected
+            className={`px-6 py-2 rounded-lg font-semibold ${
+              selected
                 ? "bg-blue-600 text-white hover:bg-blue-700"
                 : "bg-gray-400 text-gray-100 cursor-not-allowed"
-              }`}
+            }`}
           >
             <i className="bi bi-arrow-repeat" style={{ color: "blue" }}></i>{" "}
             Confirm Change

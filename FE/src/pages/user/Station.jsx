@@ -192,7 +192,7 @@ export default function Station() {
   const [bannerMuted, setBannerMuted] = useState(false);
 
   const pollRef = useRef(null); // <— interval id
-
+  const countdownRef = useRef(null);
   const notify = (title, body) => {
     if (!("Notification" in window)) return;
     if (Notification.permission === "granted") {
@@ -250,19 +250,26 @@ export default function Station() {
 
   // ticking countdown
   useEffect(() => {
-    if (bannerHidden || bannerMuted) return;
-    if (bannerRemain <= 0) return;
-    const t = setInterval(() => {
+    if (bannerHidden || bannerMuted || bannerRemain <= 0) return;
+
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    countdownRef.current = setInterval(() => {
       setBannerRemain((s) => {
         const next = s - 1;
         if (next <= 0) {
+          clearInterval(countdownRef.current);
+          countdownRef.current = null;
           localStorage.removeItem("lockExpireAt");
           return 0;
         }
         return next;
       });
     }, 1000);
-    return () => clearInterval(t);
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
   }, [bannerRemain, bannerHidden, bannerMuted]);
 
   /* ===== Poll every 10s to check Booking status ===== */
@@ -271,21 +278,21 @@ export default function Station() {
       localStorage.getItem("lastBookingId") ||
       localStorage.getItem("bookingId");
 
-    // Nếu không có bookingId thì không poll
     if (!bookingId) return;
 
-    // Dọn interval cũ
     if (pollRef.current) clearInterval(pollRef.current);
 
     console.log("🚀 Start polling booking status for ID:", bookingId);
 
     pollRef.current = setInterval(async () => {
       try {
-        const res = await api.post(CHECK_STATUS_EP, { BookingId: bookingId });
+        const res = await api.get(`${CHECK_STATUS_EP}?BookingId=${bookingId}`);
+        const msg = res?.data?.message || "";
         const status = String(res?.data?.data ?? "").toLowerCase();
-        console.log("🔁 Booking status check:", status);
 
-        if (status.includes("done")) {
+        console.log("🔁 Polling response:", msg, "| Status:", status);
+
+        if (status.includes("done") || status.includes("completed")) {
           clearInterval(pollRef.current);
           pollRef.current = null;
           localStorage.removeItem("lockExpireAt");
@@ -293,23 +300,75 @@ export default function Station() {
           setBannerHidden(true);
           notify("Booking Completed", "Your booking is now done!");
           alert(`✅ Booking ${bookingId} completed successfully!`);
-        }
-
-        if (status.includes("cancel")) {
+        } else if (status.includes("cancel")) {
           clearInterval(pollRef.current);
           pollRef.current = null;
+
           localStorage.removeItem("lockExpireAt");
+          localStorage.removeItem("lastBookingId");
+          localStorage.removeItem("lastAppointmentId");
+          localStorage.removeItem("lastTransactionId");
+          localStorage.removeItem("swap_stationId");
+          localStorage.removeItem("swap_stationName");
+
           setBannerRemain(0);
           setBannerHidden(true);
+          setBannerInfo({
+            stationName: "",
+            transactionId: "",
+            appointmentId: "",
+          });
+
+          notify("Booking Cancelled", "Your booking was cancelled by staff.");
+          alert(`❌ Booking ${bookingId} was cancelled by staff.`);
+        } else if (status.includes("processing")) {
+          console.log("⏳ Booking still processing...");
+        } else {
+          console.log("ℹ️ Unknown booking status:", status);
+        }
+      } catch (err) {
+        // ⚠️ Log lỗi ra console (giữ nguyên như cũ)
+        console.error(
+          "🚨 Polling failed (unexpected network/500):",
+          err?.response?.data || err
+        );
+
+        // ⚙️ Bổ sung: xử lý khi BE trả về "Canceled" trong payload lỗi (thường kèm status 500)
+        const errData = err?.response?.data;
+        const msg = errData?.message || err.message || "";
+        const statusText = String(errData?.data ?? "").toLowerCase();
+
+        if (statusText.includes("cancel")) {
+          console.log("⚠️ Detected Canceled booking inside error payload!");
+
+          // 🧹 Dừng polling
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          // 🧽 Xóa toàn bộ dữ liệu banner / localStorage
+          localStorage.removeItem("lockExpireAt");
+          localStorage.removeItem("lastBookingId");
+          localStorage.removeItem("lastAppointmentId");
+          localStorage.removeItem("lastTransactionId");
+          localStorage.removeItem("swap_stationId");
+          localStorage.removeItem("swap_stationName");
+
+          // 🧠 Reset state React ngay lập tức
+          setBannerRemain(0);
+          setBannerHidden(true);
+          setBannerInfo({
+            stationName: "",
+            transactionId: "",
+            appointmentId: "",
+          });
+
+          // 🛎 Thông báo cho user
           notify("Booking Cancelled", "Your booking was cancelled by staff.");
           alert(`❌ Booking ${bookingId} was cancelled by staff.`);
         }
-      } catch (err) {
-        console.warn("⚠️ Polling error:", err?.response?.data || err);
       }
-    }, 10000); // 10 seconds
+    }, 10000);
 
-    // cleanup
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
@@ -424,21 +483,24 @@ export default function Station() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const booking = res?.data?.data?.booking || res?.data?.booking || {};
+      console.log("📦 Booking response:", res.data);
+
+      const booking = res?.data?.data?.booking || {};
       const lockSeconds =
         Number(res?.data?.data?.time ?? res?.data?.time ?? 0) || 0;
 
-      // === Lưu BookingId để poll ===
-      const bookingId =
-        booking.bookingId ??
-        booking.id ??
-        res?.data?.data?.bookingId ??
-        res?.data?.bookingId ??
-        "";
-      if (bookingId) {
-        localStorage.setItem("lastBookingId", String(bookingId));
+      // ✅ Lấy appointmentId làm định danh chính cho booking
+      const appointmentId = booking.appointmentId || "";
+
+      if (appointmentId) {
+        localStorage.setItem("lastBookingId", appointmentId);
+        localStorage.setItem("lastAppointmentId", appointmentId);
+        console.log("✅ Saved lastBookingId (appointmentId):", appointmentId);
+      } else {
+        console.warn("⚠️ No appointmentId in booking response!");
       }
 
+      // === Lưu các thông tin khác để hiển thị banner ===
       localStorage.setItem("swap_stationId", selectedStation.stationId);
       localStorage.setItem(
         "swap_stationName",
@@ -447,20 +509,18 @@ export default function Station() {
       localStorage.setItem("swap_subscriptionId", selectedSub);
       if (booking.transactionId)
         localStorage.setItem("lastTransactionId", booking.transactionId);
-      if (booking.appointmentId)
-        localStorage.setItem("lastAppointmentId", booking.appointmentId);
       localStorage.setItem("lastPlanId", booking.subscriptionId || selectedSub);
-
       localStorage.removeItem(MUTE_KEY);
       setBannerMuted(false);
 
+      // === Xử lý banner đếm ngược ===
       if (lockSeconds > 0) {
         const expireAt = Date.now() + lockSeconds * 1000;
         localStorage.setItem("lockExpireAt", String(expireAt));
         setBannerInfo({
           stationName: selectedStation.stationName || "",
           transactionId: booking.transactionId || "",
-          appointmentId: booking.appointmentId || "",
+          appointmentId,
         });
         setBannerHidden(false);
         setBannerRemain(lockSeconds);
@@ -478,11 +538,11 @@ export default function Station() {
           "✅ Booking created & battery locked!",
           `📍 ${selectedStation.stationName}`,
           `🧾 Transaction: ${booking.transactionId || "—"}`,
-          `📄 Appointment: ${booking.appointmentId || "—"}`,
+          `📄 Appointment: ${appointmentId || "—"}`,
           `📅 ${dateBooking} ${timeBooking}`,
           lockSeconds ? `⏳ Lock time: ${formatMMSS(lockSeconds)}` : undefined,
           "",
-          "➡ Bạn có thể nhấn Navigate để xác thực tại trạm.",
+          "➡ You can press Navigate to go to the station.",
         ]
           .filter(Boolean)
           .join("\n")
