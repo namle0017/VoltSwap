@@ -51,7 +51,7 @@ namespace VoltSwap.API.Controllers
             var result = await _bookingService.CancelBookingAsync(request);
             return StatusCode(result.Status, result.Message);
         }
-        [Authorize(Roles = "Driver")]
+        [Authorize(Roles = "Driver,Staff")]
         //Bin:hủy booking bởi người dùng
         [HttpPost("cancel-booking-by-user")]
         public async Task<IActionResult> CancelBooking([FromBody] CancelBookingRequest request)
