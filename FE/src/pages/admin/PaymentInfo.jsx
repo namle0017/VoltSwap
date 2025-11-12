@@ -4,7 +4,8 @@ import api from "@/api/api";
 
 const LIST_EP = "/Transaction/admin-transaction-list";
 const CREATE_EP = "/Transaction/admin-create-transaction";
-const DETAIL_EP = "/Transaction/transaction-detail"; // <-- dùng requestTransactionId
+const DETAIL_EP = "/Transaction/transaction-detail";            // ?requestTransactionId=...
+const RECREATE_EP = "/Transaction/recreate-transaction";        // PATCH ?transactionId=...
 
 export default function PaymentInfo() {
     const [payments, setPayments] = useState([]);
@@ -19,14 +20,23 @@ export default function PaymentInfo() {
     const [detail, setDetail] = useState(null);
     const [selectedTxId, setSelectedTxId] = useState("");
 
+    // Recreate guard
+    const [recreatingIds, setRecreatingIds] = useState(() => new Set());
+
     const formatVND = (value) =>
         Number(value || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
     const statusPill = (status) => {
         const s = String(status || "").toLowerCase();
         if (s === "approved" || s === "success") return "bg-green-100 text-green-700";
         if (s === "waiting" || s === "pending") return "bg-yellow-100 text-yellow-700";
         if (s === "denied" || s === "failed" || s === "fail") return "bg-red-100 text-red-700";
         return "bg-gray-100 text-gray-700";
+    };
+
+    const isFailed = (status) => {
+        const s = String(status || "").toLowerCase();
+        return s === "failed" || s === "fail" || s === "denied";
     };
 
     const loadTransactions = async () => {
@@ -61,14 +71,12 @@ export default function PaymentInfo() {
         setDetail(null);
         try {
             const token = localStorage.getItem("token");
-            // BE yêu cầu query: requestTransactionId=...
             const res = await api.get(DETAIL_EP, {
                 params: { requestTransactionId: transactionId },
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
             const payload = res?.data?.data ?? null;
 
-            // Map đúng theo response mẫu bạn gửi
             const normalized = payload
                 ? {
                     transactionId: payload.transactionId || transactionId,
@@ -100,7 +108,38 @@ export default function PaymentInfo() {
         }
     };
 
-    // Bulk create invoices (giữ nguyên ý tưởng: tạo cho các giao dịch Waiting)
+    // ===== RECREATE: PATCH ?transactionId=... (chỉ cho failed) =====
+    const handleRecreate = async (transactionId) => {
+        if (!transactionId) return;
+        if (recreatingIds.has(transactionId)) return;
+
+        setRecreatingIds((prev) => new Set(prev).add(transactionId));
+        try {
+            const token = localStorage.getItem("token");
+            await api.patch(RECREATE_EP, null, {
+                params: { transactionId },
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            alert(`✅ Đã recreate transaction ${transactionId}.`);
+            await loadTransactions();
+        } catch (err) {
+            console.error("❌ recreate-transaction error:", err?.response?.data || err);
+            const msg =
+                err?.response?.data?.message ||
+                err?.response?.data?.title ||
+                err?.message ||
+                "Recreate thất bại.";
+            alert("❌ " + msg);
+        } finally {
+            setRecreatingIds((prev) => {
+                const n = new Set(prev);
+                n.delete(transactionId);
+                return n;
+            });
+        }
+    };
+
+    // Bulk create invoices (Waiting)
     const handleCreateAllInvoices = async () => {
         const eligible = payments.filter(
             (p) => String(p.paymentStatus || "").toLowerCase() === "waiting"
@@ -221,6 +260,9 @@ export default function PaymentInfo() {
                                     const formattedDate = p.paymentDate
                                         ? new Date(p.paymentDate).toLocaleDateString("vi-VN")
                                         : "—";
+                                    const canRecreate = isFailed(p.paymentStatus);
+                                    const recreating = recreatingIds.has(p.transactionId);
+
                                     return (
                                         <tr key={p.transactionId} className="border-b hover:bg-gray-50 transition duration-150">
                                             <td className="px-4 py-3 font-medium text-gray-800">{p.transactionId}</td>
@@ -234,13 +276,26 @@ export default function PaymentInfo() {
                                             </td>
                                             <td className="px-4 py-3 text-gray-600">{formattedDate}</td>
                                             <td className="px-4 py-3">
-                                                <button
-                                                    onClick={() => openDetail(p.transactionId)}
-                                                    className="px-3 py-1.5 text-sm rounded-lg border hover:bg-gray-50"
-                                                    title="Xem chi tiết"
-                                                >
-                                                    <i className="bi bi-eye me-1" /> View
-                                                </button>
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => openDetail(p.transactionId)}
+                                                        className="px-3 py-1.5 text-sm rounded-lg border hover:bg-gray-50"
+                                                        title="Xem chi tiết"
+                                                    >
+                                                        <i className="bi bi-eye me-1" /> View
+                                                    </button>
+
+                                                    {canRecreate && (
+                                                        <button
+                                                            onClick={() => handleRecreate(p.transactionId)}
+                                                            disabled={recreating}
+                                                            className="px-3 py-1.5 text-sm rounded-lg border text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-60"
+                                                            title="Recreate transaction (failed)"
+                                                        >
+                                                            {recreating ? "Recreating…" : (<><i className="bi bi-arrow-clockwise me-1" /> Recreate</>)}
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
