@@ -38,7 +38,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
         res = await api.post("/forgot-password", {
           userEmail: formData.email,
         });
-        alert("📩 Reset link sent to your email!");
+        window.toast.info("📩 Reset link sent to your email!");
         setForgotMode(false);
         return;
       }
@@ -78,15 +78,15 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
 
         // ✅ Điều hướng theo role
         if (user?.userRole === "Admin") {
-          alert("✅ Admin login successful! Redirecting...");
+          window.toast.success("Admin login successful! Redirecting...");
           navigate("/admin");
         }
         if (user?.userRole === "Staff") {
-          alert("✅ Staff login successful! Redirecting...");
+          window.toast.success("Staff login successful! Redirecting...");
           navigate("/staff");
         }
         if (user?.userRole === "Driver") {
-          alert("✅ Login successful!");
+          window.toast.success("Login Successfully");
           navigate("/user/service");
         }
 

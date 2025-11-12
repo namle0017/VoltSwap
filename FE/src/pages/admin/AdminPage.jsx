@@ -32,14 +32,16 @@ const MONTH_LABELS = [
   "Nov",
   "Dec",
 ];
+
 const formatNumber = (n) =>
-  typeof n === "number" ? n.toLocaleString("vi-VN") : "0";
+  typeof n === "number" ? n.toLocaleString("en-US") : "0";
+
 const formatCurrencyVND = (n) =>
   typeof n === "number"
-    ? n.toLocaleString("vi-VN", { style: "currency", currency: "VND" })
-    : "₫0";
+    ? n.toLocaleString("en-US", { style: "currency", currency: "VND" })
+    : "VND 0";
 
-/** Safe getter: chấp nhận nhiều đường dẫn khác nhau */
+/** Safe getter: accept multiple alternative paths */
 const pick = (obj, paths, fallback = undefined) => {
   for (const p of paths) {
     try {
@@ -50,7 +52,7 @@ const pick = (obj, paths, fallback = undefined) => {
   return fallback;
 };
 
-/** Chuẩn hoá payload Overview */
+/** Normalize Overview payload */
 function normalizeOverview(raw) {
   if (!raw || typeof raw !== "object") return null;
 
@@ -103,7 +105,7 @@ function normalizeOverview(raw) {
       ])
     ) || 0;
 
-  // === NEW: Lấy planMonthSummary để chia pie theo gói ===
+  // Plan summary for pie by package
   const planMonthSummary =
     pick(raw, ["planSummary.planMonthSummary"], []) || [];
   const planByPackage = (
@@ -114,13 +116,13 @@ function normalizeOverview(raw) {
     revenue: Number(p?.totalRevenue ?? 0),
   }));
 
-  // (Giữ lại reportSummary nếu muốn hiển thị ở chỗ khác — KHÔNG dùng cho pie nữa)
+  // Keep reportSummary if needed elsewhere — NOT used for the pie
   const report = pick(raw, ["planSummary.reportSummary"], {}) || {};
   const planActiveCustomer = Number(report.activeCustomer || 0);
   const planSwapTimes = Number(report.swapTimes || 0);
   const planTotalMonthlyRevenue = Number(report.totalMonthlyRevenue || 0);
 
-  // === Monthly swaps (BE mới: batterySwapMonthly.batterySwapMonthlyLists) ===
+  // Monthly swaps (new BE: batterySwapMonthly.batterySwapMonthlyLists)
   const bsm =
     pick(
       raw,
@@ -162,16 +164,16 @@ function normalizeOverview(raw) {
     activeStation,
     totalStation,
 
-    // giữ lại nhưng KHÔNG dùng cho pie
+    // kept but NOT used in the pie
     planActiveCustomer,
     planSwapTimes,
     planTotalMonthlyRevenue,
 
-    // dùng cho bar
+    // bar chart
     monthlySwapsData,
     avgBatterySwap,
 
-    // dùng cho pie theo gói
+    // pie by package
     planByPackage,
   };
 }
@@ -196,15 +198,14 @@ export default function AdminPage() {
         });
         const raw = res?.data?.data ?? res?.data ?? null;
         const normalized = normalizeOverview(raw);
-        if (!normalized)
-          throw new Error("Overview payload không đúng định dạng.");
+        if (!normalized) throw new Error("Overview payload has invalid format.");
         setOv(normalized);
       } catch (e) {
         console.error("Overview fetch error:", e?.response?.data || e);
         setErr(
           e?.response?.data?.message ||
           e?.message ||
-          "Không tải được Overview từ BE."
+          "Failed to load Overview from backend."
         );
       } finally {
         setLoading(false);
@@ -221,7 +222,7 @@ export default function AdminPage() {
   const activeStation = ov?.activeStation ?? 0;
   const totalStation = ov?.totalStation ?? 0;
 
-  // giữ lại nếu bạn còn dùng nơi khác
+  // kept if used elsewhere
   const planActiveCustomer = ov?.planActiveCustomer ?? 0;
   const planSwapTimes = ov?.planSwapTimes ?? 0;
   const planTotalMonthlyRevenue = ov?.planTotalMonthlyRevenue ?? 0;
@@ -239,8 +240,8 @@ export default function AdminPage() {
     return Math.round(sum / monthlySwapsData.length);
   }, [monthlySwapsData]);
 
-  // ======= PIE THEO GÓI (sử dụng totalUsers làm value) =======
-  // map màu cố định theo tên gói (có fallback)
+  // ======= PIE BY PACKAGE (use totalUsers as value) =======
+  // fixed color map by plan name (with fallback)
   const PLAN_COLORS = {
     G1: "#6366F1",
     G2: "#06B6D4",
@@ -264,8 +265,8 @@ export default function AdminPage() {
 
   const pieData = planByPackage.map((p, idx) => ({
     name: p.name,
-    value: Number(p.users || 0), // slice theo totalUsers
-    revenue: Number(p.revenue || 0), // hiển thị thêm trong tooltip/legend
+    value: Number(p.users || 0), // slice by totalUsers
+    revenue: Number(p.revenue || 0), // extra info in tooltip/legend
     color: PLAN_COLORS[p.name] || FALLBACK_COLORS[idx % FALLBACK_COLORS.length],
   }));
 
@@ -408,7 +409,7 @@ export default function AdminPage() {
         {/* Charts */}
         {!loading && !err && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            {/* Pie theo gói */}
+            {/* Pie by package */}
             <motion.div
               className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300"
               initial={{ opacity: 0, x: -30 }}

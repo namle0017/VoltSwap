@@ -219,11 +219,24 @@ const CustomerManagement = () => {
         }
     };
 
-    // --- DELETE driver (POST /api/User/delete-user { userId }) ---
+    // --- DELETE driver (POST /api/User/delete-user { userId }) + confirm modal + toast ---
+    // --- DELETE driver (POST /api/User/delete-user { userId }) + English confirm modal + toast ---
     const deleteDriver = async (driver) => {
         const userId = driver.userId ?? driver.driverId;
-        if (!userId) return alert("Không xác định được userId để xoá.");
-        if (!window.confirm(`Xác nhận xoá khách hàng ${driver.name} (${userId})?`)) return;
+        if (!userId) {
+            window.toast.error("User ID not found. Unable to delete.");
+            return;
+        }
+
+        // Simple and clear confirmation (English version)
+        const { ok } = await window.confirmModal({
+            title: "Are you sure?",
+            message: `This action will permanently delete ${driver.name} (${userId}).`,
+            confirmText: "Delete",
+            cancelText: "Cancel",
+            variant: "danger",
+        });
+        if (!ok) return;
 
         setDeletingId(driver.driverId);
         try {
@@ -233,18 +246,28 @@ const CustomerManagement = () => {
                 { userId },
                 { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
             );
+
+            // Update UI
             setCustomers((prev) => prev.filter((c) => c.driverId !== driver.driverId));
             setSelectedCustomer((prev) =>
                 prev && prev.driverId === driver.driverId ? null : prev
             );
-            alert("🗑️ Đã xoá khách hàng.");
+
+            window.toast.success("Customer deleted successfully.");
         } catch (err) {
             console.error("delete-user error:", err?.response?.data || err);
-            alert("❌ Xoá thất bại. Vui lòng thử lại.");
+            const msg =
+                err?.response?.data?.message ||
+                err?.response?.data?.title ||
+                err?.message ||
+                "Failed to delete customer.";
+            window.toast.error(msg);
         } finally {
             setDeletingId(null);
         }
     };
+
+
 
     // --- filters ---
     const filteredCustomers = useMemo(() => {
