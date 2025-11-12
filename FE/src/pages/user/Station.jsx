@@ -96,9 +96,8 @@ function BookingCountdownBanner({
       >
         <div className="flex items-start gap-3">
           <div
-            className={`text-xl ${
-              danger ? "text-red-600" : "text-[var(--brand-600)]"
-            }`}
+            className={`text-xl ${danger ? "text-red-600" : "text-[var(--brand-600)]"
+              }`}
           >
             ⏳
           </div>
@@ -531,8 +530,7 @@ export default function Station() {
 
         notify(
           "Booking created",
-          `Batteries locked at ${
-            selectedStation.stationName
+          `Batteries locked at ${selectedStation.stationName
           }. Expires in ${formatMMSS(lockSeconds)}`
         );
       }
@@ -686,7 +684,7 @@ export default function Station() {
                           lng: st.locationLon,
                         }) /
                           40) *
-                          60
+                        60
                       )}{" "}
                       mins
                     </p>
@@ -756,8 +754,8 @@ export default function Station() {
               pct >= 70
                 ? "from-emerald-400 to-emerald-500"
                 : pct >= 40
-                ? "from-amber-400 to-amber-500"
-                : "from-rose-400 to-rose-500";
+                  ? "from-amber-400 to-amber-500"
+                  : "from-rose-400 to-rose-500";
 
             return (
               <div
