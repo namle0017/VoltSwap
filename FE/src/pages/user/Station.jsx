@@ -193,6 +193,98 @@ export default function Station() {
 
   const pollRef = useRef(null); // <— interval id
   const countdownRef = useRef(null);
+  // === POLLING FUNCTION: start checking booking status ===
+  const startPolling = (bookingId) => {
+    if (!bookingId) return;
+
+    if (pollRef.current) clearInterval(pollRef.current);
+    console.log("🚀 Start polling booking status for ID:", bookingId);
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await api.get(`${CHECK_STATUS_EP}?BookingId=${bookingId}`);
+        const msg = res?.data?.message || "";
+        const status = String(res?.data?.data ?? "").toLowerCase();
+
+        console.log("🔁 Polling response:", msg, "| Status:", status);
+
+        if (status.includes("done") || status.includes("completed")) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          localStorage.removeItem("lockExpireAt");
+          localStorage.removeItem("lastBookingId");
+          localStorage.removeItem("lastAppointmentId");
+          localStorage.removeItem("lastTransactionId");
+          localStorage.removeItem("swap_stationId");
+          localStorage.removeItem("swap_stationName");
+
+          setBannerRemain(0);
+          setBannerHidden(true);
+          setBannerInfo({
+            stationName: "",
+            transactionId: "",
+            appointmentId: "",
+          });
+
+          notify("Booking Completed", "Your booking is now done!");
+          alert(`✅ Booking ${bookingId} completed successfully!`);
+        } else if (status.includes("cancel")) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          localStorage.removeItem("lockExpireAt");
+          localStorage.removeItem("lastBookingId");
+          localStorage.removeItem("lastAppointmentId");
+          localStorage.removeItem("lastTransactionId");
+          localStorage.removeItem("swap_stationId");
+          localStorage.removeItem("swap_stationName");
+
+          setBannerRemain(0);
+          setBannerHidden(true);
+          setBannerInfo({
+            stationName: "",
+            transactionId: "",
+            appointmentId: "",
+          });
+
+          notify("Booking Cancelled", "Your booking was cancelled .");
+          alert(`❌ Booking ${bookingId} was cancelled.`);
+        }
+      } catch (err) {
+        console.error(
+          "🚨 Polling failed (unexpected network/500):",
+          err?.response?.data || err
+        );
+        const statusText = String(
+          err?.response?.data?.data ?? ""
+        ).toLowerCase();
+        if (statusText.includes("cancel")) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          localStorage.removeItem("lockExpireAt");
+          localStorage.removeItem("lastBookingId");
+          localStorage.removeItem("lastAppointmentId");
+          localStorage.removeItem("lastTransactionId");
+          localStorage.removeItem("swap_stationId");
+          localStorage.removeItem("swap_stationName");
+
+          setBannerRemain(0);
+          setBannerHidden(true);
+          setBannerInfo({
+            stationName: "",
+            transactionId: "",
+            appointmentId: "",
+          });
+
+          notify("Booking Cancelled", "Your booking was cancelled .");
+          alert(`❌ Booking ${bookingId} was cancelled.`);
+        }
+      }
+    }, 10000);
+  };
+
   const notify = (title, body) => {
     if (!("Notification" in window)) return;
     if (Notification.permission === "granted") {
@@ -279,95 +371,6 @@ export default function Station() {
       localStorage.getItem("bookingId");
 
     if (!bookingId) return;
-
-    if (pollRef.current) clearInterval(pollRef.current);
-
-    console.log("🚀 Start polling booking status for ID:", bookingId);
-
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await api.get(`${CHECK_STATUS_EP}?BookingId=${bookingId}`);
-        const msg = res?.data?.message || "";
-        const status = String(res?.data?.data ?? "").toLowerCase();
-
-        console.log("🔁 Polling response:", msg, "| Status:", status);
-
-        if (status.includes("done") || status.includes("completed")) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-          localStorage.removeItem("lockExpireAt");
-          setBannerRemain(0);
-          setBannerHidden(true);
-          notify("Booking Completed", "Your booking is now done!");
-          alert(`✅ Booking ${bookingId} completed successfully!`);
-        } else if (status.includes("cancel")) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-
-          localStorage.removeItem("lockExpireAt");
-          localStorage.removeItem("lastBookingId");
-          localStorage.removeItem("lastAppointmentId");
-          localStorage.removeItem("lastTransactionId");
-          localStorage.removeItem("swap_stationId");
-          localStorage.removeItem("swap_stationName");
-
-          setBannerRemain(0);
-          setBannerHidden(true);
-          setBannerInfo({
-            stationName: "",
-            transactionId: "",
-            appointmentId: "",
-          });
-
-          notify("Booking Cancelled", "Your booking was cancelled by staff.");
-          alert(`❌ Booking ${bookingId} was cancelled by staff.`);
-        } else if (status.includes("processing")) {
-          console.log("⏳ Booking still processing...");
-        } else {
-          console.log("ℹ️ Unknown booking status:", status);
-        }
-      } catch (err) {
-        // ⚠️ Log lỗi ra console (giữ nguyên như cũ)
-        console.error(
-          "🚨 Polling failed (unexpected network/500):",
-          err?.response?.data || err
-        );
-
-        // ⚙️ Bổ sung: xử lý khi BE trả về "Canceled" trong payload lỗi (thường kèm status 500)
-        const errData = err?.response?.data;
-        const msg = errData?.message || err.message || "";
-        const statusText = String(errData?.data ?? "").toLowerCase();
-
-        if (statusText.includes("cancel")) {
-          console.log("⚠️ Detected Canceled booking inside error payload!");
-
-          // 🧹 Dừng polling
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-
-          // 🧽 Xóa toàn bộ dữ liệu banner / localStorage
-          localStorage.removeItem("lockExpireAt");
-          localStorage.removeItem("lastBookingId");
-          localStorage.removeItem("lastAppointmentId");
-          localStorage.removeItem("lastTransactionId");
-          localStorage.removeItem("swap_stationId");
-          localStorage.removeItem("swap_stationName");
-
-          // 🧠 Reset state React ngay lập tức
-          setBannerRemain(0);
-          setBannerHidden(true);
-          setBannerInfo({
-            stationName: "",
-            transactionId: "",
-            appointmentId: "",
-          });
-
-          // 🛎 Thông báo cho user
-          notify("Booking Cancelled", "Your booking was cancelled by staff.");
-          alert(`❌ Booking ${bookingId} was cancelled by staff.`);
-        }
-      }
-    }, 10000);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -496,6 +499,7 @@ export default function Station() {
         localStorage.setItem("lastBookingId", appointmentId);
         localStorage.setItem("lastAppointmentId", appointmentId);
         console.log("✅ Saved lastBookingId (appointmentId):", appointmentId);
+        startPolling(appointmentId);
       } else {
         console.warn("⚠️ No appointmentId in booking response!");
       }
