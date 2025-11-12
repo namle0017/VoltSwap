@@ -15,16 +15,17 @@ import L from "leaflet";
 
 /* ================== VOLTSWAP THEME ================== */
 const BRAND = {
-  "--brand-start": "#1ee3b3", // mint/teal (Volt)
-  "--brand-end": "#2f66ff",   // blue (Swap)
+  "--brand-start": "#1ee3b3",
+  "--brand-end": "#2f66ff",
   "--brand-50": "#f5faff",
   "--brand-500": "#2f66ff",
   "--brand-600": "#2856d4",
 };
 
 /* ================== CONFIG ================== */
-const WARNING_THRESHOLD = 30; // giây — mốc chuyển sang trạng thái cảnh báo
-const MUTE_KEY = "bookingMuted"; // cờ tắt thông báo nếu user bấm Navigate sớm
+const WARNING_THRESHOLD = 30;
+const MUTE_KEY = "bookingMuted";
+const CHECK_STATUS_EP = "/Booking/check-status-booking"; // <— dùng endpoint mới
 
 // Leaflet default icon fix
 delete L.Icon.Default.prototype._getIconUrl;
@@ -37,7 +38,7 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 });
 
-// User location icon (dùng brand-500)
+// User location icon
 const userIcon = L.divIcon({
   className: "user-pin",
   html: `<div style="
@@ -94,18 +95,26 @@ function BookingCountdownBanner({
         ].join(" ")}
       >
         <div className="flex items-start gap-3">
-          <div className={`text-xl ${danger ? "text-red-600" : "text-[var(--brand-600)]"}`}>
+          <div
+            className={`text-xl ${
+              danger ? "text-red-600" : "text-[var(--brand-600)]"
+            }`}
+          >
             ⏳
           </div>
           <div className="flex-1">
             <div className="font-semibold text-gray-900">
-              You have an active booking {stationName ? `at ${stationName}` : ""}.
+              You have an active booking{" "}
+              {stationName ? `at ${stationName}` : ""}.
             </div>
             <div className="text-sm text-gray-700 mt-0.5">
               Auto-cancel in{" "}
-              <b className={danger ? "text-red-600" : "text-[var(--brand-600)]"}>
+              <b
+                className={danger ? "text-red-600" : "text-[var(--brand-600)]"}
+              >
                 {formatMMSS(remain)}
-              </b>.
+              </b>
+              .
               {transactionId ? (
                 <>
                   {" "}
@@ -182,6 +191,8 @@ export default function Station() {
   const [bannerHidden, setBannerHidden] = useState(false);
   const [bannerMuted, setBannerMuted] = useState(false);
 
+  const pollRef = useRef(null); // <— interval id
+  const countdownRef = useRef(null);
   const notify = (title, body) => {
     if (!("Notification" in window)) return;
     if (Notification.permission === "granted") {
@@ -239,20 +250,129 @@ export default function Station() {
 
   // ticking countdown
   useEffect(() => {
-    if (bannerHidden || bannerMuted) return;
-    if (bannerRemain <= 0) return;
-    const t = setInterval(() => {
+    if (bannerHidden || bannerMuted || bannerRemain <= 0) return;
+
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    countdownRef.current = setInterval(() => {
       setBannerRemain((s) => {
         const next = s - 1;
         if (next <= 0) {
+          clearInterval(countdownRef.current);
+          countdownRef.current = null;
           localStorage.removeItem("lockExpireAt");
           return 0;
         }
         return next;
       });
     }, 1000);
-    return () => clearInterval(t);
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
   }, [bannerRemain, bannerHidden, bannerMuted]);
+
+  /* ===== Poll every 10s to check Booking status ===== */
+  useEffect(() => {
+    const bookingId =
+      localStorage.getItem("lastBookingId") ||
+      localStorage.getItem("bookingId");
+
+    if (!bookingId) return;
+
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    console.log("🚀 Start polling booking status for ID:", bookingId);
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await api.get(`${CHECK_STATUS_EP}?BookingId=${bookingId}`);
+        const msg = res?.data?.message || "";
+        const status = String(res?.data?.data ?? "").toLowerCase();
+
+        console.log("🔁 Polling response:", msg, "| Status:", status);
+
+        if (status.includes("done") || status.includes("completed")) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          localStorage.removeItem("lockExpireAt");
+          setBannerRemain(0);
+          setBannerHidden(true);
+          notify("Booking Completed", "Your booking is now done!");
+          alert(`✅ Booking ${bookingId} completed successfully!`);
+        } else if (status.includes("cancel")) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          localStorage.removeItem("lockExpireAt");
+          localStorage.removeItem("lastBookingId");
+          localStorage.removeItem("lastAppointmentId");
+          localStorage.removeItem("lastTransactionId");
+          localStorage.removeItem("swap_stationId");
+          localStorage.removeItem("swap_stationName");
+
+          setBannerRemain(0);
+          setBannerHidden(true);
+          setBannerInfo({
+            stationName: "",
+            transactionId: "",
+            appointmentId: "",
+          });
+
+          notify("Booking Cancelled", "Your booking was cancelled by staff.");
+          alert(`❌ Booking ${bookingId} was cancelled by staff.`);
+        } else if (status.includes("processing")) {
+          console.log("⏳ Booking still processing...");
+        } else {
+          console.log("ℹ️ Unknown booking status:", status);
+        }
+      } catch (err) {
+        // ⚠️ Log lỗi ra console (giữ nguyên như cũ)
+        console.error(
+          "🚨 Polling failed (unexpected network/500):",
+          err?.response?.data || err
+        );
+
+        // ⚙️ Bổ sung: xử lý khi BE trả về "Canceled" trong payload lỗi (thường kèm status 500)
+        const errData = err?.response?.data;
+        const msg = errData?.message || err.message || "";
+        const statusText = String(errData?.data ?? "").toLowerCase();
+
+        if (statusText.includes("cancel")) {
+          console.log("⚠️ Detected Canceled booking inside error payload!");
+
+          // 🧹 Dừng polling
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          // 🧽 Xóa toàn bộ dữ liệu banner / localStorage
+          localStorage.removeItem("lockExpireAt");
+          localStorage.removeItem("lastBookingId");
+          localStorage.removeItem("lastAppointmentId");
+          localStorage.removeItem("lastTransactionId");
+          localStorage.removeItem("swap_stationId");
+          localStorage.removeItem("swap_stationName");
+
+          // 🧠 Reset state React ngay lập tức
+          setBannerRemain(0);
+          setBannerHidden(true);
+          setBannerInfo({
+            stationName: "",
+            transactionId: "",
+            appointmentId: "",
+          });
+
+          // 🛎 Thông báo cho user
+          notify("Booking Cancelled", "Your booking was cancelled by staff.");
+          alert(`❌ Booking ${bookingId} was cancelled by staff.`);
+        }
+      }
+    }, 10000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   // draw route & highlight
   const handleNavigateVisual = (st) => {
@@ -305,30 +425,29 @@ export default function Station() {
   const confirmNavigate = () => {
     if (!navSub) {
       alert("Vui lòng chọn subscription trước khi tiếp tục.");
-      return;
+    } else {
+      const chosen = subs.find((s) => s.subId === navSub);
+      if (!chosen) {
+        alert("Subscription không hợp lệ.");
+        return;
+      }
+      localStorage.setItem("swap_stationId", navStation.stationId);
+      localStorage.setItem("swap_stationName", navStation.stationName || "");
+      localStorage.setItem("swap_subscriptionId", chosen.subId);
+      localStorage.setItem("swap_subscriptionName", chosen.planName);
+
+      navigate("/stations", {
+        state: {
+          stationId: navStation.stationId,
+          stationName: navStation.stationName,
+          subscriptionId: chosen.subId,
+          subscriptionName: chosen.planName,
+        },
+      });
+
+      setNavStation(null);
+      setNavSub("");
     }
-    const chosen = subs.find((s) => s.subId === navSub);
-    if (!chosen) {
-      alert("Subscription không hợp lệ.");
-      return;
-    }
-
-    localStorage.setItem("swap_stationId", navStation.stationId);
-    localStorage.setItem("swap_stationName", navStation.stationName || "");
-    localStorage.setItem("swap_subscriptionId", chosen.subId);
-    localStorage.setItem("swap_subscriptionName", chosen.planName);
-
-    navigate("/stations", {
-      state: {
-        stationId: navStation.stationId,
-        stationName: navStation.stationName,
-        subscriptionId: chosen.subId,
-        subscriptionName: chosen.planName,
-      },
-    });
-
-    setNavStation(null);
-    setNavSub("");
   };
 
   // BOOKING FLOW
@@ -364,10 +483,24 @@ export default function Station() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const booking = res?.data?.data?.booking || res?.data?.booking || {};
+      console.log("📦 Booking response:", res.data);
+
+      const booking = res?.data?.data?.booking || {};
       const lockSeconds =
         Number(res?.data?.data?.time ?? res?.data?.time ?? 0) || 0;
 
+      // ✅ Lấy appointmentId làm định danh chính cho booking
+      const appointmentId = booking.appointmentId || "";
+
+      if (appointmentId) {
+        localStorage.setItem("lastBookingId", appointmentId);
+        localStorage.setItem("lastAppointmentId", appointmentId);
+        console.log("✅ Saved lastBookingId (appointmentId):", appointmentId);
+      } else {
+        console.warn("⚠️ No appointmentId in booking response!");
+      }
+
+      // === Lưu các thông tin khác để hiển thị banner ===
       localStorage.setItem("swap_stationId", selectedStation.stationId);
       localStorage.setItem(
         "swap_stationName",
@@ -376,29 +509,27 @@ export default function Station() {
       localStorage.setItem("swap_subscriptionId", selectedSub);
       if (booking.transactionId)
         localStorage.setItem("lastTransactionId", booking.transactionId);
-      if (booking.appointmentId)
-        localStorage.setItem("lastAppointmentId", booking.appointmentId);
       localStorage.setItem("lastPlanId", booking.subscriptionId || selectedSub);
-
       localStorage.removeItem(MUTE_KEY);
       setBannerMuted(false);
 
+      // === Xử lý banner đếm ngược ===
       if (lockSeconds > 0) {
         const expireAt = Date.now() + lockSeconds * 1000;
         localStorage.setItem("lockExpireAt", String(expireAt));
         setBannerInfo({
           stationName: selectedStation.stationName || "",
           transactionId: booking.transactionId || "",
-          appointmentId: booking.appointmentId || "",
+          appointmentId,
         });
         setBannerHidden(false);
         setBannerRemain(lockSeconds);
 
         notify(
           "Booking created",
-          `Batteries locked at ${selectedStation.stationName}. Expires in ${formatMMSS(
-            lockSeconds
-          )}`
+          `Batteries locked at ${
+            selectedStation.stationName
+          }. Expires in ${formatMMSS(lockSeconds)}`
         );
       }
 
@@ -407,11 +538,11 @@ export default function Station() {
           "✅ Booking created & battery locked!",
           `📍 ${selectedStation.stationName}`,
           `🧾 Transaction: ${booking.transactionId || "—"}`,
-          `📄 Appointment: ${booking.appointmentId || "—"}`,
+          `📄 Appointment: ${appointmentId || "—"}`,
           `📅 ${dateBooking} ${timeBooking}`,
           lockSeconds ? `⏳ Lock time: ${formatMMSS(lockSeconds)}` : undefined,
           "",
-          "➡ Bạn có thể nhấn Navigate để xác thực tại trạm.",
+          "➡ You can press Navigate to go to the station.",
         ]
           .filter(Boolean)
           .join("\n")
@@ -444,7 +575,10 @@ export default function Station() {
     const s = subs.find((x) => x.subId === subId);
     if (!s) return null;
     return (
-      <div className="text-xs text-gray-600 bg-[var(--brand-50)] border border-[var(--brand-500)]/20 rounded-md px-2 py-1" style={BRAND}>
+      <div
+        className="text-xs text-gray-600 bg-[var(--brand-50)] border border-[var(--brand-500)]/20 rounded-md px-2 py-1"
+        style={BRAND}
+      >
         Selected: <span className="font-medium">{s.planName}</span> —{" "}
         <span className="font-mono">ID: {s.subId}</span>
       </div>
@@ -501,7 +635,8 @@ export default function Station() {
           Battery Swap Stations
         </h2>
         <p className="text-gray-600 text-sm mt-1">
-          Find a nearby station, book a time slot, and navigate with a live route preview.
+          Find a nearby station, book a time slot, and navigate with a live
+          route preview.
         </p>
       </div>
 
@@ -547,7 +682,7 @@ export default function Station() {
                           lng: st.locationLon,
                         }) /
                           40) *
-                        60
+                          60
                       )}{" "}
                       mins
                     </p>
@@ -587,7 +722,9 @@ export default function Station() {
             </Marker>
           ))}
 
-          {userPos && <Marker position={[userPos.lat, userPos.lng]} icon={userIcon} />}
+          {userPos && (
+            <Marker position={[userPos.lat, userPos.lng]} icon={userIcon} />
+          )}
           {route && (
             <Polyline
               positions={route}
@@ -612,9 +749,11 @@ export default function Station() {
           {stations.map((st) => {
             const pct = Number(st.availablePercent ?? 0);
             const band =
-              pct >= 70 ? "from-emerald-400 to-emerald-500"
-                : pct >= 40 ? "from-amber-400 to-amber-500"
-                  : "from-rose-400 to-rose-500";
+              pct >= 70
+                ? "from-emerald-400 to-emerald-500"
+                : pct >= 40
+                ? "from-amber-400 to-amber-500"
+                : "from-rose-400 to-rose-500";
 
             return (
               <div
@@ -623,7 +762,9 @@ export default function Station() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h4 className="font-semibold text-gray-900">{st.stationName}</h4>
+                    <h4 className="font-semibold text-gray-900">
+                      {st.stationName}
+                    </h4>
                     <p className="text-sm text-gray-500">{st.stationAddress}</p>
                     <p className="text-sm text-gray-700 mt-1">
                       ⚡ {st.batteryAvailable}/{st.totalBattery} batteries
@@ -681,7 +822,9 @@ export default function Station() {
                 Booking at {selectedStation?.stationName}
               </h3>
 
-              <label className="block text-sm font-medium mb-1">Select Subscription</label>
+              <label className="block text-sm font-medium mb-1">
+                Select Subscription
+              </label>
               <select
                 value={selectedSub}
                 onChange={(e) => setSelectedSub(e.target.value)}
@@ -701,7 +844,9 @@ export default function Station() {
               </select>
               <SelectedSubInfo subId={selectedSub} />
 
-              <label className="block text-sm font-medium mb-1 mt-3">Date</label>
+              <label className="block text-sm font-medium mb-1 mt-3">
+                Date
+              </label>
               <input
                 type="date"
                 value={bookingDate}
@@ -748,7 +893,9 @@ export default function Station() {
                 Navigate to {navStation?.stationName}
               </h3>
 
-              <label className="block text-sm font-medium mb-1">Select Subscription</label>
+              <label className="block text-sm font-medium mb-1">
+                Select Subscription
+              </label>
               <select
                 value={navSub}
                 onChange={(e) => setNavSub(e.target.value)}

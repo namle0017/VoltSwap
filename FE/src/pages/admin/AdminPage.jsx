@@ -19,10 +19,21 @@ import PageTransition from "@/components/PageTransition";
 import api from "@/api/api";
 
 const MONTH_LABELS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
-const formatNumber = (n) => (typeof n === "number" ? n.toLocaleString("vi-VN") : "0");
+const formatNumber = (n) =>
+  typeof n === "number" ? n.toLocaleString("vi-VN") : "0";
 const formatCurrencyVND = (n) =>
   typeof n === "number"
     ? n.toLocaleString("vi-VN", { style: "currency", currency: "VND" })
@@ -45,26 +56,59 @@ function normalizeOverview(raw) {
 
   // Customers / Drivers
   const numberOfDriver =
-    Number(pick(raw, ["numberOfDriver", "drivers.total", "driver.total", "totals.driver"])) || 0;
+    Number(
+      pick(raw, [
+        "numberOfDriver",
+        "drivers.total",
+        "driver.total",
+        "totals.driver",
+      ])
+    ) || 0;
 
   // Monthly Revenue
   const monthlyRevenueVal =
-    Number(pick(raw, ["monthlyRevenue.totalRevenue", "revenue.monthly.total", "revenueTotalMonth"])) || 0;
+    Number(
+      pick(raw, [
+        "monthlyRevenue.totalRevenue",
+        "revenue.monthly.total",
+        "revenueTotalMonth",
+      ])
+    ) || 0;
 
   // Daily swap
   const totalSwapToday =
-    Number(pick(raw, ["numberOfSwapDailyForAdmin.totalSwap", "dailySwap.total", "swaps.today"])) || 0;
+    Number(
+      pick(raw, [
+        "numberOfSwapDailyForAdmin.totalSwap",
+        "dailySwap.total",
+        "swaps.today",
+      ])
+    ) || 0;
 
   // Stations
   const activeStation =
-    Number(pick(raw, ["stationOverview.activeStation", "stations.active", "station.active"])) || 0;
+    Number(
+      pick(raw, [
+        "stationOverview.activeStation",
+        "stations.active",
+        "station.active",
+      ])
+    ) || 0;
   const totalStation =
-    Number(pick(raw, ["stationOverview.totalStation", "stations.total", "station.total"])) || 0;
+    Number(
+      pick(raw, [
+        "stationOverview.totalStation",
+        "stations.total",
+        "station.total",
+      ])
+    ) || 0;
 
   // === NEW: Lấy planMonthSummary để chia pie theo gói ===
   const planMonthSummary =
     pick(raw, ["planSummary.planMonthSummary"], []) || [];
-  const planByPackage = (Array.isArray(planMonthSummary) ? planMonthSummary : []).map((p, idx) => ({
+  const planByPackage = (
+    Array.isArray(planMonthSummary) ? planMonthSummary : []
+  ).map((p, idx) => ({
     name: String(p?.planName ?? `Plan-${idx + 1}`),
     users: Number(p?.totalUsers ?? 0),
     revenue: Number(p?.totalRevenue ?? 0),
@@ -78,14 +122,24 @@ function normalizeOverview(raw) {
 
   // === Monthly swaps (BE mới: batterySwapMonthly.batterySwapMonthlyLists) ===
   const bsm =
-    pick(raw, ["batterySwapMonthly.batterySwapMonthlyLists", "batterySwapMonthly", "swaps.monthly", "monthlySwaps"], []) || [];
+    pick(
+      raw,
+      [
+        "batterySwapMonthly.batterySwapMonthlyLists",
+        "batterySwapMonthly",
+        "swaps.monthly",
+        "monthlySwaps",
+      ],
+      []
+    ) || [];
   const arr = Array.isArray(bsm)
     ? bsm
     : Array.isArray(bsm?.batterySwapMonthlyLists)
       ? bsm.batterySwapMonthlyLists
       : [];
 
-  const avgBatterySwap = Number(pick(raw, ["batterySwapMonthly.avgBatterySwap"])) || 0;
+  const avgBatterySwap =
+    Number(pick(raw, ["batterySwapMonthly.avgBatterySwap"])) || 0;
 
   const monthlySwapsData = arr.map((m) => {
     const mNum =
@@ -93,8 +147,11 @@ function normalizeOverview(raw) {
       (typeof m?.month === "string"
         ? Math.max(1, MONTH_LABELS.findIndex((x) => x === m.month) + 1)
         : 0);
-    const monthLabel = MONTH_LABELS[(Math.max(1, Math.min(12, mNum)) - 1) || 0] || "—";
-    const swaps = Number(m?.batterySwapInMonth ?? m?.count ?? m?.swaps ?? m?.total ?? 0);
+    const monthLabel =
+      MONTH_LABELS[Math.max(1, Math.min(12, mNum)) - 1 || 0] || "—";
+    const swaps = Number(
+      m?.batterySwapInMonth ?? m?.count ?? m?.swaps ?? m?.total ?? 0
+    );
     return { month: monthLabel, swaps };
   });
 
@@ -139,12 +196,15 @@ export default function AdminPage() {
         });
         const raw = res?.data?.data ?? res?.data ?? null;
         const normalized = normalizeOverview(raw);
-        if (!normalized) throw new Error("Overview payload không đúng định dạng.");
+        if (!normalized)
+          throw new Error("Overview payload không đúng định dạng.");
         setOv(normalized);
       } catch (e) {
         console.error("Overview fetch error:", e?.response?.data || e);
         setErr(
-          e?.response?.data?.message || e?.message || "Không tải được Overview từ BE."
+          e?.response?.data?.message ||
+          e?.message ||
+          "Không tải được Overview từ BE."
         );
       } finally {
         setLoading(false);
@@ -166,8 +226,12 @@ export default function AdminPage() {
   const planSwapTimes = ov?.planSwapTimes ?? 0;
   const planTotalMonthlyRevenue = ov?.planTotalMonthlyRevenue ?? 0;
 
-  const monthlySwapsData = Array.isArray(ov?.monthlySwapsData) ? ov.monthlySwapsData : [];
-  const planByPackage = Array.isArray(ov?.planByPackage) ? ov.planByPackage : [];
+  const monthlySwapsData = Array.isArray(ov?.monthlySwapsData)
+    ? ov.monthlySwapsData
+    : [];
+  const planByPackage = Array.isArray(ov?.planByPackage)
+    ? ov.planByPackage
+    : [];
 
   const avg = useMemo(() => {
     if (!monthlySwapsData.length) return 0;
@@ -187,16 +251,26 @@ export default function AdminPage() {
     TP3: "#3B82F6",
     TP3U: "#10B981",
   };
-  const FALLBACK_COLORS = ["#60A5FA", "#F472B6", "#34D399", "#FBBF24", "#A78BFA", "#F97316", "#22D3EE", "#4ADE80"];
+  const FALLBACK_COLORS = [
+    "#60A5FA",
+    "#F472B6",
+    "#34D399",
+    "#FBBF24",
+    "#A78BFA",
+    "#F97316",
+    "#22D3EE",
+    "#4ADE80",
+  ];
 
   const pieData = planByPackage.map((p, idx) => ({
     name: p.name,
-    value: Number(p.users || 0),       // slice theo totalUsers
-    revenue: Number(p.revenue || 0),   // hiển thị thêm trong tooltip/legend
+    value: Number(p.users || 0), // slice theo totalUsers
+    revenue: Number(p.revenue || 0), // hiển thị thêm trong tooltip/legend
     color: PLAN_COLORS[p.name] || FALLBACK_COLORS[idx % FALLBACK_COLORS.length],
   }));
 
-  const allPieZero = pieData.length === 0 || pieData.every((d) => !Number(d.value));
+  const allPieZero =
+    pieData.length === 0 || pieData.every((d) => !Number(d.value));
   const barEmpty = monthlySwapsData.length === 0;
 
   const statisticCards = [
@@ -229,7 +303,9 @@ export default function AdminPage() {
       value: `${formatNumber(activeStation)}/${formatNumber(totalStation)}`,
       icon: <i className="bi bi-geo-fill"></i>,
       color: "bg-purple-500",
-      change: totalStation ? `${Math.round((activeStation / totalStation) * 100)}%` : "0%",
+      change: totalStation
+        ? `${Math.round((activeStation / totalStation) * 100)}%`
+        : "0%",
       changeColor: "text-blue-600",
     },
   ];
@@ -238,9 +314,13 @@ export default function AdminPage() {
     active && payload?.length ? (
       <div className="bg-white p-3 rounded-lg shadow-lg border">
         <p className="font-semibold">{payload[0].name}</p>
-        <p className="text-sm text-gray-600">Users: {formatNumber(payload[0].value)}</p>
+        <p className="text-sm text-gray-600">
+          Users: {formatNumber(payload[0].value)}
+        </p>
         {typeof payload[0].payload?.revenue === "number" && (
-          <p className="text-sm text-gray-600">Revenue: {formatCurrencyVND(payload[0].payload.revenue)}</p>
+          <p className="text-sm text-gray-600">
+            Revenue: {formatCurrencyVND(payload[0].payload.revenue)}
+          </p>
         )}
       </div>
     ) : null;
@@ -249,7 +329,9 @@ export default function AdminPage() {
     active && payload?.length ? (
       <div className="bg-white p-3 rounded-lg shadow-lg border">
         <p className="font-semibold">{label}</p>
-        <p className="text-sm text-gray-600">{formatNumber(payload[0].value)} swaps</p>
+        <p className="text-sm text-gray-600">
+          {formatNumber(payload[0].value)} swaps
+        </p>
       </div>
     ) : null;
 
@@ -263,7 +345,9 @@ export default function AdminPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Dashboard Overview
+          </h1>
           <p className="text-gray-600">
             Welcome back! Here's what's happening with your EV stations today.
           </p>
@@ -299,14 +383,22 @@ export default function AdminPage() {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
               >
                 <div className="flex items-center justify-between mb-4">
-                  <div className={`p-3 rounded-lg ${card.color} text-white text-2xl`}>{card.icon}</div>
+                  <div
+                    className={`p-3 rounded-lg ${card.color} text-white text-2xl`}
+                  >
+                    {card.icon}
+                  </div>
                   {card.change ? (
-                    <span className={`text-sm font-medium ${card.changeColor}`}>{card.change}</span>
+                    <span className={`text-sm font-medium ${card.changeColor}`}>
+                      {card.change}
+                    </span>
                   ) : (
                     <span />
                   )}
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-1">{card.value}</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                  {card.value}
+                </h3>
                 <p className="text-gray-600 text-sm">{card.title}</p>
               </motion.div>
             ))}
@@ -324,7 +416,9 @@ export default function AdminPage() {
               transition={{ duration: 0.6, delay: 0.3 }}
               whileHover={{ y: -2 }}
             >
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Packages Breakdown (by Users)</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">
+                Packages Breakdown (by Users)
+              </h2>
               <div className="h-80">
                 {allPieZero ? (
                   <div className="h-full flex items-center justify-center text-sm text-gray-500">
@@ -359,12 +453,21 @@ export default function AdminPage() {
                     whileHover={{ x: 5 }}
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-sm font-medium text-gray-700">{item.name}</span>
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        {item.name}
+                      </span>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-gray-700">Users: {formatNumber(item.value)}</div>
-                      <div className="text-xs text-gray-500">Revenue: {formatCurrencyVND(item.revenue)}</div>
+                      <div className="text-sm text-gray-700">
+                        Users: {formatNumber(item.value)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Revenue: {formatCurrencyVND(item.revenue)}
+                      </div>
                     </div>
                   </motion.div>
                 ))}
@@ -379,7 +482,9 @@ export default function AdminPage() {
               transition={{ duration: 0.6, delay: 0.3 }}
               whileHover={{ y: -2 }}
             >
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Monthly Battery Swaps</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">
+                Monthly Battery Swaps
+              </h2>
               <div className="h-80">
                 {barEmpty ? (
                   <div className="h-full flex items-center justify-center text-sm text-gray-500">
@@ -387,7 +492,10 @@ export default function AdminPage() {
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthlySwapsData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <BarChart
+                      data={monthlySwapsData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis
                         dataKey="month"
@@ -395,7 +503,11 @@ export default function AdminPage() {
                         tickLine={false}
                         tick={{ fontSize: 12, fill: "#6b7280" }}
                       />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#6b7280" }} />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: "#6b7280" }}
+                      />
                       <Tooltip content={<CustomBarTooltip />} />
                       <Bar
                         dataKey="swaps"

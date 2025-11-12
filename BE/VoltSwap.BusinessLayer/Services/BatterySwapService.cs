@@ -230,6 +230,7 @@ namespace VoltSwap.BusinessLayer.Services
         //Nemo: Cho staff tạo cancelPlan
         public async Task<ServiceResult> CancelPlanAsync(CheckCancelPlanRequest requestDto)
         {
+            var getstation = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(requestDto.StaffId);
             var generateTransId = await GenerateTransactionId();
             var getPlanId = await GetPlanIdBySubId(requestDto.SubId);
             var getFee = await _feeRepo.GetAllQueryable()
@@ -292,7 +293,20 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "Something wrong, please contact to admin or waiting...",
                 };
             }
-
+            var batteriesInSub = await _unitOfWork.BatterySwap
+            .GetBatteriesBySubscriptionId(requestDto.SubId);
+            foreach (var bat in batteriesInSub)
+            {
+                var getbat = await _unitOfWork.Batteries.GetByIdAsync(b=> b.BatteryId == bat.BatteryOutId);
+                bat.Status = "Returned";
+                getbat.BatterySwapStationId = getstation.BatterySwapStationId;
+                getbat.BatteryStatus = "Warehouse";
+                getbat.Soc = Random.Shared.Next(1, 101);
+                await _unitOfWork.BatterySwap.UpdateAsync(bat);
+                await  _unitOfWork.Batteries.UpdateAsync(getbat);
+                await _unitOfWork.SaveChangesAsync();
+                
+            }
 
             return new ServiceResult
             {
@@ -302,6 +316,7 @@ namespace VoltSwap.BusinessLayer.Services
 
             };
         }
+
         //Bin:  hàm để bên staff xem lịch sử BW của trạm
         public async Task<ServiceResult> BatterySwapList(UserRequest request)
         {
@@ -825,7 +840,7 @@ namespace VoltSwap.BusinessLayer.Services
                 //Cập nhật pin vào (pin trả lại trạm)
                 batteryIn.BatterySwapStationId = stationId;
                 batteryIn.BatteryStatus = "Warehouse";
-                batteryIn.Soc = new Random().Next(20, 100); // giả lập SOC
+                batteryIn.Soc = new Random().Next(1, 100); // giả lập SOC
                 getBatteryIn.Status = "Returned";
                 await _batRepo.UpdateAsync(batteryIn);
 
@@ -843,9 +858,6 @@ namespace VoltSwap.BusinessLayer.Services
                     CreateAt = DateTime.UtcNow.ToLocalTime(),
                 };
                 await _batSwapRepo.CreateAsync(swapIn);
-
-
-
 
                 //Tạo session cho battery-in
                 var sessions = await GenerateBatterySessionForBattery(requestDto.BatteryInId, diff);
