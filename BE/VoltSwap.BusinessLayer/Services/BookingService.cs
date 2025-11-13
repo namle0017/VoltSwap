@@ -414,11 +414,11 @@ namespace VoltSwap.BusinessLayer.Services
         //Bin: Staff xem danh sách booking của trạm mình
         public async Task<ServiceResult> GetBookingsByStationAndMonthAsync(ViewBookingRequest request)
         {
-            var today = DateTime.UtcNow.ToLocalTime();
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.ToLocalTime());
             var stationId = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.StaffId);
             var bookingList = await _bookingRepo.GetAllQueryable()
                 .Where(b => b.BatterySwapStationId == stationId.BatterySwapStationId
-                //&& b.CreateBookingAt == today
+                && b.DateBooking == today
                 )
 
                 .ToListAsync();
@@ -448,7 +448,7 @@ namespace VoltSwap.BusinessLayer.Services
             return new ServiceResult
             {
                 Status = 200,
-                Message = "Bookings retrieved successfully",
+                Message = $"Bookings retrieved successfully {today}",
                 Data = bookingResponses
             };
         }

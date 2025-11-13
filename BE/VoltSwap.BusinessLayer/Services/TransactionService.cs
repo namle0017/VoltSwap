@@ -926,7 +926,7 @@ namespace VoltSwap.BusinessLayer.Services
             };
 
 
-            getTrans.TransactionId = await GenerateTransactionId();
+            //getTrans.TransactionId = await GenerateTransactionId();
             getTrans.Status = "Pending";
             getTrans.TransactionDate = DateTime.UtcNow.ToLocalTime();
             getTrans.TransactionContext = await GenerateTransactionConext(transactionContext);

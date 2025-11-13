@@ -151,7 +151,10 @@ namespace VoltSwap.BusinessLayer.Services
             await _unitOfWork.SaveChangesAsync();
 
             var battery = await _unitOfWork.Batteries.FindingBatteryById(request.BatteryId);
-            battery.BatteryStatus = "Warehouse";
+            if (battery.BatteryStatus != "Maintenance")
+            {
+                battery.BatteryStatus = "Warehouse";
+            }
             battery.UpdateAt = DateTime.UtcNow.ToLocalTime();
             await _unitOfWork.Batteries.UpdateAsync(battery);
             await _unitOfWork.SaveChangesAsync();

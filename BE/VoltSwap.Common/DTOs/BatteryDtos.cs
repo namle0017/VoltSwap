@@ -16,4 +16,8 @@ namespace VoltSwap.Common.DTOs
         public String StationId { get; set; }
         public String StationName { get; set; }
     }
+    public class BatListRespone
+    {
+        public string BatteryId { get; set; }
+    }
 }

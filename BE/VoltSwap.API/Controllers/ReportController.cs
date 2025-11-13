@@ -121,6 +121,8 @@ namespace VoltSwap.API.Controllers
             });
 
         }
+
+        [Authorize(Roles = "Admin,Staff")]
         [HttpGet("get-staff-report-list")]
         public async Task<IActionResult> GetStaffReportType()
         {
@@ -151,5 +153,38 @@ namespace VoltSwap.API.Controllers
             });
 
         }
+
+        [HttpGet("view-question")]
+        public async Task<IActionResult> ViewQuestion()
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _reportService.ViewQuestion();
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+                data = result.Data
+            });
+        }
+
+        [HttpPost("create-question")]
+        public async Task<IActionResult> CreateQuestion([FromBody]QuestionRequest question)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _reportService.CreateQuestion(question);
+            return StatusCode(result.Status, new
+            {
+                message = result.Message,
+                data = result.Data
+            });
+        }
+
+
+
     }
 }

@@ -75,4 +75,11 @@ namespace VoltSwap.Common.DTOs
         public int ReportId { get; set; }
         public string ReportStatus { get; set; }
     }
+
+    //bin
+    public class QuestionRequest 
+    {
+        public string Description { get; set; }
+    }
+
 }

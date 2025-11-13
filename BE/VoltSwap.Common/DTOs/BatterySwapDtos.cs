@@ -214,4 +214,10 @@ namespace VoltSwap.Common.DTOs
         public string BatteryId { get; set; }
         public int SlotId { get; set; }
     }
+
+    public class StaffTakeBatteriesRequest
+    {
+        public AccessRequest Access { get; set; }              
+        public List<string> BatteriesId { get; set; }        
+    }
 }
