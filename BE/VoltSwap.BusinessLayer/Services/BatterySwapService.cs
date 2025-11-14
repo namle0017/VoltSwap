@@ -245,6 +245,11 @@ namespace VoltSwap.BusinessLayer.Services
             foreach (var transaction in gettransactionNotPay)
             {
                 t += transaction.TotalAmount;
+                transaction.Status = "Success";
+                transaction.Note = $"{requestDto.SubId}-CANCEL-PLAN";
+                await _transRepo.CreateAsync(transaction);
+                await _unitOfWork.SaveChangesAsync();
+
             }
 
             var getSessionList = await GenerateBatterySession(requestDto.SubId);
@@ -255,25 +260,35 @@ namespace VoltSwap.BusinessLayer.Services
                 YearSwap = DateTime.UtcNow.ToLocalTime().Year,
             };
             var calMilleageFee = await CalMilleageFee(getBatRequest, getSessionList);
-            string transactionContext = $"{booking.UserDriverId}-CANCEL-{generateTransId.Substring(6)}";
+            string transactionContext = $"{requestDto.SubId}-CANCEL-PLAN";
+            var total = (-(getFee.Amount) + t + calMilleageFee);
             var createRefund = new Transaction
             {
                 TransactionId = generateTransId,
                 SubscriptionId = requestDto.SubId,
                 UserDriverId = booking.UserDriverId,
-                TransactionType = "Refund",
                 Amount = -(getFee.Amount),
                 Currency = "VND",
                 TransactionDate = DateTime.UtcNow.ToLocalTime(),
-                PaymentMethod = "Cash",
+                PaymentMethod = "Bank",
                 Status = "Pending",
+                Note = $"{requestDto.SubId}-CANCEL-PLAN",
                 Fee = t + calMilleageFee,
-                TotalAmount = -(getFee.Amount) + t + calMilleageFee,
+                TotalAmount = total,
                 TransactionContext = transactionContext,
                 CreatedBy = requestDto.StaffId,
             };
+            if(total > 0)
+            {
+                createRefund.TransactionType = "Penalty Fee";
+            }
+            else
+            {
+                createRefund.TransactionType = "Refund";
+                createRefund.PaymentMethod = "Cash";
+            }
 
-            await _transRepo.CreateAsync(createRefund);
+                await _transRepo.CreateAsync(createRefund);
             await _unitOfWork.SaveChangesAsync();
 
             if (booking != null)
@@ -297,13 +312,8 @@ namespace VoltSwap.BusinessLayer.Services
             .GetBatteriesBySubscriptionId(requestDto.SubId);
             foreach (var bat in batteriesInSub)
             {
-                var getbat = await _unitOfWork.Batteries.GetByIdAsync(b=> b.BatteryId == bat.BatteryOutId);
                 bat.Status = "Returned";
-                getbat.BatterySwapStationId = getstation.BatterySwapStationId;
-                getbat.BatteryStatus = "Warehouse";
-                getbat.Soc = Random.Shared.Next(1, 101);
                 await _unitOfWork.BatterySwap.UpdateAsync(bat);
-                await  _unitOfWork.Batteries.UpdateAsync(getbat);
                 await _unitOfWork.SaveChangesAsync();
                 
             }
@@ -314,6 +324,50 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "Check confirm and refund for customer",
                 Data = createRefund
 
+            };
+        }
+        //Bin: staff bỏ pin của sub khách hủy vào kho
+        public async Task<ServiceResult> StaffTakeBattrey(StaffTakeBatteriesRequest request)
+        {
+            // Lấy danh sách pin thuộc subscription
+            var batteriesInSub = await _unitOfWork.BatterySwap
+                .GetBatteriesBySubscriptionId(request.Access.SubscriptionId);
+            var allowSet = batteriesInSub.Select(x => x.BatteryOutId)
+                                         .Where(id => !string.IsNullOrWhiteSpace(id))
+                                         .ToHashSet();
+
+
+            var requestIds = (request.BatteriesId ?? new List<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct()
+                .ToList();
+
+
+            var idsToProcess = requestIds.Where(id => allowSet.Contains(id)).ToList();
+            if (idsToProcess.Count == 0)
+                return new ServiceResult { Status = 404, Message = "Không có pin hợp lệ để nhập kho." };
+
+            var batteries = await _unitOfWork.Batteries.GetAllQueryable()
+                .Where(b => idsToProcess.Contains(b.BatteryId))
+                .ToListAsync();
+
+            var batList = new List<BatListRespone>();
+            foreach (var b in batteries)
+            {
+                b.BatterySwapStationId = request.Access.StationId;
+                b.BatteryStatus = "Warehouse";
+                b.Soc = Random.Shared.Next(65, 86);
+                batList.Add(new BatListRespone { BatteryId = b.BatteryId });
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Success!.",
+                Data = batList
             };
         }
 
@@ -827,6 +881,17 @@ namespace VoltSwap.BusinessLayer.Services
             //Nếu có BatteryIn thì xử lý đổi pin bình thường
             if (!string.IsNullOrEmpty(requestDto.BatteryInId))
             {
+                var checkvar = await _unitOfWork.Batteries.FindingBatteryById(requestDto.BatteryInId);
+                if (checkvar != null)
+                {
+                    return new ServiceResult
+                    {
+                        Status = 404,
+                        Message = "You’re trying to return a different battery",
+                        Data = checkvar,
+                    };
+                }
+
                 var batteryIn = await _batRepo.GetByIdAsync(b => b.BatteryId == requestDto.BatteryInId);
                 if (batteryIn == null)
                     return new ServiceResult { Status = 404, Message = "BatteryIn not found" };

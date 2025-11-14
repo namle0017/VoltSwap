@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Azure;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -40,7 +41,7 @@ namespace VoltSwap.BusinessLayer.Services
         //Hàm này để list ra danh sách các report hiện tại và sẽ filter theo create_at và status là processing
         public async Task<List<UserReportRespone>> GetAllReport()
         {
-            var reports = await _reportRepo.GetAllQueryable()
+            var reports = await _reportRepo.GetAllQueryable().Where(r => r.Status != "Question")
                                             .Include(r => r.ReportType)
 
                                             .OrderByDescending(rp => rp.Status == "Processing")
@@ -99,6 +100,64 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "Report created successfully",
                 Data = respone
             };
+        }
+        public async Task<ServiceResult> CreateQuestion(QuestionRequest requestDto)
+        {
+            
+            var result = new Report
+            {
+                UserAdminId = await GetAdminId(),
+                UserStaffId = null,
+                ReportTypeId = 9,
+                Note = requestDto.Description,
+                CreateAt = DateTime.UtcNow.ToLocalTime(),
+                Status = "Question",
+                ProcessesAt = null,
+            };
+            await _reportRepo.CreateAsync(result);
+            await _unitOfWork.SaveChangesAsync();
+
+            var respone = new UserReportRespone
+            {
+                ReportId = result.ReportId,
+                ReportTypeId = result.ReportTypeId,
+                Note = result.Note,
+                CreateAt = result.CreateAt,
+            };
+
+
+            return new ServiceResult
+            {
+                Status = 201,
+                Message = "Question created successfully",
+                Data = respone
+            };
+        }
+
+        public async Task<ServiceResult> ViewQuestion()
+        {
+            var getreport = await _unitOfWork.Reports.GetAllAsync(r => r.ReportTypeId == 9);
+
+            var list = new List<UserReportRespone>();
+            foreach (var report in getreport) {
+
+                list.Add(new UserReportRespone
+                {
+                    ReportId = report.ReportId,
+                    ReportTypeId = report.ReportTypeId,
+                    Note = report.Note,
+                    CreateAt = report.CreateAt,
+
+                });
+            }
+
+            return new ServiceResult
+            {
+                Status = 201,
+                Message = "Question view successfully",
+                Data = list
+            };
+
         }
         public async Task<ServiceResult> StaffCreateReport(StaffReportRequest requestDto)
         {
