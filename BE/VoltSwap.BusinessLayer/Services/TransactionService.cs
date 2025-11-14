@@ -400,7 +400,8 @@ namespace VoltSwap.BusinessLayer.Services
                 Fee = t.Fee,
                 TotalAmount = t.TotalAmount,
                 Note = t.Note,
-            }).ToList();
+            })
+                .ToList();
 
             return transactionHistory.Select(t => new TransactionListReponse
             {

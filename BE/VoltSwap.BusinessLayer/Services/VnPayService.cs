@@ -61,7 +61,7 @@ namespace VoltSwap.BusinessLayer.Services
             vnp_Params.Add("vnp_ReturnUrl", returnUrl);
             vnp_Params.Add("vnp_IpAddr", GetIpAddress(context));
             vnp_Params.Add("vnp_CreateDate", now.ToString("yyyyMMddHHmmss"));
-            vnp_Params.Add("vnp_ExpireDate", now.AddMinutes(1).ToString("yyyyMMddHHmmss"));
+            vnp_Params.Add("vnp_ExpireDate", now.AddMinutes(10).ToString("yyyyMMddHHmmss"));
 
             // Tạo chuỗi dữ liệu để hash (raw, chưa encode)
             var signData = string.Join("&",

@@ -44,12 +44,28 @@ namespace VoltSwap.API.Controllers
             });
         }
 
+        [AllowAnonymous]
+        [HttpGet("check-status-booking")]
+        public async Task<IActionResult> Check([FromQuery] CancelBookingRequest request)
+        {
+            var result = await _bookingService.CheckStatusBooking(request.BookingId);
+            return StatusCode(result.Status, new { result.Message, result.Data });
+
+        }
+
+
         [Authorize(Roles = "Admin,Driver,Staff")]
         [HttpPost("expire-check")]
         public async Task<IActionResult> ExpireCheck([FromBody] CancelBookingRequest request)
         {
             var result = await _bookingService.CancelBookingAsync(request);
-            return StatusCode(result.Status, result.Message);
+            return StatusCode(result.Status, new
+            {
+                result.Message
+
+            }
+            );
+
         }
         [Authorize(Roles = "Driver,Staff")]
         //Bin:hủy booking bởi người dùng

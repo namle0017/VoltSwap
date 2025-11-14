@@ -59,6 +59,18 @@ namespace VoltSwap.BusinessLayer.Services
             _configuration = configuration;
         }
 
+        public async Task<ServiceResult> CheckStatusBooking (string BookingId)
+        {
+            var getbooking = await _unitOfWork.Bookings.GetByIdAsync(BookingId);
+            var status = getbooking.Status;
+            return new ServiceResult
+            {
+                Status = 409,
+                Message = "check status success.",
+                Data = status
+               
+            };
+        }
 
 
         public async Task<ServiceResult> CancelBookingAsync(CancelBookingRequest request)
@@ -648,7 +660,9 @@ namespace VoltSwap.BusinessLayer.Services
             await _bookingRepo.CreateAsync(appointmentDB);
             await _unitOfWork.SaveChangesAsync();
 
+            var calculatetime = CalculateCancelCountdownSeconds(appointmentDB);
 
+            ScheduleAutoCancel(appointmentDB.AppointmentId, calculatetime);
             var appointment = new BookingResponse
             {
                 TransactionId = null,
