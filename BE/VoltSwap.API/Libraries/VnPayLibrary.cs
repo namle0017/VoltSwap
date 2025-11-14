@@ -126,14 +126,14 @@ namespace VoltSwap.API.Libraries
             var myChecksum = HmacSha512(secretKey, rspRaw);
             return myChecksum.Equals(inputHash, StringComparison.InvariantCultureIgnoreCase);
         }
-        private string HmacSha512(string key, string inputData)
+        private static String HmacSha512(string key, String inputData)
         {
             var hash = new StringBuilder();
-            var keyBytes = Encoding.UTF8.GetBytes(key);
-            var inputBytes = Encoding.UTF8.GetBytes(inputData);
+            byte[] keyBytes = Encoding.UTF8.GetBytes(key);
+            byte[] inputBytes = Encoding.UTF8.GetBytes(inputData);
             using (var hmac = new HMACSHA512(keyBytes))
             {
-                var hashValue = hmac.ComputeHash(inputBytes);
+                byte[] hashValue = hmac.ComputeHash(inputBytes);
                 foreach (var theByte in hashValue)
                 {
                     hash.Append(theByte.ToString("x2"));

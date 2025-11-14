@@ -418,6 +418,34 @@ export default function Booking() {
       alert(msg);
     } finally {
       setCheckingSubs((prev) => { const n = new Set(prev); n.delete(bk.bookingId); return n; });
+      setTakingIn(false);
+    }
+  };
+
+  // Check SubId -> mở modal
+  const handleCheckSub = async (bk) => {
+    const subId = bk?.subcriptionId;
+    if (!subId) { alert("This booking has no SubscriptionId."); return; }
+    if (!staffId) { alert("Missing StaffId in localStorage."); return; }
+    if (checkingSubs.has(bk.bookingId)) return;
+
+    setCheckingSubs((prev) => new Set(prev).add(bk.bookingId));
+    try {
+      const res = await api.get(SUB_GET_EP, {
+        params: {
+          StaffId: staffId, staffId,
+          SubscriptionId: subId, subscriptionId: subId, subId,
+        },
+      });
+      const data = normalizeSubCheck(res?.data?.data ?? res?.data ?? null);
+      setModalBooking(bk);
+      setModalSubData(data);
+      setModalOpen(true);
+    } catch (e) {
+      const msg = e?.response?.data?.message || e?.message || "Check failed.";
+      alert(msg);
+    } finally {
+      setCheckingSubs((prev) => { const n = new Set(prev); n.delete(bk.bookingId); return n; });
     }
   };
 
@@ -444,118 +472,137 @@ export default function Booking() {
 
       {error && (
         <div className="card card-padded mt-3" style={{ border: "1px solid #fecaca", background: "#fee2e2", color: "#991b1b" }}>
-          {error}
-        </div>
+          <div className="card card-padded mt-3" style={{ border: "1px solid #fecaca", background: "#fee2e2", color: "#991b1b" }}>
+            {error}
+          </div>
       )}
-      {loading && (
-        <div className="card card-padded mt-3" style={{ border: "1px solid #c7d2fe", background: "#eef2ff", color: "#3730a3" }}>
-          Loading bookings…
-        </div>
+          {loading && (
+            <div className="card card-padded mt-3" style={{ border: "1px solid #c7d2fe", background: "#eef2ff", color: "#3730a3" }}>
+              <div className="card card-padded mt-3" style={{ border: "1px solid #c7d2fe", background: "#eef2ff", color: "#3730a3" }}>
+                Loading bookings…
+              </div>
       )}
 
-      <div className="table-wrap mt-4">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Customer</th>
-              <th>Quantity</th>
-              <th>Phone Number</th>
-              <th>Time</th>
-              <th>Status</th>
-              <th>Note</th>
-              <th style={{ minWidth: 500 }}>Action</th>
-            </tr>
-          </thead>
+              <div className="table-wrap mt-4">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Customer</th>
+                      <th>Quantity</th>
+                      <th>Phone Number</th>
+                      <th>Time</th>
+                      <th>Status</th>
+                      <th>Note</th>
+                      <th style={{ minWidth: 500 }}>Action</th>
+                      <th style={{ minWidth: 500 }}>Action</th>
+                    </tr>
+                  </thead>
 
-          <tbody>
-            {filteredRows.length === 0 && !loading ? (
-              <tr>
-                <td colSpan={8} className="muted" style={{ textAlign: "center", padding: "16px" }}>
-                  {rows.length === 0 ? "No bookings." : "No bookings match this customer name."}
-                </td>
-              </tr>
-            ) : (
-              filteredRows.map((bk) => {
-                const showCancelFlow = isCancelNote(bk.note);
-                const creating = creatingIds.has(bk.bookingId);
-                const confirming = confirmingIds.has(bk.bookingId);
-                const hasTxId = Boolean(txByBooking[bk.bookingId]);
-                const checking = checkingSubs.has(bk.bookingId);
-                const cancelling = cancellingIds.has(bk.bookingId);
-                const allowCancel = canCancel(bk.status);
+                  <tbody>
+                    {filteredRows.length === 0 && !loading ? (
+                      <tr>
+                        <td colSpan={8} className="muted" style={{ textAlign: "center", padding: "16px" }}>
+                          {rows.length === 0 ? "No bookings." : "No bookings match this customer name."}
+                          <td colSpan={8} className="muted" style={{ textAlign: "center", padding: "16px" }}>
+                            {rows.length === 0 ? "No bookings." : "No bookings match this customer name."}
+                          </td>
+                      </tr>
+                    ) : (
+                      filteredRows.map((bk) => {
+                        const showCancelFlow = isCancelNote(bk.note);
+                        const creating = creatingIds.has(bk.bookingId);
+                        const confirming = confirmingIds.has(bk.bookingId);
+                        const hasTxId = Boolean(txByBooking[bk.bookingId]);
+                        const checking = checkingSubs.has(bk.bookingId);
+                        const hasTxId = Boolean(txByBooking[bk.bookingId]);
+                        const checking = checkingSubs.has(bk.bookingId);
+                        const cancelling = cancellingIds.has(bk.bookingId);
+                        const allowCancel = canCancel(bk.status);
 
-                return (
-                  <tr key={bk.id}>
-                    <td>{fmtDateDMY(bk.when)}</td>
-                    <td>{bk.driverName}</td>
-                    <td>{bk.batteries}</td>
-                    <td>{bk.phone}</td>
-                    <td>{fmtTimeAMPM(bk.when)}</td>
-                    <td><span className={statusPillClass(bk.status)}>{bk.status}</span></td>
-                    <td>{bk.note || "—"}</td>
-                    <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {/* Check SubId -> mở modal "Take to inventory" */}
-                      <button
-                        className="btn btn-check"
-                        disabled={checking}
-                        onClick={() => handleCheckSub(bk)}
-                        title="Check Subscription of this customer"
-                      >
-                        {checking ? "Checking…" : "Check SubId"}
-                      </button>
+                        return (
+                          <tr key={bk.id}>
+                            <td>{fmtDateDMY(bk.when)}</td>
+                            <td>{bk.driverName}</td>
+                            <td>{bk.batteries}</td>
+                            <td>{bk.phone}</td>
+                            <td>{fmtTimeAMPM(bk.when)}</td>
+                            <td><span className={statusPillClass(bk.status)}>{bk.status}</span></td>
+                            <td><span className={statusPillClass(bk.status)}>{bk.status}</span></td>
+                            <td>{bk.note || "—"}</td>
+                            <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              {/* Check SubId -> mở modal "Take to inventory" */}
+                              <button
+                                className="btn btn-check"
+                                disabled={checking}
+                                onClick={() => handleCheckSub(bk)}
+                                title="Check Subscription of this customer"
+                              >
+                                {checking ? "Checking…" : "Check SubId"}
+                              </button>
 
-                      {/* Cancel Booking: ở ngoài modal */}
-                      <button
-                        className="btn btn-danger"
-                        disabled={!allowCancel || cancelling}
-                        onClick={() => handleCancelBooking(bk)}
-                        title={allowCancel ? "Cancel this booking" : "This booking cannot be cancelled"}
-                      >
-                        {cancelling ? "Cancelling…" : "Cancel Booking"}
-                      </button>
+                              {/* Cancel Booking: ở ngoài modal */}
+                              {/* Check SubId -> mở modal "Take to inventory" */}
+                              <button
+                                className="btn btn-check"
+                                disabled={checking}
+                                onClick={() => handleCheckSub(bk)}
+                                title="Check Subscription of this customer"
+                              >
+                                {checking ? "Checking…" : "Check SubId"}
+                              </button>
 
-                      {/* (tùy flow) tạo/confirm refund nếu note có từ 'cancel' */}
-                      {showCancelFlow && (
-                        <>
-                          <button
-                            className="btn btn-create"
-                            disabled={creating}
-                            onClick={() => handleCreateTransaction(bk)}
-                            title="Create refund transaction"
-                          >
-                            {creating ? "Creating…" : "Create Transaction"}
-                          </button>
-                          <button
-                            className="btn btn-confirm"
-                            disabled={!hasTxId || confirming}
-                            onClick={() => handleConfirmTransaction(bk)}
-                            title={hasTxId ? "Confirm transaction" : "Please create transaction first"}
-                          >
-                            {confirming ? "Confirming…" : "Confirm"}
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                              {/* Cancel Booking: ở ngoài modal */}
+                              <button
+                                className="btn btn-danger"
+                                disabled={!allowCancel || cancelling}
+                                onClick={() => handleCancelBooking(bk)}
+                                title={allowCancel ? "Cancel this booking" : "This booking cannot be cancelled"}
+                              >
+                                {cancelling ? "Cancelling…" : "Cancel Booking"}
+                              </button>
 
-      {/* Modal: Take batteries to inventory */}
-      <SubCheckModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        booking={modalBooking}
-        subData={modalSubData}
-        onTakeIn={handleTakeIn}
-        takingIn={takingIn}
-      />
+                              {/* (tùy flow) tạo/confirm refund nếu note có từ 'cancel' */}
+                              {showCancelFlow && (
+                                <>
+                                  <button
+                                    className="btn btn-create"
+                                    disabled={creating}
+                                    onClick={() => handleCreateTransaction(bk)}
+                                    title="Create refund transaction"
+                                  >
+                                    {creating ? "Creating…" : "Create Transaction"}
+                                  </button>
+                                  <button
+                                    className="btn btn-confirm"
+                                    disabled={!hasTxId || confirming}
+                                    onClick={() => handleConfirmTransaction(bk)}
+                                    title={hasTxId ? "Confirm transaction" : "Please create transaction first"}
+                                  >
+                                    {confirming ? "Confirming…" : "Confirm"}
+                                  </button>
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
-      <style>{`
+              {/* Modal: Take batteries to inventory */}
+              <SubCheckModal
+                open={modalOpen}
+                onClose={() => setModalOpen(false)}
+                booking={modalBooking}
+                subData={modalSubData}
+                onTakeIn={handleTakeIn}
+                takingIn={takingIn}
+              />
+
+              <style>{`
         .row-between { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
         .row-right { display:flex; align-items:center; gap:8px; }
 
@@ -635,6 +682,6 @@ export default function Booking() {
           padding: 12px 16px; border-top: 1px solid #f1f5f9; background:#fafafa;
         }
       `}</style>
-    </section>
-  );
+            </section>
+          );
 }

@@ -44,7 +44,7 @@ namespace VoltSwap.API.Controllers
             });
         }
 
-
+        [AllowAnonymous]
         [HttpGet("check-status-booking")]
         public async Task<IActionResult> Check([FromQuery] CancelBookingRequest request)
         {
@@ -59,15 +59,15 @@ namespace VoltSwap.API.Controllers
         public async Task<IActionResult> ExpireCheck([FromBody] CancelBookingRequest request)
         {
             var result = await _bookingService.CancelBookingAsync(request);
-            return StatusCode(result.Status, new { 
+            return StatusCode(result.Status, new
+            {
                 result.Message
-                
+
             }
             );
 
         }
         [Authorize(Roles = "Driver,Staff")]
-
         //Bin:hủy booking bởi người dùng
         [HttpPost("cancel-booking-by-user")]
         public async Task<IActionResult> CancelBooking([FromBody] CancelBookingRequest request)

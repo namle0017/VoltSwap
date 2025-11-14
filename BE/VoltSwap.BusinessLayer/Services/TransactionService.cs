@@ -400,7 +400,8 @@ namespace VoltSwap.BusinessLayer.Services
                 Fee = t.Fee,
                 TotalAmount = t.TotalAmount,
                 Note = t.Note,
-            }).ToList();
+            })
+                .ToList();
 
             return transactionHistory.Select(t => new TransactionListReponse
             {
@@ -926,7 +927,7 @@ namespace VoltSwap.BusinessLayer.Services
             };
 
 
-            getTrans.TransactionId = await GenerateTransactionId();
+            //getTrans.TransactionId = await GenerateTransactionId();
             getTrans.Status = "Pending";
             getTrans.TransactionDate = DateTime.UtcNow.ToLocalTime();
             getTrans.TransactionContext = await GenerateTransactionConext(transactionContext);
