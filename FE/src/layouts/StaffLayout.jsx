@@ -52,7 +52,7 @@ function ConfirmDialog({ open, title, message, onCancel, onConfirm }) {
                         ref={cancelRef}
                         onClick={onCancel}
                     >
-                        Hủy
+                        cancel
                     </button>
                     <button
                         type="button"
@@ -60,7 +60,7 @@ function ConfirmDialog({ open, title, message, onCancel, onConfirm }) {
                         onClick={onConfirm}
                     >
                         <i className="bi bi-box-arrow-right mr-2" aria-hidden="true" />
-                        Đăng xuất
+                        Logout
                     </button>
                 </div>
             </div>
@@ -106,7 +106,7 @@ export default function StaffLayout() {
                 style={{
                     width: 240,
                     flexShrink: 0,
-                    backgroundColor: "#4b1fa6",
+                    backgroundColor: "#2f66ff",
                     color: "#ffffff",
                     display: "flex",
                     flexDirection: "column",
@@ -129,7 +129,7 @@ export default function StaffLayout() {
                             width: 40,
                             height: 40,
                             borderRadius: 12,
-                            backgroundColor: "#5c28c9",
+                            backgroundColor: "#2f66ff",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -173,7 +173,7 @@ export default function StaffLayout() {
                                 borderRadius: 12,
                                 fontSize: 14,
                                 fontWeight: 500,
-                                color: isActive ? "#4b1fa6" : "#ffffff",
+                                color: isActive ? "#2f66ff" : "#ffffff",
                                 backgroundColor: isActive ? "#ffffff" : "transparent",
                                 textDecoration: "none",
                                 gap: 10,
@@ -238,8 +238,8 @@ export default function StaffLayout() {
             {/* Confirm before leaving */}
             <ConfirmDialog
                 open={confirmOpen}
-                title="Đăng xuất?"
-                message="Bạn có chắc chắn muốn đăng xuất khỏi Staff Portal không?"
+                title="Log Out?"
+                message="Are you sure you want to log out from the staff portal?"
                 onCancel={() => setConfirmOpen(false)}
                 onConfirm={doSignOut}
             />

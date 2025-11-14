@@ -49,7 +49,7 @@ const Contact = () => {
       const msg =
         err?.response?.data?.message ||
         err?.message ||
-        "Gửi câu hỏi thất bại. Vui lòng thử lại.";
+        "Send Failed, please send again!!!";
       setErrorMsg(msg);
     } finally {
       setSubmitting(false);

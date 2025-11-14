@@ -39,12 +39,18 @@ export default function NavbarTop() {
         VoltSwap
       </div>
 
-      {/* 🟡 User Menu */}
+      {/* User Menu */}
       <div className="relative">
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold px-5 py-2 rounded-lg transition-all"
+          className="text-white font-bold px-5 py-2 rounded-lg transition-all"
+          style={{
+            backgroundColor: "#2f66ff",
+          }}
+          onMouseEnter={(e) => (e.target.style.backgroundColor = "#2758d8")}
+          onMouseLeave={(e) => (e.target.style.backgroundColor = "#2f66ff")}
         >
+          <i className="bi bi-person-circle mr-2"></i>
           {user.name}
         </button>
 
@@ -63,16 +69,17 @@ export default function NavbarTop() {
                   onClick={goToPersonalInfo}
                   className="flex items-center gap-3 w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
                 >
-                  <span className="text-purple-600 text-lg">👤</span>
+                  <i className="bi bi-person-lines-fill text-indigo-600 text-lg"></i>
                   <span>Personal Information</span>
                 </button>
               </li>
+
               <li>
                 <button
                   onClick={goToPortal}
                   className="flex items-center gap-3 w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
                 >
-                  <span className="text-yellow-600 text-lg">📦</span>
+                  <i className="bi bi-box-seam text-blue-600 text-lg"></i>
                   <span>Portal</span>
                 </button>
               </li>
@@ -84,7 +91,8 @@ export default function NavbarTop() {
                 onClick={handleLogout}
                 className="w-full text-left text-red-600 hover:bg-red-50 font-semibold px-4 py-2"
               >
-                🚪 Sign Out
+                <i className="bi bi-box-arrow-right mr-2"></i>
+                Sign Out
               </button>
             </div>
           </div>

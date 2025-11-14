@@ -6,10 +6,10 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Vehicle() {
-  // ===== VoltSwap palette (mint -> blue) =====
+  // ===== VoltSwap palette =====
   const brandVars = {
-    "--brand-start": "#1ee3b3", // mint/teal "Volt"
-    "--brand-end": "#2f66ff",   // blue "Swap"
+    "--brand-start": "#1ee3b3",
+    "--brand-end": "#2f66ff",
     "--brand-50": "#f5faff",
     "--brand-500": "#2f66ff",
     "--brand-600": "#2856d4",
@@ -177,7 +177,7 @@ export default function Vehicle() {
       </p>
       <button
         onClick={() => setShowModal(true)}
-        className="mt-4 inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90 shadow"
+        className="mt-4 inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold bg-[#2f66ff] hover:bg-[#254fcc] active:bg-[#2144aa] shadow"
       >
         <i className="bi bi-plus-lg" />
         Add Vehicle
@@ -213,7 +213,7 @@ export default function Vehicle() {
             </button>
             <button
               onClick={() => setShowModal(true)}
-              className="px-5 py-2.5 rounded-xl text-white font-semibold bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90 shadow"
+              className="px-5 py-2.5 rounded-xl text-white font-semibold bg-[#2f66ff] hover:bg-[#254fcc] active:bg-[#2144aa] shadow"
             >
               <i className="bi bi-plus-lg mr-1" />
               Add Vehicle
@@ -276,7 +276,7 @@ export default function Vehicle() {
                   <div className="mt-3 flex items-center gap-3 text-sm">
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--brand-50)] text-[var(--brand-600)] border border-[var(--brand-500)]/20">
                       <i className="bi bi-battery-half" />
-                      {v.batteryCount} battery{Number(v.batteryCount) > 1 ? "ies" : ""}
+                      {v.batteryCount} batter{Number(v.batteryCount) > 1 ? "ies" : "y"}
                     </span>
                     {v.createdAt ? (
                       <span className="text-gray-500">
@@ -351,7 +351,7 @@ export default function Vehicle() {
               exit={{ scale: 0.96, opacity: 0 }}
               className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
             >
-              <div className="h-2 bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)]" />
+              <div className="h-2 bg-[#2f66ff]" />
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold text-gray-900">Create New Vehicle</h2>
@@ -407,8 +407,7 @@ export default function Vehicle() {
                     disabled={saving}
                     className={[
                       "px-5 py-2.5 rounded-xl text-white font-semibold",
-                      "bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)]",
-                      "hover:opacity-95 active:opacity-90 shadow",
+                      "bg-[#2f66ff] hover:bg-[#254fcc] active:bg-[#2144aa] shadow",
                       saving ? "opacity-75 cursor-not-allowed" : "",
                     ].join(" ")}
                   >

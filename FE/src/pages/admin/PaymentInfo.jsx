@@ -232,7 +232,7 @@ export default function PaymentInfo() {
             <div className="mb-8 flex flex-wrap gap-3 items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                        🧾 Admin Transaction Management
+                        Admin Transaction Management
                     </h1>
                     <p className="text-gray-600">Bulk invoice creation & transaction detail viewer</p>
                 </div>

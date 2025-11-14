@@ -124,7 +124,7 @@ export default function CustomerSupport() {
             // Ở đây set "Rejected" để ẩn
             await api.patch(MARK_STATUS_EP, {
                 reportId,
-                reportStatus: "Rejected",
+                reportStatus: "Done",
             });
 
             // Cập nhật local: đổi status sang Rejected rồi filter ẩn
