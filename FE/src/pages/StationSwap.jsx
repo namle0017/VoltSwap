@@ -788,7 +788,6 @@ export default function StationSwap() {
                 <div className="text-xs text-gray-600 space-y-1">
                   <div>1) <b>Chọn một trụ</b> để nộp pin (Swap-In).</div>
                   <div>2) Nhập <b>BatteryId</b> (mỗi mã một dòng / ngăn cách bằng dấu phẩy).</div>
-                  <div>3) <b>Click các ô màu xanh</b> — đúng các slot BE cấp trong <code>slotEmpty</code>.</div>
                 </div>
               )}
               {step === 3 && (
@@ -891,12 +890,7 @@ export default function StationSwap() {
 
           {step === 2 && (
             <div className="card p-6 space-y-3">
-              <h2 className="text-base font-semibold">Bước 2: Swap-In (nộp pin cũ)</h2>
-
-              <div className="text-sm text-gray-600">
-                Nhập mỗi mã pin trên <b>một dòng</b> hoặc phân tách bằng dấu phẩy, sau đó chọn các ô xanh trong trụ đã chọn.
-              </div>
-
+              <h2 className="text-base font-semibold">Bước 2: Swap-In</h2>
               <div className="relative">
                 <textarea
                   className="p-3 border rounded-lg w-full"
