@@ -278,7 +278,7 @@ namespace VoltSwap.BusinessLayer.Services
                 TransactionContext = transactionContext,
                 CreatedBy = requestDto.StaffId,
             };
-            if(total > 0)
+            if (total > 0)
             {
                 createRefund.TransactionType = "Penalty Fee";
             }
@@ -288,7 +288,7 @@ namespace VoltSwap.BusinessLayer.Services
                 createRefund.PaymentMethod = "Cash";
             }
 
-                await _transRepo.CreateAsync(createRefund);
+            await _transRepo.CreateAsync(createRefund);
             await _unitOfWork.SaveChangesAsync();
 
             if (booking != null)
@@ -315,7 +315,7 @@ namespace VoltSwap.BusinessLayer.Services
                 bat.Status = "Returned";
                 await _unitOfWork.BatterySwap.UpdateAsync(bat);
                 await _unitOfWork.SaveChangesAsync();
-                
+
             }
 
             return new ServiceResult

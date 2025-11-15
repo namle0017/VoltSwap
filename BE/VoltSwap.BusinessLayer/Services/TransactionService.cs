@@ -348,7 +348,7 @@ namespace VoltSwap.BusinessLayer.Services
             return new ServiceResult
             {
                 Status = 200,
-                Message = "transactions retrieved successfully.",
+                Message = "Transactions retrieved successfully.",
                 Data = pendingTransactions
             };
         }
@@ -647,7 +647,7 @@ namespace VoltSwap.BusinessLayer.Services
             return new ServiceResult
             {
                 Status = 200,
-                Message = "You have successfully registered for the package.",
+                Message = $"Registered for {subscriptionDetail.SubscriptionId} successfully",
                 Data = result,
             };
         }
