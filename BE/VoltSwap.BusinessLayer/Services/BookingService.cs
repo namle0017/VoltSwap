@@ -100,6 +100,7 @@ namespace VoltSwap.BusinessLayer.Services
                     slot.PillarStatus = "Unavailable";
                     slot.AppointmentId = null;
                     await _unitOfWork.PillarSlots.UpdateAsync(slot);
+                    await _unitOfWork.SaveChangesAsync();
                 }
             }
             await _bookingRepo.UpdateAsync(appointment);

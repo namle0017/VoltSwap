@@ -13,6 +13,6 @@ namespace VoltSwap.DAL.IRepositories
         Task<List<(string PlanId, string PlanName, double TotalRevenue, int TotalSubscribers)>> GetRevenueByPlanAsync(int year, int month);
 
         Task<double> GetRevenueByAsync(int year, int month);
-        Task<List<Transaction>> TransactionListNotpayBySubId(string subId);
+        Task<Transaction> TransactionListNotpayBySubId(string subId);
     }
 }
