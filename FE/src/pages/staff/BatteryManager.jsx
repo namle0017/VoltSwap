@@ -226,7 +226,7 @@ function BatterySlot({ data, selected, onClick, onAdd }) {
 
             {/* Gốc trái trên: vị trí A1..E4 */}
             <div className="absolute left-2 top-2 text-[11px] font-bold text-slate-700">
-                {data.pos}
+                {data.slotId ?? data.slotNumber ?? data.pos}
             </div>
 
             {/* Gốc phải dưới: battery code */}

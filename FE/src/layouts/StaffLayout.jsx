@@ -52,7 +52,7 @@ function ConfirmDialog({ open, title, message, onCancel, onConfirm }) {
                         ref={cancelRef}
                         onClick={onCancel}
                     >
-                        Hủy
+                        cancel
                     </button>
                     <button
                         type="button"
@@ -60,7 +60,7 @@ function ConfirmDialog({ open, title, message, onCancel, onConfirm }) {
                         onClick={onConfirm}
                     >
                         <i className="bi bi-box-arrow-right mr-2" aria-hidden="true" />
-                        Đăng xuất
+                        Logout
                     </button>
                 </div>
             </div>
@@ -238,8 +238,8 @@ export default function StaffLayout() {
             {/* Confirm before leaving */}
             <ConfirmDialog
                 open={confirmOpen}
-                title="Đăng xuất?"
-                message="Bạn có chắc chắn muốn đăng xuất khỏi Staff Portal không?"
+                title="Log Out?"
+                message="Are you sure you want to log out from the staff portal?"
                 onCancel={() => setConfirmOpen(false)}
                 onConfirm={doSignOut}
             />

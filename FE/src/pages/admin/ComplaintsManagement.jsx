@@ -17,7 +17,7 @@ function makeComplaintId(r, idx) {
   const rid = r?.reportId ?? r?.id ?? r?.reportCode ?? null;
   if (rid) return `CMP-${String(rid)}`;
   const stamp = `${r?.createAt ?? r?.createdAt ?? ""}|${r?.userDriverId ?? r?.userId ?? ""}|${r?.stationName ?? ""}|${idx}`;
-  const safe = stamp.toString().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_|.-]/g, "");
+  const safe = stamp.toString().replace(/\s/g, "_").replace(/[^a-zA-Z0-9_|.-]/g, "");
   return `CMP-${safe}`;
 }
 
@@ -40,7 +40,7 @@ const ComplaintsManagement = () => {
   const [assignSubmitting, setAssignSubmitting] = useState(false);
   const [responseModal, setResponseModal] = useState(null); // { complaintId }
 
-  // Contact email cache + loading
+  // Contact email cache  loading
   const [contactByDriver, setContactByDriver] = useState({}); // { [driverId]: email }
   const [contactLoading, setContactLoading] = useState({});    // { [driverId]: boolean }
 
@@ -263,13 +263,28 @@ const ComplaintsManagement = () => {
     setResponseModal(null);
   };
 
-  // ✅ GỌI BE: /Report/mark-resolve
+  // ✅ GỌI BE: /Report/mark-resolve (đã gắn confirm modal + toast)
   const handleMarkResolved = async (c) => {
     if (!c?.reportId) {
-      alert("Thiếu reportId – không thể mark resolved.");
+      window.toast.error("Thiếu reportId – không thể mark resolved.");
       return;
     }
-    // bật trạng thái loading cho nút của complaint này
+
+    // 🧩 Confirm modal trước khi đánh dấu
+    const { ok, note } = await window.confirmModal({
+      title: "Mark complaint as resolved?",
+      message:
+        "This will notify the customer that the complaint has been resolved.",
+      confirmText: "Mark Resolved",
+      cancelText: "Cancel",
+      variant: "primary",
+      requireNote: true,
+      noteLabel: "Resolution note",
+      noteRequired: false,
+      placeholder: "Describe how this was resolved (optional)...",
+    });
+    if (!ok) return;
+
     setResolving((m) => ({ ...m, [c.id]: true }));
     try {
       const token = localStorage.getItem("token");
@@ -277,14 +292,15 @@ const ComplaintsManagement = () => {
         "/Report/mark-resolve",
         {
           reportId: c.reportId,
-          reportStatus: "", // theo spec BE yêu cầu payload có trường này
+          reportStatus: "",
+          note: note || "", // gửi note nếu có
         },
         {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         }
       );
 
-      // Nếu OK: cập nhật UI
+      // cập nhật UI
       setComplaints((prev) =>
         prev.map((x) =>
           x.id === c.id
@@ -295,20 +311,23 @@ const ComplaintsManagement = () => {
                 ...x.timeline,
                 {
                   time: new Date().toISOString().slice(0, 16).replace("T", " "),
-                  text: "Marked as Resolved",
+                  text: note
+                    ? `Marked as Resolved (${note})`
+                    : "Marked as Resolved",
                 },
               ],
             }
             : x
         )
       );
+      window.toast.success("Complaint marked as resolved");
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
         e?.response?.data?.title ||
         e?.message ||
-        "Đánh dấu resolved thất bại.";
-      alert(`❌ ${msg}`);
+        "Mark resolved failed.";
+      window.toast.error(msg);
     } finally {
       setResolving((m) => {
         const copy = { ...m };
@@ -317,6 +336,7 @@ const ComplaintsManagement = () => {
       });
     }
   };
+
 
   // ==== Render ====
   return (

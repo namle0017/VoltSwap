@@ -119,6 +119,7 @@ function normalizeSubCheck(raw) {
 function SubCheckModal({
   open,
   onClose,
+  // eslint-disable-next-line no-unused-vars
   booking,
   subData, // { subId, stationId, batteries }
   onTakeIn, // (selectedIds) => Promise

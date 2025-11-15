@@ -133,7 +133,7 @@ export default function Service() {
   if (loading)
     return (
       <div className="flex justify-center items-center min-h-screen bg-white">
-        <div className="h-10 w-10 border-4 border-[var(--brand-end)] border-t-transparent rounded-full animate-spin" />
+        <div className="h-10 w-10 border-4 border-[#2f66ff] border-t-transparent rounded-full animate-spin" />
       </div>
     );
 
@@ -141,7 +141,7 @@ export default function Service() {
     return (
       <div className="min-h-screen bg-white">
         <div className="max-w-xl mx-auto mt-20 bg-white p-8 rounded-2xl shadow-sm border">
-          <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium bg-[var(--brand-50)] text-[var(--brand-end)] mb-3">
+          <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium bg-[#e5edff] text-[#2f66ff] mb-3">
             <i className="bi bi-box-seam" />
             Subscription
           </div>
@@ -153,7 +153,7 @@ export default function Service() {
           </p>
           <button
             onClick={() => navigate("/user/service/register")}
-            className="px-6 py-2.5 rounded-xl text-white brand-gradient hover:opacity-95 transition font-medium"
+            className="px-6 py-2.5 rounded-xl text-white bg-[#2f66ff] hover:bg-[#254fcc] transition font-medium"
           >
             <span className="inline-flex items-center gap-2">
               <i className="bi bi-plus-circle" />
@@ -179,12 +179,12 @@ export default function Service() {
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl brand-gradient text-white grid place-items-center shadow-sm">
+            <div className="h-10 w-10 rounded-xl bg-[#2f66ff] text-white grid place-items-center shadow-sm">
               <i className="bi bi-box-seam text-lg" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
-                <span className="text-brand-gradient">Subscription</span>
+                <span className="text-[#2f66ff]">Subscription</span>
               </h2>
               <p className="text-gray-500 text-sm">Manage your current plan &amp; usage details</p>
             </div>
@@ -204,7 +204,7 @@ export default function Service() {
               <select
                 value={selected}
                 onChange={(e) => setSelected(e.target.value)}
-                className="w-full border rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-end)]"
+                className="w-full border rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#2f66ff]"
               >
                 {subs.map((s) => (
                   <option key={s.subId} value={s.subId}>
@@ -221,8 +221,8 @@ export default function Service() {
                 <p className="mt-1 inline-flex items-center gap-2 text-sm font-semibold">
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${String(current?.planStatus || "Active").toLowerCase() === "active"
-                        ? "bg-emerald-500"
-                        : "bg-rose-500"
+                      ? "bg-emerald-500"
+                      : "bg-rose-500"
                       }`}
                   />
                   {current?.planStatus || "Active"}
@@ -238,8 +238,8 @@ export default function Service() {
                   {typeof daysLeft === "number" && daysLeft <= 14 && (
                     <span
                       className={`mt-1 text-[11px] px-2 py-0.5 rounded-full border ${daysLeft <= 7
-                          ? "bg-rose-50 border-rose-200 text-rose-700"
-                          : "bg-amber-50 border-amber-200 text-amber-700"
+                        ? "bg-rose-50 border-rose-200 text-rose-700"
+                        : "bg-amber-50 border-amber-200 text-amber-700"
                         }`}
                       title={`${daysLeft} days left`}
                     >
@@ -260,7 +260,7 @@ export default function Service() {
                   setCancelTime(formatTimeHHmm(new Date()));
                   loadStations();
                 }}
-                className="w-full py-2.5 rounded-xl font-medium border border-rose-300 text-rose-600 hover:bg-rose-50 transition"
+                className="w-full py-2.5 rounded-xl font-medium border border-[#2f66ff] text-[#2f66ff] hover:bg-[#e5edff] transition"
               >
                 <span className="inline-flex items-center gap-2">
                   <i className="bi bi-x-circle" />
@@ -271,7 +271,7 @@ export default function Service() {
               {/* Register new Service */}
               <button
                 onClick={() => navigate("/user/service/register")}
-                className="w-full py-2.5 rounded-xl font-medium text-white brand-gradient hover:opacity-95 transition"
+                className="w-full py-2.5 rounded-xl font-medium text-white bg-[#2f66ff] hover:bg-[#254fcc] transition"
               >
                 <span className="inline-flex items-center gap-2">
                   <i className="bi bi-plus-circle" />
@@ -332,7 +332,7 @@ export default function Service() {
                     {overflow > 0 && !showAllBats && (
                       <button
                         onClick={() => setShowAllBats(true)}
-                        className="px-2.5 py-1 rounded-full border text-[var(--brand-end)] bg-white text-xs hover:bg-[var(--brand-50)]"
+                        className="px-2.5 py-1 rounded-full border text-[#2f66ff] bg-white text-xs hover:bg-[#e5edff]"
                       >
                         +{overflow} more
                       </button>
@@ -340,7 +340,7 @@ export default function Service() {
                     {showAllBats && batteryIds.length > MAX_SHOW && (
                       <button
                         onClick={() => setShowAllBats(false)}
-                        className="px-2.5 py-1 rounded-full border text-[var(--brand-end)] bg-white text-xs hover:bg-[var(--brand-50)]"
+                        className="px-2.5 py-1 rounded-full border text-[#2f66ff] bg-white text-xs hover:bg-[#e5edff]"
                       >
                         Hide
                       </button>
@@ -356,8 +356,8 @@ export default function Service() {
                 <div className="inline-flex items-center gap-2">
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${String(current?.planStatus || "Active").toLowerCase() === "active"
-                        ? "bg-emerald-500"
-                        : "bg-rose-500"
+                      ? "bg-emerald-500"
+                      : "bg-rose-500"
                       }`}
                   />
                   <span className="text-sm font-medium text-gray-900">{current?.planStatus || "Active"}</span>
@@ -376,7 +376,7 @@ export default function Service() {
           <div className="space-y-4">
             <FieldLabel>Select Station</FieldLabel>
             <select
-              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-end)]"
+              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#2f66ff]"
               value={selectedStation}
               onChange={(e) => setSelectedStation(e.target.value)}
             >
@@ -390,7 +390,7 @@ export default function Service() {
             <FieldLabel>Booking Date</FieldLabel>
             <input
               type="date"
-              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-end)]"
+              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#2f66ff]"
               value={cancelDate}
               onChange={(e) => setCancelDate(e.target.value)}
             />
@@ -398,14 +398,14 @@ export default function Service() {
             <FieldLabel>Booking Time</FieldLabel>
             <input
               type="time"
-              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-end)]"
+              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#2f66ff]"
               value={cancelTime}
               onChange={(e) => setCancelTime(e.target.value)}
             />
 
             <FieldLabel>Reason (optional)</FieldLabel>
             <textarea
-              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-end)]"
+              className="w-full border rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#2f66ff]"
               placeholder="Enter note..."
               value={cancelNote}
               onChange={(e) => setCancelNote(e.target.value)}
@@ -415,14 +415,14 @@ export default function Service() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowCancelModal(false)}
-                className="px-4 py-2 rounded-xl border text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 rounded-xl border border-[#2f66ff] text-[#2f66ff] hover:bg-[#e5edff]"
                 disabled={cancelSubmitting}
               >
                 Close
               </button>
               <button
                 onClick={handleCancelSubscription}
-                className="px-4 py-2 rounded-xl text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60"
+                className="px-4 py-2 rounded-xl text-white bg-[#2f66ff] hover:bg-[#254fcc] disabled:opacity-60"
                 disabled={!selectedStation || !cancelDate || !cancelTime || cancelSubmitting}
               >
                 {cancelSubmitting ? "Submitting…" : "Confirm"}
@@ -449,7 +449,7 @@ function EmphasisBox({ children, tone = "muted" }) {
 function toneToClasses(tone, outlined = false) {
   switch (tone) {
     case "brand":
-      return outlined ? "border-[var(--brand-end)]/40 bg-[var(--brand-50)]" : "bg-[var(--brand-50)]";
+      return outlined ? "border-[#2f66ff]/40 bg-[#e5edff]" : "bg-[#e5edff]";
     case "success":
       return outlined ? "border-emerald-300 bg-emerald-50" : "bg-emerald-50";
     case "warn":
@@ -466,18 +466,18 @@ function StatTile({ label, value, unit, hint, icon = "circle", chip, tone = "mut
   return (
     <div className={`rounded-2xl p-4 border ${classes} overflow-hidden`}>
       <div className="flex items-center justify-between mb-2">
-        <div className="h-9 w-9 rounded-xl brand-gradient text-white grid place-items-center shrink-0">
+        <div className="h-9 w-9 rounded-xl bg-[#2f66ff] text-white grid place-items-center shrink-0">
           <i className={`bi bi-${icon}`} />
         </div>
         {chip && (
           <span
             className={`text-[11px] px-2 py-0.5 rounded-full border ${tone === "danger"
-                ? "bg-rose-50 border-rose-200 text-rose-700"
-                : tone === "warn"
-                  ? "bg-amber-50 border-amber-200 text-amber-700"
-                  : tone === "brand"
-                    ? "bg-[var(--brand-50)] border-[var(--brand-end)]/30 text-[var(--brand-end)]"
-                    : "bg-white border-gray-200 text-gray-600"
+              ? "bg-rose-50 border-rose-200 text-rose-700"
+              : tone === "warn"
+                ? "bg-amber-50 border-amber-200 text-amber-700"
+                : tone === "brand"
+                  ? "bg-[#e5edff] border-[#2f66ff]/30 text-[#2f66ff]"
+                  : "bg-white border-gray-200 text-gray-600"
               }`}
           >
             {chip}
@@ -488,12 +488,12 @@ function StatTile({ label, value, unit, hint, icon = "circle", chip, tone = "mut
       <div className="min-w-0 max-w-full">
         <p
           className={`leading-tight break-words ${tone === "danger"
-              ? "text-rose-600"
-              : tone === "warn"
-                ? "text-amber-600"
-                : tone === "brand"
-                  ? "text-[var(--brand-end)]"
-                  : "text-gray-900"
+            ? "text-rose-600"
+            : tone === "warn"
+              ? "text-amber-600"
+              : tone === "brand"
+                ? "text-[#2f66ff]"
+                : "text-gray-900"
             }`}
         >
           <span className="block text-[clamp(1.35rem,2.8vw,2rem)] font-extrabold whitespace-nowrap tracking-tight">
@@ -515,7 +515,7 @@ function FieldLabel({ children }) {
 
 function Modal({ children, title, onClose, tone = "default" }) {
   const toneBar =
-    tone === "danger" ? "bg-rose-100 text-rose-700" : "bg-[var(--brand-50)] text-[var(--brand-end)]";
+    tone === "danger" ? "bg-rose-100 text-rose-700" : "bg-[#e5edff] text-[#2f66ff]";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />

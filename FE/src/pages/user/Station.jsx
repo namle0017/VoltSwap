@@ -72,6 +72,50 @@ const formatMMSS = (sec) => {
   return `${mm}m ${String(ss).padStart(2, "0")}s`;
 };
 
+/* ================== GENERIC MESSAGE MODAL ================== */
+const TONE_STYLES = {
+  info: {
+    bar: "bg-[#e5edff] text-[#2f66ff]",
+    btn: "bg-[#2f66ff] hover:bg-[#254fcc]",
+  },
+  success: {
+    bar: "bg-emerald-50 text-emerald-700",
+    btn: "bg-emerald-600 hover:bg-emerald-700",
+  },
+  danger: {
+    bar: "bg-rose-50 text-rose-700",
+    btn: "bg-rose-600 hover:bg-rose-700",
+  },
+};
+
+function MessageModal({ title, message, tone = "info", onClose }) {
+  const toneCfg = TONE_STYLES[tone] || TONE_STYLES.info;
+  const lines = String(message || "").split(/\n+/);
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white w-[90%] max-w-md rounded-2xl shadow-2xl border overflow-hidden">
+        <div className={`px-5 py-3 text-sm font-semibold ${toneCfg.bar}`}>
+          {title || "Notification"}
+        </div>
+        <div className="p-5 space-y-2 text-sm text-gray-700">
+          {lines.map((l, idx) => (
+            <p key={idx}>{l}</p>
+          ))}
+        </div>
+        <div className="px-5 pb-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className={`px-4 py-2 rounded-xl text-white text-sm font-medium ${toneCfg.btn} transition`}
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ================== COUNTDOWN BANNER ================== */
 function BookingCountdownBanner({
   remain,
@@ -96,16 +140,14 @@ function BookingCountdownBanner({
       >
         <div className="flex items-start gap-3">
           <div
-            className={`text-xl ${
-              danger ? "text-red-600" : "text-[var(--brand-600)]"
-            }`}
+            className={`text-xl ${danger ? "text-red-600" : "text-[var(--brand-600)]"
+              }`}
           >
             ⏳
           </div>
           <div className="flex-1">
             <div className="font-semibold text-gray-900">
-              You have an active booking{" "}
-              {stationName ? `at ${stationName}` : ""}.
+              You have an active booking {stationName ? `at ${stationName}` : ""}.
             </div>
             <div className="text-sm text-gray-700 mt-0.5">
               Auto-cancel in{" "}
@@ -136,7 +178,7 @@ function BookingCountdownBanner({
                 "px-3 py-1.5 rounded-lg text-white text-sm shadow",
                 danger
                   ? "bg-red-600 hover:bg-red-700"
-                  : "bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90",
+                  : "bg-[#2f66ff] hover:bg-[#254fcc]",
               ].join(" ")}
             >
               Navigate now
@@ -191,7 +233,115 @@ export default function Station() {
   const [bannerHidden, setBannerHidden] = useState(false);
   const [bannerMuted, setBannerMuted] = useState(false);
 
-  const pollRef = useRef(null); // <— interval id
+  // message modal
+  const [msgModal, setMsgModal] = useState(null);
+
+  const pollRef = useRef(null);
+  const countdownRef = useRef(null);
+
+  // === POLLING FUNCTION: start checking booking status ===
+  const startPolling = (bookingId) => {
+    if (!bookingId) return;
+
+    if (pollRef.current) clearInterval(pollRef.current);
+    console.log("🚀 Start polling booking status for ID:", bookingId);
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await api.get(`${CHECK_STATUS_EP}?BookingId=${bookingId}`);
+        const msg = res?.data?.message || "";
+        const status = String(res?.data?.data ?? "").toLowerCase();
+
+        console.log("🔁 Polling response:", msg, "| Status:", status);
+
+        if (status.includes("done") || status.includes("completed")) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          localStorage.removeItem("lockExpireAt");
+          localStorage.removeItem("lastBookingId");
+          localStorage.removeItem("lastAppointmentId");
+          localStorage.removeItem("lastTransactionId");
+          localStorage.removeItem("swap_stationId");
+          localStorage.removeItem("swap_stationName");
+
+          setBannerRemain(0);
+          setBannerHidden(true);
+          setBannerInfo({
+            stationName: "",
+            transactionId: "",
+            appointmentId: "",
+          });
+
+          notify("Booking Completed", "Your booking is now done!");
+          setMsgModal({
+            title: "Booking Completed",
+            message: `Booking ${bookingId} completed successfully!`,
+            tone: "success",
+          });
+        } else if (status.includes("cancel")) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          localStorage.removeItem("lockExpireAt");
+          localStorage.removeItem("lastBookingId");
+          localStorage.removeItem("lastAppointmentId");
+          localStorage.removeItem("lastTransactionId");
+          localStorage.removeItem("swap_stationId");
+          localStorage.removeItem("swap_stationName");
+
+          setBannerRemain(0);
+          setBannerHidden(true);
+          setBannerInfo({
+            stationName: "",
+            transactionId: "",
+            appointmentId: "",
+          });
+
+          notify("Booking Cancelled", "Your booking was cancelled.");
+          setMsgModal({
+            title: "Booking Cancelled",
+            message: `Booking ${bookingId} was cancelled.`,
+            tone: "danger",
+          });
+        }
+      } catch (err) {
+        console.error(
+          "🚨 Polling failed (unexpected network/500):",
+          err?.response?.data || err
+        );
+        const statusText = String(
+          err?.response?.data?.data ?? ""
+        ).toLowerCase();
+        if (statusText.includes("cancel")) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          localStorage.removeItem("lockExpireAt");
+          localStorage.removeItem("lastBookingId");
+          localStorage.removeItem("lastAppointmentId");
+          localStorage.removeItem("lastTransactionId");
+          localStorage.removeItem("swap_stationId");
+          localStorage.removeItem("swap_stationName");
+
+          setBannerRemain(0);
+          setBannerHidden(true);
+          setBannerInfo({
+            stationName: "",
+            transactionId: "",
+            appointmentId: "",
+          });
+
+          notify("Booking Cancelled", "Your booking was cancelled.");
+          setMsgModal({
+            title: "Booking Cancelled",
+            message: `Booking ${bookingId} was cancelled.`,
+            tone: "danger",
+          });
+        }
+      }
+    }, 10000);
+  };
 
   const notify = (title, body) => {
     if (!("Notification" in window)) return;
@@ -211,8 +361,12 @@ export default function Station() {
         const token = localStorage.getItem("token");
         const userId = localStorage.getItem("userId");
         if (!token || !userId) {
-          alert("Please log in again!");
-          navigate("/login");
+          setMsgModal({
+            title: "Session expired",
+            message: "Please log in again to continue.",
+            tone: "danger",
+            onClose: () => navigate("/login"),
+          });
           return;
         }
 
@@ -225,6 +379,11 @@ export default function Station() {
         setSubs(subRes.data?.data || []);
       } catch (err) {
         console.error("❌ Failed to load data:", err.response?.data || err);
+        setMsgModal({
+          title: "Failed to load data",
+          message: "There was an error loading stations or subscriptions.",
+          tone: "danger",
+        });
       } finally {
         setLoading(false);
       }
@@ -250,19 +409,26 @@ export default function Station() {
 
   // ticking countdown
   useEffect(() => {
-    if (bannerHidden || bannerMuted) return;
-    if (bannerRemain <= 0) return;
-    const t = setInterval(() => {
+    if (bannerHidden || bannerMuted || bannerRemain <= 0) return;
+
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    countdownRef.current = setInterval(() => {
       setBannerRemain((s) => {
         const next = s - 1;
         if (next <= 0) {
+          clearInterval(countdownRef.current);
+          countdownRef.current = null;
           localStorage.removeItem("lockExpireAt");
           return 0;
         }
         return next;
       });
     }, 1000);
-    return () => clearInterval(t);
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
   }, [bannerRemain, bannerHidden, bannerMuted]);
 
   /* ===== Poll every 10s to check Booking status ===== */
@@ -271,45 +437,8 @@ export default function Station() {
       localStorage.getItem("lastBookingId") ||
       localStorage.getItem("bookingId");
 
-    // Nếu không có bookingId thì không poll
     if (!bookingId) return;
 
-    // Dọn interval cũ
-    if (pollRef.current) clearInterval(pollRef.current);
-
-    console.log("🚀 Start polling booking status for ID:", bookingId);
-
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await api.post(CHECK_STATUS_EP, { BookingId: bookingId });
-        const status = String(res?.data?.data ?? "").toLowerCase();
-        console.log("🔁 Booking status check:", status);
-
-        if (status.includes("done")) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-          localStorage.removeItem("lockExpireAt");
-          setBannerRemain(0);
-          setBannerHidden(true);
-          notify("Booking Completed", "Your booking is now done!");
-          alert(`✅ Booking ${bookingId} completed successfully!`);
-        }
-
-        if (status.includes("cancel")) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-          localStorage.removeItem("lockExpireAt");
-          setBannerRemain(0);
-          setBannerHidden(true);
-          notify("Booking Cancelled", "Your booking was cancelled by staff.");
-          alert(`❌ Booking ${bookingId} was cancelled by staff.`);
-        }
-      } catch (err) {
-        console.warn("⚠️ Polling error:", err?.response?.data || err);
-      }
-    }, 10000); // 10 seconds
-
-    // cleanup
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
@@ -365,42 +494,61 @@ export default function Station() {
 
   const confirmNavigate = () => {
     if (!navSub) {
-      alert("Vui lòng chọn subscription trước khi tiếp tục.");
-    } else {
-      const chosen = subs.find((s) => s.subId === navSub);
-      if (!chosen) {
-        alert("Subscription không hợp lệ.");
-        return;
-      }
-      localStorage.setItem("swap_stationId", navStation.stationId);
-      localStorage.setItem("swap_stationName", navStation.stationName || "");
-      localStorage.setItem("swap_subscriptionId", chosen.subId);
-      localStorage.setItem("swap_subscriptionName", chosen.planName);
-
-      navigate("/stations", {
-        state: {
-          stationId: navStation.stationId,
-          stationName: navStation.stationName,
-          subscriptionId: chosen.subId,
-          subscriptionName: chosen.planName,
-        },
+      setMsgModal({
+        title: "Select subscription",
+        message: "Please choose a subscription plan before continuing.",
+        tone: "danger",
       });
-
-      setNavStation(null);
-      setNavSub("");
+      return;
     }
+    const chosen = subs.find((s) => s.subId === navSub);
+    if (!chosen) {
+      setMsgModal({
+        title: "Invalid subscription",
+        message: "The selected subscription is not available. Please choose another one.",
+        tone: "danger",
+      });
+      return;
+    }
+
+    localStorage.setItem("swap_stationId", navStation.stationId);
+    localStorage.setItem("swap_stationName", navStation.stationName || "");
+    localStorage.setItem("swap_subscriptionId", chosen.subId);
+    localStorage.setItem("swap_subscriptionName", chosen.planName);
+
+    navigate("/stations", {
+      state: {
+        stationId: navStation.stationId,
+        stationName: navStation.stationName,
+        subscriptionId: chosen.subId,
+        subscriptionName: chosen.planName,
+      },
+    });
+
+    setNavStation(null);
+    setNavSub("");
   };
 
   // BOOKING FLOW
   const confirmBooking = async () => {
-    if (!selectedSub || !bookingDate || !bookingTime)
-      return alert("Please complete all fields");
+    if (!selectedSub || !bookingDate || !bookingTime) {
+      setMsgModal({
+        title: "Incomplete information",
+        message: "Please select subscription, date and time before booking.",
+        tone: "danger",
+      });
+      return;
+    }
 
     const token = localStorage.getItem("token");
     const userDriverId = localStorage.getItem("userId");
     if (!token || !userDriverId) {
-      alert("⚠️ Please login again!");
-      navigate("/login");
+      setMsgModal({
+        title: "Session expired",
+        message: "Please log in again to continue.",
+        tone: "danger",
+        onClose: () => navigate("/login"),
+      });
       return;
     }
 
@@ -424,19 +572,21 @@ export default function Station() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const booking = res?.data?.data?.booking || res?.data?.booking || {};
+      console.log("📦 Booking response:", res.data);
+
+      const booking = res?.data?.data?.booking || {};
       const lockSeconds =
         Number(res?.data?.data?.time ?? res?.data?.time ?? 0) || 0;
 
-      // === Lưu BookingId để poll ===
-      const bookingId =
-        booking.bookingId ??
-        booking.id ??
-        res?.data?.data?.bookingId ??
-        res?.data?.bookingId ??
-        "";
-      if (bookingId) {
-        localStorage.setItem("lastBookingId", String(bookingId));
+      const appointmentId = booking.appointmentId || "";
+
+      if (appointmentId) {
+        localStorage.setItem("lastBookingId", appointmentId);
+        localStorage.setItem("lastAppointmentId", appointmentId);
+        console.log("✅ Saved lastBookingId (appointmentId):", appointmentId);
+        startPolling(appointmentId);
+      } else {
+        console.warn("⚠️ No appointmentId in booking response!");
       }
 
       localStorage.setItem("swap_stationId", selectedStation.stationId);
@@ -447,10 +597,7 @@ export default function Station() {
       localStorage.setItem("swap_subscriptionId", selectedSub);
       if (booking.transactionId)
         localStorage.setItem("lastTransactionId", booking.transactionId);
-      if (booking.appointmentId)
-        localStorage.setItem("lastAppointmentId", booking.appointmentId);
       localStorage.setItem("lastPlanId", booking.subscriptionId || selectedSub);
-
       localStorage.removeItem(MUTE_KEY);
       setBannerMuted(false);
 
@@ -460,33 +607,35 @@ export default function Station() {
         setBannerInfo({
           stationName: selectedStation.stationName || "",
           transactionId: booking.transactionId || "",
-          appointmentId: booking.appointmentId || "",
+          appointmentId,
         });
         setBannerHidden(false);
         setBannerRemain(lockSeconds);
 
         notify(
           "Booking created",
-          `Batteries locked at ${
-            selectedStation.stationName
+          `Batteries locked at ${selectedStation.stationName
           }. Expires in ${formatMMSS(lockSeconds)}`
         );
       }
 
-      alert(
-        [
-          "✅ Booking created & battery locked!",
-          `📍 ${selectedStation.stationName}`,
-          `🧾 Transaction: ${booking.transactionId || "—"}`,
-          `📄 Appointment: ${booking.appointmentId || "—"}`,
-          `📅 ${dateBooking} ${timeBooking}`,
-          lockSeconds ? `⏳ Lock time: ${formatMMSS(lockSeconds)}` : undefined,
+      setMsgModal({
+        title: "Booking created",
+        message: [
+          `Station: ${selectedStation.stationName}`,
+          `Transaction: ${booking.transactionId || "—"}`,
+          `Appointment: ${appointmentId || "—"}`,
+          `Time: ${dateBooking} ${timeBooking}`,
+          lockSeconds
+            ? `Lock time: ${formatMMSS(lockSeconds)}`
+            : "Lock time not available.",
           "",
-          "➡ Bạn có thể nhấn Navigate để xác thực tại trạm.",
+          "You can press Navigate to go to the station.",
         ]
           .filter(Boolean)
-          .join("\n")
-      );
+          .join("\n"),
+        tone: "success",
+      });
 
       setShowModal(false);
     } catch (err) {
@@ -496,7 +645,11 @@ export default function Station() {
         (typeof v === "string" && v) ||
         err.message;
       console.error("❌ Booking error:", err?.response || err);
-      alert(`❌ Booking failed!\n${msg || "Unknown error"}`);
+      setMsgModal({
+        title: "Booking failed",
+        message: msg || "Unknown error",
+        tone: "danger",
+      });
     }
   };
 
@@ -582,7 +735,6 @@ export default function Station() {
 
       {/* Map */}
       <div className="max-w-7xl mx-auto rounded-3xl border border-gray-100 shadow overflow-hidden mb-6">
-        <div className="h-2 bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)]" />
         <MapContainer
           center={defaultCenter}
           zoom={6}
@@ -605,12 +757,13 @@ export default function Station() {
                   <strong className="text-gray-900">{st.stationName}</strong>
                   <p className="text-gray-600">{st.stationAddress}</p>
                   <p className="text-gray-700">
-                    ⚡ {st.batteryAvailable}/{st.totalBattery} batteries
+                    <i className="bi bi-battery-full text-green-600"></i>{" "}
+                    {st.batteryAvailable}/{st.totalBattery} batteries
                   </p>
 
                   {userPos && (
                     <p className="mt-1 text-xs text-gray-500">
-                      📏 ~
+                      <i className="bi bi-rulers"></i> ~
                       {haversineKm(userPos, {
                         lat: st.locationLat,
                         lng: st.locationLon,
@@ -622,7 +775,7 @@ export default function Station() {
                           lng: st.locationLon,
                         }) /
                           40) *
-                          60
+                        60
                       )}{" "}
                       mins
                     </p>
@@ -631,9 +784,21 @@ export default function Station() {
                   <div className="mt-2 flex gap-2">
                     <button
                       onClick={() => handleBookSwap(st)}
-                      className="px-2.5 py-1.5 text-xs rounded-lg text-white bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90 shadow"
+                      className="px-2.5 py-1.5 text-xs rounded-lg text-white shadow"
+                      style={{
+                        backgroundColor: "#2f66ff",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.backgroundColor = "#2758d8")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.backgroundColor = "#2f66ff")
+                      }
                     >
-                      🔋 Book Swap
+                      <span className="inline-flex items-center gap-1.5">
+                        <i className="bi bi-lightning-charge-fill" />
+                        <span>Book Swap</span>
+                      </span>
                     </button>
                     <button
                       onClick={() => {
@@ -642,7 +807,10 @@ export default function Station() {
                       }}
                       className="px-2.5 py-1.5 text-xs rounded-lg border hover:bg-[var(--brand-50)]"
                     >
-                      📍 Navigate
+                      <span className="inline-flex items-center gap-1.5">
+                        <i className="bi bi-geo-alt-fill text-blue-600" />
+                        <span>Navigate</span>
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -688,12 +856,13 @@ export default function Station() {
         <div className="grid md:grid-cols-2 gap-4">
           {stations.map((st) => {
             const pct = Number(st.availablePercent ?? 0);
+            const pct2 = pct.toFixed(2);
             const band =
               pct >= 70
                 ? "from-emerald-400 to-emerald-500"
                 : pct >= 40
-                ? "from-amber-400 to-amber-500"
-                : "from-rose-400 to-rose-500";
+                  ? "from-amber-400 to-amber-500"
+                  : "from-rose-400 to-rose-500";
 
             return (
               <div
@@ -707,7 +876,8 @@ export default function Station() {
                     </h4>
                     <p className="text-sm text-gray-500">{st.stationAddress}</p>
                     <p className="text-sm text-gray-700 mt-1">
-                      ⚡ {st.batteryAvailable}/{st.totalBattery} batteries
+                      <i className="bi bi-battery-full text-green-600"></i>{" "}
+                      {st.batteryAvailable}/{st.totalBattery} batteries
                     </p>
                   </div>
 
@@ -719,7 +889,7 @@ export default function Station() {
                         style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
                       />
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">{pct}%</div>
+                    <div className="text-xs text-gray-500 mt-1">{pct2}%</div>
                   </div>
                 </div>
 
@@ -728,7 +898,10 @@ export default function Station() {
                     onClick={() => handleNavigateVisual(st)}
                     className="px-3 py-1.5 border rounded-lg hover:bg-[var(--brand-50)] text-gray-700"
                   >
-                    👀 Preview Route
+                    <span className="inline-flex items-center gap-1.5">
+                      <i className="bi bi-eye" />
+                      <span>Preview Route</span>
+                    </span>
                   </button>
                   <button
                     onClick={() => {
@@ -737,13 +910,28 @@ export default function Station() {
                     }}
                     className="px-3 py-1.5 border rounded-lg hover:bg-[var(--brand-50)] text-gray-700"
                   >
-                    📍 Navigate
+                    <span className="inline-flex items-center gap-1.5">
+                      <i className="bi bi-geo-alt-fill text-blue-600" />
+                      <span>Navigate</span>
+                    </span>
                   </button>
                   <button
                     onClick={() => handleBookSwap(st)}
-                    className="px-3 py-1.5 rounded-lg text-white bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90 shadow"
+                    className="px-3 py-1.5 rounded-lg text-white shadow"
+                    style={{
+                      backgroundColor: "#2f66ff",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.target.style.backgroundColor = "#2758d8")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.target.style.backgroundColor = "#2f66ff")
+                    }
                   >
-                    🔋 Book Swap
+                    <span className="inline-flex items-center gap-1.5">
+                      <i className="bi bi-lightning-charge-fill" />
+                      <span>Book Swap</span>
+                    </span>
                   </button>
                 </div>
               </div>
@@ -756,7 +944,6 @@ export default function Station() {
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
           <div className="bg-white rounded-2xl shadow-2xl w-[420px] overflow-hidden border border-gray-100">
-            <div className="h-2 bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)]" />
             <div className="p-6">
               <h3 className="text-lg font-semibold mb-3 text-center text-gray-900">
                 Booking at {selectedStation?.stationName}
@@ -807,7 +994,7 @@ export default function Station() {
               <div className="flex justify-between">
                 <button
                   onClick={confirmBooking}
-                  className="px-4 py-2.5 rounded-xl text-white bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90 shadow"
+                  className="px-4 py-2.5 rounded-xl text-white bg-[#2f66ff] hover:bg-[#254fcc] active:bg-[#2144aa] shadow"
                 >
                   Confirm
                 </button>
@@ -858,7 +1045,7 @@ export default function Station() {
               <div className="flex justify-between mt-4">
                 <button
                   onClick={confirmNavigate}
-                  className="px-4 py-2.5 rounded-xl text-white bg-gradient-to-r from-[var(--brand-start)] to-[var(--brand-end)] hover:opacity-95 active:opacity-90 shadow"
+                  className="px-4 py-2.5 rounded-xl text-white bg-[#2f66ff] hover:bg-[#254fcc] active:bg-[#2144aa] shadow"
                 >
                   Go to Simulation
                 </button>
@@ -875,6 +1062,20 @@ export default function Station() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Global message modal (replaces alerts) */}
+      {msgModal && (
+        <MessageModal
+          title={msgModal.title}
+          message={msgModal.message}
+          tone={msgModal.tone}
+          onClose={() => {
+            const cb = msgModal.onClose;
+            setMsgModal(null);
+            if (typeof cb === "function") cb();
+          }}
+        />
       )}
     </div>
   );

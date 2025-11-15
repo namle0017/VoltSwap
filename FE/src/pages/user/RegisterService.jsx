@@ -17,12 +17,18 @@ export default function RegisterService() {
   // Icon logic theo loại phí
   const getFeeIcon = (type) => {
     const key = String(type || "").toLowerCase();
-    if (key.includes("mileage")) return "🚗";
-    if (key.includes("swap")) return "🔄";
-    if (key.includes("penalty") || key.includes("late")) return "⚠️";
-    if (key.includes("booking")) return "📅";
-    if (key.includes("deposit")) return "💰";
-    return "📌";
+
+    if (key.includes("mileage")) return <i className="bi bi-speedometer2"></i>;
+    if (key.includes("swap")) return <i className="bi bi-arrow-repeat"></i>;
+    if (key.includes("penalty") || key.includes("late"))
+      return (
+        <i className="bi bi-exclamation-triangle-fill text-yellow-600"></i>
+      );
+    if (key.includes("booking"))
+      return <i className="bi bi-calendar-event"></i>;
+    if (key.includes("deposit")) return <i className="bi bi-cash-coin"></i>;
+
+    return <i className="bi bi-pin-angle-fill"></i>;
   };
 
   // Load danh sách plan
@@ -84,7 +90,8 @@ export default function RegisterService() {
       });
 
       // BE hiện chỉ trả message thành công
-      alert(`✅ Registered for ${selected.planName} successfully!`);
+      const msg = res.data?.message || "Registration success!";
+      alert(`✅ ${msg}`);
       navigate("/user/transaction");
     } catch (err) {
       const v = err?.response?.data;
@@ -236,7 +243,7 @@ export default function RegisterService() {
               </p>
             </div>
 
-            <h3 className="font-semibold text-lg mb-2">📑 Fee Details</h3>
+            <h3 className="font-semibold text-lg mb-2"> Fee Details</h3>
             <table className="w-full text-center border-collapse border">
               <thead className="bg-gray-100">
                 <tr>

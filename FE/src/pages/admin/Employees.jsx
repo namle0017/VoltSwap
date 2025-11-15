@@ -173,11 +173,23 @@ export default function StaffManagement() {
         }
     };
 
-    // ===== Delete staff =====
+    // --- DELETE staff (POST /api/User/delete-user { userId }) + confirm modal + toast ---
     const deleteStaff = async (row) => {
         const userId = row.userId ?? row.staffId;
-        if (!userId) return alert("Không xác định được userId để xoá.");
-        if (!window.confirm(`Xác nhận xoá nhân viên ${row.name} (${userId})?`)) return;
+        if (!userId) {
+            window.toast.error("User ID not found. Unable to delete.");
+            return;
+        }
+
+        // English confirmation modal (simple, modern)
+        const { ok } = await window.confirmModal({
+            title: "Are you sure?",
+            message: `This action will permanently delete ${row.name} (${userId}).`,
+            confirmText: "Delete",
+            cancelText: "Cancel",
+            variant: "danger",
+        });
+        if (!ok) return;
 
         setDeletingId(row.staffId);
         try {
@@ -187,12 +199,20 @@ export default function StaffManagement() {
                 { userId },
                 { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
             );
+
+            // Update UI after deletion
             setStaffs((prev) => prev.filter((s) => s.staffId !== row.staffId));
             if (selectedStaff?.staffId === row.staffId) setSelectedStaff(null);
-            alert("🗑️ Đã xoá nhân viên.");
+
+            window.toast.success("Staff deleted successfully.");
         } catch (err) {
-            console.error("delete-user error", err?.response?.data || err);
-            alert("❌ Xoá thất bại. Vui lòng thử lại.");
+            console.error("delete-user error:", err?.response?.data || err);
+            const msg =
+                err?.response?.data?.message ||
+                err?.response?.data?.title ||
+                err?.message ||
+                "Failed to delete staff. Please try again.";
+            window.toast.error(msg);
         } finally {
             setDeletingId(null);
         }

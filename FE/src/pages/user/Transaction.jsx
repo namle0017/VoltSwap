@@ -75,7 +75,11 @@ function StatusPill({ status }) {
         danger: "bg-rose-50 text-rose-700 border-rose-200",
     };
     const icon =
-        tone === "success" ? "check-circle" : tone === "danger" ? "x-circle" : "hourglass-split";
+        tone === "success"
+            ? "check-circle"
+            : tone === "danger"
+                ? "x-circle"
+                : "hourglass-split";
     return (
         <span
             title={`Payment status: ${status}`}
@@ -107,7 +111,9 @@ function EmptyState({ onAction }) {
                 <i className="bi bi-inboxes" />
             </div>
             <p className="text-gray-800 font-medium">No transactions yet</p>
-            <p className="text-gray-500 text-sm mb-4">Your payments will appear here.</p>
+            <p className="text-gray-500 text-sm mb-4">
+                Your payments will appear here.
+            </p>
             {onAction && (
                 <button
                     onClick={onAction}
@@ -162,9 +168,12 @@ export default function Transaction() {
                 const token = localStorage.getItem("token");
                 const userId = localStorage.getItem("userId");
 
-                const res = await api.get(`/Transaction/user-transaction-history-list/${userId}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+                const res = await api.get(
+                    `/Transaction/user-transaction-history-list/${userId}`,
+                    {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }
+                );
 
                 const transactionData =
                     (res.data && Array.isArray(res.data.data) && res.data.data) ||
@@ -187,20 +196,19 @@ export default function Transaction() {
         setPayingId(transactionId);
         try {
             const token = localStorage.getItem("token");
-            const res = await api.post(
-                "/Payment/create-payment",
-                null,
-                {
-                    params: { transactionId },
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                }
-            );
+            const res = await api.post("/Payment/create-payment", null, {
+                params: { transactionId },
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
 
             const url = res?.data?.paymentUrl || res?.data?.data?.paymentUrl || "";
             if (!url) throw new Error("No payment URL");
             window.location.href = url;
         } catch (err) {
-            alert(`Tạo phiên thanh toán thất bại: ${err?.response?.data?.message || err.message}`);
+            alert(
+                `Tạo phiên thanh toán thất bại: ${err?.response?.data?.message || err.message
+                }`
+            );
         } finally {
             setPayingId("");
         }
@@ -218,7 +226,9 @@ export default function Transaction() {
                 (filter === "Failed" && /fail|denied|cancel/i.test(status));
             const passQuery =
                 !q ||
-                String(t.transactionId || "").toLowerCase().includes(q) ||
+                String(t.transactionId || "")
+                    .toLowerCase()
+                    .includes(q) ||
                 String(t.transactionNote || t.transactionType || "")
                     .toLowerCase()
                     .includes(q);
@@ -233,7 +243,11 @@ export default function Transaction() {
                     <Header />
                     <Card>
                         <TableHead />
-                        <tbody>{Array.from({ length: 7 }).map((_, i) => <SkeletonRow key={i} />)}</tbody>
+                        <tbody>
+                            {Array.from({ length: 7 }).map((_, i) => (
+                                <SkeletonRow key={i} />
+                            ))}
+                        </tbody>
                     </Card>
                 </div>
             </div>
@@ -289,14 +303,19 @@ export default function Transaction() {
 
                                         return (
                                             <tr
-                                                key={t.transactionId || `${t.planId}-${t.createdAt || Math.random()}`}
+                                                key={
+                                                    t.transactionId ||
+                                                    `${t.planId}-${t.createdAt || Math.random()}`
+                                                }
                                                 className="group border-b hover:bg-[var(--brand-50)]/40 transition"
                                             >
                                                 <td className="py-3 px-2 font-semibold text-gray-800 group/td text-left">
                                                     <span className="mr-2">{t.transactionId || "—"}</span>
                                                     <button
                                                         onClick={() => {
-                                                            navigator.clipboard.writeText(t.transactionId || "");
+                                                            navigator.clipboard.writeText(
+                                                                t.transactionId || ""
+                                                            );
                                                             setMsg("Copied ID");
                                                         }}
                                                         className="opacity-0 group-hover/td:opacity-100 transition text-[11px] px-2 py-0.5 rounded border"
@@ -313,27 +332,58 @@ export default function Transaction() {
                                                 <td className="py-3 px-2">
                                                     <StatusPill status={status} />
                                                 </td>
-                                                <td className="py-3 px-2 text-gray-600">{formattedDate}</td>
+                                                <td className="py-3 px-2 text-gray-600">
+                                                    {formattedDate}
+                                                </td>
                                                 <td className="py-3 px-2">
                                                     {isPending && Number(t.amount || 0) > 0 ? (
                                                         <button
                                                             onClick={() => startPayment(t.transactionId)}
                                                             disabled={btnLoading}
-                                                            className="text-white text-sm px-4 py-1.5 rounded brand-gradient hover:opacity-95 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                                            className="text-white text-sm px-4 py-1.5 rounded shadow flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                                                            style={{ backgroundColor: "#2f66ff" }}
+                                                            onMouseEnter={(e) =>
+                                                                (e.target.style.backgroundColor = "#2758d8")
+                                                            }
+                                                            onMouseLeave={(e) =>
+                                                                (e.target.style.backgroundColor = "#2f66ff")
+                                                            }
                                                         >
-                                                            {btnLoading ? "Processing…" : "💳 Pay Now"}
+                                                            {btnLoading ? (
+                                                                "Processing…"
+                                                            ) : (
+                                                                <>
+                                                                    <i className="bi bi-credit-card-fill text-base"></i>
+                                                                    Pay Now
+                                                                </>
+                                                            )}
                                                         </button>
                                                     ) : (
                                                         <button
-                                                            onClick={() => setMsg(t.vnpayTransactionNo ? "Copied VNPAY No" : "No VNPAY No")}
+                                                            onClick={() =>
+                                                                setMsg(
+                                                                    t.vnpayTransactionNo
+                                                                        ? "Copied VNPAY No"
+                                                                        : "No VNPAY No"
+                                                                )
+                                                            }
                                                             onMouseDown={() => {
                                                                 if (t.vnpayTransactionNo) {
-                                                                    navigator.clipboard.writeText(t.vnpayTransactionNo);
+                                                                    navigator.clipboard.writeText(
+                                                                        t.vnpayTransactionNo
+                                                                    );
                                                                 }
                                                             }}
-                                                            className="text-xs px-3 py-1.5 rounded border text-[var(--brand-end)] bg-white hover:bg-[var(--brand-50)]"
+                                                            className="text-xs px-3 py-1.5 rounded border flex items-center gap-2 text-[var(--brand-end)] bg-white hover:bg-[var(--brand-50)] transition"
                                                         >
-                                                            {t.vnpayTransactionNo ? "Copy VNPAY No" : "—"}
+                                                            {t.vnpayTransactionNo ? (
+                                                                <>
+                                                                    <i className="bi bi-clipboard-check text-sm"></i>
+                                                                    Copy VNPAY No
+                                                                </>
+                                                            ) : (
+                                                                "—"
+                                                            )}
                                                         </button>
                                                     )}
                                                 </td>
@@ -363,7 +413,9 @@ function Header() {
                     <h2 className="text-2xl font-bold text-gray-900">
                         <span className="text-brand-gradient">Transactions</span>
                     </h2>
-                    <p className="text-gray-500 text-sm">Your payment history & receipts</p>
+                    <p className="text-gray-500 text-sm">
+                        Your payment history & receipts
+                    </p>
                 </div>
             </div>
             <span className="text-xs text-gray-500">
@@ -374,7 +426,9 @@ function Header() {
 }
 
 function Card({ children }) {
-    return <div className="bg-white border rounded-2xl shadow-sm p-6">{children}</div>;
+    return (
+        <div className="bg-white border rounded-2xl shadow-sm p-6">{children}</div>
+    );
 }
 
 function TableHead() {

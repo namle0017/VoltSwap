@@ -419,7 +419,7 @@ namespace VoltSwap.BusinessLayer.Services
             var stationId = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.StaffId);
             var bookingList = await _bookingRepo.GetAllQueryable()
                 .Where(b => b.BatterySwapStationId == stationId.BatterySwapStationId
-                && b.DateBooking == today
+                && b.DateBooking >= today
                 )
 
                 .ToListAsync();

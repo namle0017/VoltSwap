@@ -9,7 +9,7 @@ const formatCurrencyInput = (val) => {
     const digits = String(val || "").replace(/\D/g, "");
     if (!digits) return "";
     const n = Number(digits);
-    return n.toLocaleString("vi-VN");
+    return n.toLocaleString("en-US");
 };
 const parseCurrencyToNumber = (val) => {
     const digits = String(val || "").replace(/\D/g, "");
@@ -17,8 +17,8 @@ const parseCurrencyToNumber = (val) => {
 };
 const formatVND = (n) =>
     typeof n === "number"
-        ? n.toLocaleString("vi-VN", { style: "currency", currency: "VND" })
-        : "₫0";
+        ? n.toLocaleString("en-US", { style: "currency", currency: "VND" })
+        : "VND 0";
 
 const isAmountObj = (v) =>
     v && typeof v === "object" && "amount" in v && typeof v.amount === "number";
@@ -34,7 +34,9 @@ const isTierArray = (v) =>
     );
 
 const displayMileage = (n) =>
-    Number(n) === 0 ? "Unlimited" : `${Number(n).toLocaleString("vi-VN")} km/month`;
+    Number(n) === 0
+        ? "Unlimited"
+        : `${Number(n).toLocaleString("en-US")} km/month`;
 
 /* ===== Mapping fee key <-> API name ===== */
 const KEY_TO_API = {
@@ -61,7 +63,7 @@ export default function Subscription() {
     const [pkgMode, setPkgMode] = useState("create");
     const [editingId, setEditingId] = useState(null);
     const [pkgForm, setPkgForm] = useState({
-        // NOTE: planId chỉ dùng khi edit
+        // NOTE: planId used only when editing
         planId: "",
         name: "",
         batteries: "",
@@ -69,7 +71,7 @@ export default function Subscription() {
         swapLimit: "",
         baseMileage: "",
         basePriceText: "",
-        status: "Active", // Active | Inactive (tuỳ BE)
+        status: "Active", // Active | Inactive (depends on BE)
     });
 
     // Delete loading
@@ -104,7 +106,7 @@ export default function Subscription() {
                     const p = item?.plans || {};
                     const createdAtRaw = p.createdAt || null;
                     const createdAt = createdAtRaw
-                        ? new Date(createdAtRaw).toLocaleDateString("vi-VN")
+                        ? new Date(createdAtRaw).toLocaleDateString("en-US")
                         : "-";
                     return {
                         id: idx + 1,
@@ -128,7 +130,7 @@ export default function Subscription() {
                 }
             } catch (e) {
                 console.error("view-plan-detail error", e?.response?.data || e);
-                setErr("Không thể tải danh sách gói / fees.");
+                setErr("Failed to load packages/fees.");
             } finally {
                 setLoading(false);
             }
@@ -194,7 +196,7 @@ export default function Subscription() {
         setPkgMode("edit");
         setEditingId(pkg.id);
         setPkgForm({
-            planId: String(pkg.planId || ""), // hiện ra ở form nhưng disabled
+            planId: String(pkg.planId || ""), // displayed but disabled
             name: pkg.name,
             batteries: String(pkg.batteries ?? ""),
             durationDays: String(pkg.durationDays ?? ""),
@@ -233,7 +235,7 @@ export default function Subscription() {
         if (pkgMode === "edit" && !pkgForm.planId) errs.push("Plan ID");
 
         if (errs.length) {
-            alert("Vui lòng nhập đúng/đủ các trường: " + errs.join(", "));
+            alert("Please fill in the following fields correctly: " + errs.join(", "));
             return;
         }
 
@@ -243,16 +245,16 @@ export default function Subscription() {
                 await api.post("/Plan/create-plan", payloadCommon, {
                     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
                 });
-                alert("✅ Tạo gói thành công.");
+                alert("✅ Package created successfully.");
             } else {
                 const body = {
-                    planId: pkgForm.planId, // không cho sửa trong UI
+                    planId: pkgForm.planId, // not editable in UI
                     ...payloadCommon,
                 };
                 await api.post("/Plan/update-plan", body, {
                     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
                 });
-                alert("✅ Cập nhật gói thành công.");
+                alert("✅ Package updated successfully.");
             }
             setIsPkgModalOpen(false);
         } catch (err) {
@@ -260,32 +262,47 @@ export default function Subscription() {
             alert(
                 err?.response?.data?.message ||
                 err?.response?.data?.title ||
-                "❌ Thao tác thất bại."
+                "❌ Operation failed."
             );
         }
     };
 
+    // --- DELETE package (POST /api/Plan/delete-plan { planId }) + confirm modal + toast ---
     const deletePlan = async (planId) => {
-        if (!planId) return;
-        const ok = confirm("Bạn có chắc muốn xoá gói này?");
+        if (!planId) {
+            window.toast.error("Plan ID not found. Unable to delete package.");
+            return;
+        }
+
+        // Professional English confirm modal
+        const { ok } = await window.confirmModal({
+            title: "Are you sure?",
+            message: "This action will permanently delete this package plan.",
+            confirmText: "Delete",
+            cancelText: "Cancel",
+            variant: "danger",
+        });
         if (!ok) return;
+
+        setDeletingId(planId);
         try {
-            setDeletingId(planId);
             const token = localStorage.getItem("token");
             await api.post(
                 "/Plan/delete-plan",
                 { planId },
                 { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
             );
+
             setPackages((prev) => prev.filter((p) => p.planId !== planId));
-            alert("🗑️ Đã xoá gói.");
-        } catch (e) {
-            console.error("delete-plan error", e?.response?.data || e);
-            alert(
-                e?.response?.data?.message ||
-                e?.response?.data?.title ||
-                "❌ Xoá gói thất bại."
-            );
+            window.toast.success("Package deleted successfully.");
+        } catch (err) {
+            console.error("delete-plan error:", err?.response?.data || err);
+            const msg =
+                err?.response?.data?.message ||
+                err?.response?.data?.title ||
+                err?.message ||
+                "Failed to delete package. Please try again.";
+            window.toast.error(msg);
         } finally {
             setDeletingId(null);
         }
@@ -294,7 +311,7 @@ export default function Subscription() {
     /* ===== Fee Update Modal: open with current group data ===== */
     const openFeeModal = () => {
         if (!activeGroupKey) {
-            alert("Chưa chọn Fee Group.");
+            alert("No fee group selected.");
             return;
         }
         const gk = activeGroupKey;
@@ -335,7 +352,9 @@ export default function Subscription() {
 
     // ===== Helpers for tier logic (Excess Mileage) =====
     const findFeeIdxByType = (type) =>
-        tierFeeEdits.findIndex((f) => (f?.typeOfFee || "").toLowerCase() === type.toLowerCase());
+        tierFeeEdits.findIndex(
+            (f) => (f?.typeOfFee || "").toLowerCase() === type.toLowerCase()
+        );
 
     const computeNextMinFromTiers = (tiers) => {
         if (!Array.isArray(tiers) || tiers.length === 0) return 0;
@@ -365,16 +384,16 @@ export default function Subscription() {
         return true;
     };
 
-    // Handlers chỉnh simple fees
+    // Handlers for simple fees
     const onSimpleChange = (idx, field, value) => {
         setSimpleFeeEdits((prev) => {
             const copy = [...prev];
-            copy[idx = idx] = { ...copy[idx], [field]: value };
+            copy[(idx = idx)] = { ...copy[idx], [field]: value };
             return copy;
         });
     };
 
-    // Handlers chỉnh tier fees
+    // Handlers for tier fees
     const addTierRow = (feeIdx) => {
         setTierFeeEdits((prev) => {
             const copy = [...prev];
@@ -386,7 +405,7 @@ export default function Subscription() {
                     ...(current.tiers || []),
                     {
                         minValue: nextMin,
-                        maxValue: nextMin, // default = equal, user chỉnh sau
+                        maxValue: nextMin, // default equals; user adjusts later
                         amountText: "",
                         unit: "VND/km",
                         description: "",
@@ -401,12 +420,20 @@ export default function Subscription() {
     const addExcessMileageTier = () => {
         let feeIdx = findFeeIdxByType("Excess Mileage");
         if (feeIdx === -1) {
-            // If group chưa có "Excess Mileage", thêm mới container
+            // If group doesn't have "Excess Mileage" yet, create container
             setTierFeeEdits((prev) => [
                 ...prev,
                 {
                     typeOfFee: "Excess Mileage",
-                    tiers: [{ minValue: 0, maxValue: 0, amountText: "", unit: "VND/km", description: "" }],
+                    tiers: [
+                        {
+                            minValue: 0,
+                            maxValue: 0,
+                            amountText: "",
+                            unit: "VND/km",
+                            description: "",
+                        },
+                    ],
                 },
             ]);
             return;
@@ -437,7 +464,7 @@ export default function Subscription() {
     // Submit update fees
     const submitUpdateFee = async () => {
         if (!modalGroupKey) {
-            alert("Thiếu groupKey!");
+            alert("Missing groupKey!");
             return;
         }
 
@@ -464,7 +491,7 @@ export default function Subscription() {
 
             if (!validateTiersNoOverlap(sortedTiers)) {
                 alert(
-                    `Biểu phí "${f.typeOfFee}" có các bậc (min/max) bị chồng lấn hoặc min > max. Vui lòng kiểm tra lại.`
+                    `Fee "${f.typeOfFee}" has overlapping tiers or a min greater than max. Please review.`
                 );
                 return;
             }
@@ -475,7 +502,6 @@ export default function Subscription() {
                     maxValue: Number(t.maxValue || 0),
                     amount: parseCurrencyToNumber(t.amountText),
                     unit: t.unit || "VND/km",
-                    description: String(t.description || "").trim(),
                 }))
                 .filter((t) => t.maxValue >= t.minValue);
 
@@ -486,7 +512,7 @@ export default function Subscription() {
         }
 
         if (!fees.length) {
-            alert("Không có fee nào để cập nhật.");
+            alert("No fee items to update.");
             return;
         }
 
@@ -498,14 +524,14 @@ export default function Subscription() {
             await api.post("/Fee/update-fee", payload, {
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
-            alert("✅ Cập nhật phí thành công.");
+            alert("✅ Fees updated successfully.");
             setIsFeeModalOpen(false);
         } catch (e) {
             console.error("update-fee error", e?.response?.data || e);
             alert(
                 e?.response?.data?.message ||
                 e?.response?.data?.title ||
-                "❌ Cập nhật phí thất bại."
+                "❌ Failed to update fees."
             );
         } finally {
             setSubmittingFees(false);
@@ -544,7 +570,9 @@ export default function Subscription() {
             <div className="grid md:grid-cols-3 gap-6 mb-6">
                 <div className="bg-white rounded-lg shadow p-6">
                     <div className="text-sm text-gray-500">Monthly Revenue</div>
-                    <div className="text-2xl font-bold mt-2">{formatVND(monthlyRevenue)}</div>
+                    <div className="text-2xl font-bold mt-2">
+                        {formatVND(monthlyRevenue)}
+                    </div>
                 </div>
                 <div className="bg-white rounded-lg shadow p-6">
                     <div className="text-sm text-gray-500">Total Packages</div>
@@ -569,7 +597,7 @@ export default function Subscription() {
                     </div>
                     <div className="mt-3 text-sm text-gray-800 space-y-1">
                         {simpleAmountFees.length === 0 ? (
-                            <div className="text-gray-500">Không có fee đơn trị.</div>
+                            <div className="text-gray-500">No flat-fee items.</div>
                         ) : (
                             simpleAmountFees.map((f) => (
                                 <div key={f.key} className="flex justify-between">
@@ -604,7 +632,8 @@ export default function Subscription() {
                         </div>
                     )}
 
-                {simpleAmountFees.filter((f) => f.key !== "batteryDeposit").length > 0 ? (
+                {simpleAmountFees.filter((f) => f.key !== "batteryDeposit").length >
+                    0 ? (
                     <div className="grid md:grid-cols-2 gap-4 mb-4">
                         {simpleAmountFees
                             .filter((f) => f.key !== "batteryDeposit")
@@ -622,11 +651,11 @@ export default function Subscription() {
                             ))}
                     </div>
                 ) : (
-                    <div className="text-gray-500">Không có biểu phí đơn trị.</div>
+                    <div className="text-gray-500">No flat-fee items.</div>
                 )}
 
                 {tierFees.length === 0 ? (
-                    <div className="text-gray-500">Không có biểu phí bậc thang.</div>
+                    <div className="text-gray-500">No tiered fee schedules.</div>
                 ) : (
                     tierFees.map((grp) => (
                         <div key={grp.key} className="mb-6">
@@ -715,7 +744,9 @@ export default function Subscription() {
                             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                                 <div className="p-3 bg-gray-50 rounded-lg">
                                     <div className="text-gray-500">Number of batteries</div>
-                                    <div className="font-semibold text-gray-900">{pkg.batteries}</div>
+                                    <div className="font-semibold text-gray-900">
+                                        {pkg.batteries}
+                                    </div>
                                 </div>
 
                                 <div className="p-3 bg-gray-50 rounded-lg">
@@ -751,7 +782,7 @@ export default function Subscription() {
                                 >
                                     {pkg.status}
                                 </span>
-                                <div className="text-gray-500">Day create: {pkg.createdAt}</div>
+                                <div className="text-gray-500">Created on: {pkg.createdAt}</div>
                             </div>
                         </div>
                     ))
@@ -775,7 +806,7 @@ export default function Subscription() {
                         </div>
 
                         <form className="p-5 space-y-4" onSubmit={submitPackage}>
-                            {/* Plan ID chỉ hiện khi edit và disabled */}
+                            {/* Plan ID only shown when editing and disabled */}
                             {pkgMode === "edit" && (
                                 <div>
                                     <label className="block text-sm text-gray-700 mb-1">
@@ -787,7 +818,7 @@ export default function Subscription() {
                                         className="w-full border rounded-lg px-3 py-2 bg-gray-100 text-gray-600"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        ID của gói — không thể chỉnh sửa.
+                                        Package ID — not editable.
                                     </p>
                                 </div>
                             )}
@@ -802,7 +833,7 @@ export default function Subscription() {
                                         setPkgForm((s) => ({ ...s, name: e.target.value }))
                                     }
                                     className="w-full border rounded-lg px-3 py-2"
-                                    placeholder="VD: G1 Package, TP1 Package…"
+                                    placeholder="e.g., G1 Package, TP1 Package…"
                                     required
                                 />
                             </div>
@@ -878,7 +909,7 @@ export default function Subscription() {
                                         className="w-full border rounded-lg px-3 py-2"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        Nhập <strong>0</strong> để thiết lập <em>Unlimited</em>.
+                                        Enter <strong>0</strong> to set <em>Unlimited</em>.
                                     </p>
                                 </div>
 
@@ -913,12 +944,12 @@ export default function Subscription() {
                                             basePriceText: formatCurrencyInput(e.target.value),
                                         }))
                                     }
-                                    placeholder="vd: 3,000,000"
+                                    placeholder="e.g., 3,000,000"
                                     className="w-full border rounded-lg px-3 py-2"
                                     required
                                 />
                                 <p className="text-xs text-gray-500 mt-1">
-                                    Số tiền sẽ tự format khi gõ (vi-VN).
+                                    Amount auto-formats as you type (en-US).
                                 </p>
                             </div>
 
@@ -947,7 +978,9 @@ export default function Subscription() {
                 <div className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl">
                         <div className="p-5 border-b flex items-center justify-between">
-                            <div className="text-lg font-semibold">Update Fees — Group {modalGroupKey}</div>
+                            <div className="text-lg font-semibold">
+                                Update Fees — Group {modalGroupKey}
+                            </div>
                             <button className="p-2 hover:bg-gray-100 rounded-lg" onClick={closeFeeModal}>
                                 <i className="bi bi-x-lg" />
                             </button>
@@ -958,7 +991,7 @@ export default function Subscription() {
                             <div>
                                 <h4 className="font-semibold mb-2">Simple Fees</h4>
                                 {simpleFeeEdits.length === 0 ? (
-                                    <div className="text-sm text-gray-500">Không có fee đơn trị.</div>
+                                    <div className="text-sm text-gray-500">No flat-fee items.</div>
                                 ) : (
                                     <div className="grid md:grid-cols-2 gap-4">
                                         {simpleFeeEdits.map((f, idx) => (
@@ -978,7 +1011,7 @@ export default function Subscription() {
                                                             })
                                                         }
                                                         className="w-full border rounded-lg px-3 py-2"
-                                                        placeholder="số tiền"
+                                                        placeholder="amount"
                                                     />
                                                     <input
                                                         value={f.unit}
@@ -990,7 +1023,7 @@ export default function Subscription() {
                                                             })
                                                         }
                                                         className="w-36 border rounded-lg px-3 py-2"
-                                                        placeholder="đơn vị"
+                                                        placeholder="unit"
                                                     />
                                                 </div>
                                             </div>
@@ -1007,14 +1040,14 @@ export default function Subscription() {
                                         type="button"
                                         onClick={addExcessMileageTier}
                                         className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
-                                        title="Thêm bậc mới cho Excess Mileage"
+                                        title="Add new tier for Excess Mileage"
                                     >
-                                        + Thêm bậc (Excess Mileage)
+                                        + Add tier (Excess Mileage)
                                     </button>
                                 </div>
 
                                 {tierFeeEdits.length === 0 ? (
-                                    <div className="text-sm text-gray-500">Không có biểu phí bậc thang.</div>
+                                    <div className="text-sm text-gray-500">No tiered fee schedules.</div>
                                 ) : (
                                     tierFeeEdits.map((f, feeIdx) => (
                                         <div key={feeIdx} className="border rounded-lg p-3 mb-3">
@@ -1027,7 +1060,6 @@ export default function Subscription() {
                                                             <th className="p-2 text-left">Max</th>
                                                             <th className="p-2 text-left">Amount</th>
                                                             <th className="p-2 text-left">Unit</th>
-                                                            <th className="p-2 text-left">Description</th>
                                                             <th className="p-2"></th>
                                                         </tr>
                                                     </thead>
@@ -1040,7 +1072,12 @@ export default function Subscription() {
                                                                         className="border rounded px-2 py-1 w-28"
                                                                         value={t.minValue}
                                                                         onChange={(e) =>
-                                                                            onTierChange(feeIdx, rowIdx, "minValue", Number(e.target.value))
+                                                                            onTierChange(
+                                                                                feeIdx,
+                                                                                rowIdx,
+                                                                                "minValue",
+                                                                                Number(e.target.value)
+                                                                            )
                                                                         }
                                                                     />
                                                                 </td>
@@ -1050,7 +1087,12 @@ export default function Subscription() {
                                                                         className="border rounded px-2 py-1 w-28"
                                                                         value={t.maxValue}
                                                                         onChange={(e) =>
-                                                                            onTierChange(feeIdx, rowIdx, "maxValue", Number(e.target.value))
+                                                                            onTierChange(
+                                                                                feeIdx,
+                                                                                rowIdx,
+                                                                                "maxValue",
+                                                                                Number(e.target.value)
+                                                                            )
                                                                         }
                                                                     />
                                                                 </td>
@@ -1078,22 +1120,12 @@ export default function Subscription() {
                                                                     />
                                                                 </td>
                                                                 <td className="p-2">
-                                                                    <input
-                                                                        className="border rounded px-2 py-1 w-64"
-                                                                        placeholder="Mô tả (optional)"
-                                                                        value={t.description || ""}
-                                                                        onChange={(e) =>
-                                                                            onTierChange(feeIdx, rowIdx, "description", e.target.value)
-                                                                        }
-                                                                    />
-                                                                </td>
-                                                                <td className="p-2">
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => removeTierRow(feeIdx, rowIdx)}
                                                                         className="px-2 py-1 text-red-600 hover:bg-red-50 rounded"
                                                                     >
-                                                                        Xoá
+                                                                        Delete
                                                                     </button>
                                                                 </td>
                                                             </tr>
@@ -1108,10 +1140,11 @@ export default function Subscription() {
                                                     onClick={() => addTierRow(feeIdx)}
                                                     className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
                                                 >
-                                                    + Thêm bậc
+                                                    + Add tier
                                                 </button>
                                                 <span className="text-xs text-gray-500">
-                                                    * Khi thêm bậc mới, <em>Min</em> sẽ gợi ý = <em>Max</em> của bậc cuối + 1 để tránh overlap.
+                                                    * When adding a new tier, suggested <em>Min</em> equals the last
+                                                    tier's <em>Max</em> + 1 to avoid overlap.
                                                 </span>
                                             </div>
                                         </div>
@@ -1120,7 +1153,7 @@ export default function Subscription() {
                             </div>
                         </div>
 
-                        {/* Footer luôn hiển thị (fix mất nút khi đổi group) */}
+                        {/* Footer is always visible (fix disappearing buttons when switching group) */}
                         <div className="p-5 border-t flex justify-end gap-2">
                             <button
                                 type="button"

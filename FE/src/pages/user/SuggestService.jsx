@@ -18,12 +18,17 @@ export default function SuggestService() {
 
   const getFeeIcon = (type) => {
     const key = type.toLowerCase();
-    if (key.includes("mileage")) return "🚗";
-    if (key.includes("swap")) return "🔄";
-    if (key.includes("penalty") || key.includes("late")) return "⚠️";
-    if (key.includes("booking")) return "📅";
-    if (key.includes("deposit")) return "💰";
-    return "📌";
+    if (key.includes("mileage")) return <i className="bi bi-speedometer2"></i>;
+    if (key.includes("swap")) return <i className="bi bi-arrow-repeat"></i>;
+    if (key.includes("penalty") || key.includes("late"))
+      return (
+        <i className="bi bi-exclamation-triangle-fill text-yellow-600"></i>
+      );
+    if (key.includes("booking"))
+      return <i className="bi bi-calendar-event"></i>;
+    if (key.includes("deposit")) return <i className="bi bi-cash-coin"></i>;
+
+    return <i className="bi bi-pin-angle-fill"></i>;
   };
 
   const queryParams = new URLSearchParams(location.search);
@@ -104,7 +109,8 @@ export default function SuggestService() {
       });
 
       // BE hiện chỉ trả message thành công
-      alert(`✅ Registered for ${selected.planName} successfully!`);
+      const msg = res.data?.message || "Registration success!";
+      alert(`✅ ${msg}`);
       navigate("/user/transaction");
     } catch (err) {
       const v = err?.response?.data;
@@ -137,8 +143,8 @@ export default function SuggestService() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-10 px-4">
       <div className="max-w-5xl mx-auto bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
         <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">
-          🌟 Suggested Subscription Plans:{" "}
-          <span className="text-blue-600">{planList}</span>
+          <i className="bi bi-stars text-blue-600"></i> Suggested Subscription
+          Plans: <span className="text-blue-600">{planList}</span>
         </h2>
 
         <div className="overflow-x-auto">
@@ -165,8 +171,8 @@ export default function SuggestService() {
                   <tr
                     key={p.planId}
                     className={`border-b transition ${p.isSuggest
-                        ? "bg-green-100 hover:bg-green-200"
-                        : "hover:bg-gray-50"
+                      ? "bg-green-100 hover:bg-green-200"
+                      : "hover:bg-gray-50"
                       } ${selected?.planId === p.planId ? "bg-yellow-200" : ""}`}
                   >
                     <td className="p-3 font-semibold text-gray-800">
@@ -193,13 +199,13 @@ export default function SuggestService() {
                         onClick={() => handleViewPlanDetail(p.planId)}
                         className="px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded-lg"
                       >
-                        ℹ️ Details
+                        <i className="bi bi-info-circle-fill"></i> Details
                       </button>
                       <button
                         onClick={() => setSelected(p)}
                         className={`px-3 py-1 rounded-full ${selected?.planId === p.planId
-                            ? "bg-yellow-400 font-semibold"
-                            : "bg-yellow-200 hover:bg-yellow-300"
+                          ? "bg-yellow-400 font-semibold"
+                          : "bg-yellow-200 hover:bg-yellow-300"
                           }`}
                       >
                         {selected?.planId === p.planId ? "Selected" : "Choose"}
@@ -217,8 +223,8 @@ export default function SuggestService() {
             onClick={register}
             disabled={!selected}
             className={`px-6 py-2 rounded-lg font-semibold ${selected
-                ? "bg-green-600 text-white hover:bg-green-700"
-                : "bg-gray-400 text-gray-100 cursor-not-allowed"
+              ? "bg-green-600 text-white hover:bg-green-700"
+              : "bg-gray-400 text-gray-100 cursor-not-allowed"
               }`}
           >
             <i

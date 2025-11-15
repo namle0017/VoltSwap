@@ -4,7 +4,8 @@ import api from "@/api/api";
 
 const LIST_EP = "/Transaction/admin-transaction-list";
 const CREATE_EP = "/Transaction/admin-create-transaction";
-const DETAIL_EP = "/Transaction/transaction-detail"; // <-- dùng requestTransactionId
+const DETAIL_EP = "/Transaction/transaction-detail";            // ?requestTransactionId=...
+const RECREATE_EP = "/Transaction/recreate-transaction";        // PATCH ?transactionId=...
 
 export default function PaymentInfo() {
     const [payments, setPayments] = useState([]);
@@ -19,14 +20,26 @@ export default function PaymentInfo() {
     const [detail, setDetail] = useState(null);
     const [selectedTxId, setSelectedTxId] = useState("");
 
+    // Recreate guard
+    const [recreatingIds, setRecreatingIds] = useState(() => new Set());
+
     const formatVND = (value) =>
-        Number(value || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+        Number(value || 0).toLocaleString("en-US", {
+            style: "currency",
+            currency: "VND",
+        });
+
     const statusPill = (status) => {
         const s = String(status || "").toLowerCase();
         if (s === "approved" || s === "success") return "bg-green-100 text-green-700";
         if (s === "waiting" || s === "pending") return "bg-yellow-100 text-yellow-700";
         if (s === "denied" || s === "failed" || s === "fail") return "bg-red-100 text-red-700";
         return "bg-gray-100 text-gray-700";
+    };
+
+    const isFailed = (status) => {
+        const s = String(status || "").toLowerCase();
+        return s === "failed" || s === "fail" || s === "denied";
     };
 
     const loadTransactions = async () => {
@@ -40,7 +53,7 @@ export default function PaymentInfo() {
             setPayments(data);
         } catch (err) {
             console.error("❌ admin-transaction-list error:", err?.response?.data || err);
-            alert("⚠ Không thể tải danh sách giao dịch!");
+            alert("⚠ Failed to load transactions list!");
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -61,14 +74,12 @@ export default function PaymentInfo() {
         setDetail(null);
         try {
             const token = localStorage.getItem("token");
-            // BE yêu cầu query: requestTransactionId=...
             const res = await api.get(DETAIL_EP, {
                 params: { requestTransactionId: transactionId },
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
             const payload = res?.data?.data ?? null;
 
-            // Map đúng theo response mẫu bạn gửi
             const normalized = payload
                 ? {
                     transactionId: payload.transactionId || transactionId,
@@ -81,7 +92,9 @@ export default function PaymentInfo() {
                     numberOfBooking:
                         typeof payload.numberOfBooking === "number" ? payload.numberOfBooking : 0,
                     totalFee:
-                        typeof payload.totalFee === "number" ? payload.totalFee : Number(payload.fee || 0),
+                        typeof payload.totalFee === "number"
+                            ? payload.totalFee
+                            : Number(payload.fee || 0),
                     totalAmount:
                         typeof payload.totalAmount === "number"
                             ? payload.totalAmount
@@ -93,25 +106,73 @@ export default function PaymentInfo() {
         } catch (err) {
             console.error("❌ transaction-detail error:", err?.response?.data || err);
             setDetailError(
-                err?.response?.data?.message || err?.message || "Không thể tải chi tiết giao dịch."
+                err?.response?.data?.message ||
+                err?.message ||
+                "Failed to load transaction detail."
             );
         } finally {
             setDetailLoading(false);
         }
     };
 
-    // Bulk create invoices (giữ nguyên ý tưởng: tạo cho các giao dịch Waiting)
+    // ===== RECREATE: PATCH ?transactionId=... (only for failed) =====
+    const handleRecreate = async (transactionId) => {
+        if (!transactionId) return;
+        if (recreatingIds.has(transactionId)) return;
+
+        // Modern confirmation modal
+        const { ok } = await window.confirmModal({
+            title: "Are you sure?",
+            message: "This action will attempt to recreate the failed transaction.",
+            confirmText: "Recreate",
+            cancelText: "Cancel",
+            variant: "primary",
+        });
+        if (!ok) return;
+
+        setRecreatingIds((prev) => new Set(prev).add(transactionId));
+        try {
+            const token = localStorage.getItem("token");
+            await api.patch(RECREATE_EP, null, {
+                params: { transactionId },
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+
+            window.toast.success(`Transaction ${transactionId} recreated successfully.`);
+            await loadTransactions();
+        } catch (err) {
+            console.error("❌ recreate-transaction error:", err?.response?.data || err);
+            const msg =
+                err?.response?.data?.message ||
+                err?.response?.data?.title ||
+                err?.message ||
+                "Failed to recreate transaction.";
+            window.toast.error(msg);
+        } finally {
+            setRecreatingIds((prev) => {
+                const n = new Set(prev);
+                n.delete(transactionId);
+                return n;
+            });
+        }
+    };
+
+    // ===== BULK CREATE INVOICES (Waiting) =====
     const handleCreateAllInvoices = async () => {
         const eligible = payments.filter(
             (p) => String(p.paymentStatus || "").toLowerCase() === "waiting"
         );
 
         if (eligible.length === 0) {
-            alert("Không có giao dịch ở trạng thái phù hợp để tạo hóa đơn.");
+            alert("No transactions are eligible for invoice creation.");
             return;
         }
 
-        if (!window.confirm(`Tạo hóa đơn cho ${eligible.length} giao dịch ở trạng thái Waiting?`))
+        if (
+            !window.confirm(
+                `Create invoices for ${eligible.length} transaction(s) currently in Waiting status?`
+            )
+        )
             return;
 
         const token = localStorage.getItem("token");
@@ -147,10 +208,10 @@ export default function PaymentInfo() {
         const okCount = results.filter((r) => r.ok).length;
         const fail = results.filter((r) => !r.ok);
 
-        let summary = `✅ Tạo hóa đơn xong.\nThành công: ${okCount}/${eligible.length}`;
+        let summary = `✅ Invoice creation completed.\nSuccess: ${okCount}/${eligible.length}`;
         if (fail.length) {
-            summary += `\n❌ Thất bại: ${fail.length}`;
-            summary += `\nIDs lỗi: ${fail.map((f) => f.id).join(", ")}`;
+            summary += `\n❌ Failed: ${fail.length}`;
+            summary += `\nFailed IDs: ${fail.map((f) => f.id).join(", ")}`;
         }
         alert(summary);
 
@@ -161,7 +222,7 @@ export default function PaymentInfo() {
         return (
             <div className="flex flex-col items-center mt-20 text-gray-600">
                 <div className="animate-spin h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full mb-3"></div>
-                <p>Đang tải danh sách giao dịch...</p>
+                <p>Loading transactions…</p>
             </div>
         );
     }
@@ -170,8 +231,10 @@ export default function PaymentInfo() {
         <div className="p-8 bg-gray-50 min-h-screen">
             <div className="mb-8 flex flex-wrap gap-3 items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">🧾 Admin Transaction Management</h1>
-                    <p className="text-gray-600">Xuất hóa đơn hàng loạt và xem chi tiết giao dịch</p>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                        Admin Transaction Management
+                    </h1>
+                    <p className="text-gray-600">Bulk invoice creation & transaction detail viewer</p>
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -179,21 +242,33 @@ export default function PaymentInfo() {
                         disabled={refreshing || creatingAll}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
                     >
-                        {refreshing ? "Đang tải..." : (<><i className="bi bi-arrow-repeat me-1" /> Refresh</>)}
+                        {refreshing ? (
+                            "Loading…"
+                        ) : (
+                            <>
+                                <i className="bi bi-arrow-repeat me-1" /> Refresh
+                            </>
+                        )}
                     </button>
                     <button
                         onClick={handleCreateAllInvoices}
                         disabled={creatingAll || refreshing}
                         className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-60"
-                        title="Tạo hóa đơn cho tất cả giao dịch đủ điều kiện"
+                        title="Create invoices for all eligible transactions"
                     >
-                        {creatingAll ? "Đang tạo..." : (<><i className="bi bi-receipt me-1" /> Create</>)}
+                        {creatingAll ? (
+                            "Creating…"
+                        ) : (
+                            <>
+                                <i className="bi bi-receipt me-1" /> Create
+                            </>
+                        )}
                     </button>
                 </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Danh sách giao dịch</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Transactions</h2>
 
                 <div className="overflow-x-auto">
                     <table className="min-w-full border-collapse text-center">
@@ -212,35 +287,72 @@ export default function PaymentInfo() {
                             {payments.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" className="py-6 text-gray-500 italic">
-                                        Không có giao dịch nào.
+                                        No transactions found.
                                     </td>
                                 </tr>
                             ) : (
                                 payments.map((p) => {
                                     const status = String(p.paymentStatus || "").toLowerCase();
                                     const formattedDate = p.paymentDate
-                                        ? new Date(p.paymentDate).toLocaleDateString("vi-VN")
+                                        ? new Date(p.paymentDate).toLocaleDateString("en-US")
                                         : "—";
+                                    const canRecreate = isFailed(p.paymentStatus);
+                                    const recreating = recreatingIds.has(p.transactionId);
+
                                     return (
-                                        <tr key={p.transactionId} className="border-b hover:bg-gray-50 transition duration-150">
-                                            <td className="px-4 py-3 font-medium text-gray-800">{p.transactionId}</td>
-                                            <td className="px-4 py-3 text-blue-700 font-semibold">{formatVND(p.amount)}</td>
-                                            <td className="px-4 py-3 text-gray-700 text-sm">{p.transactionContext}</td>
-                                            <td className="px-4 py-3 text-gray-700 text-sm">{p.transactionNote}</td>
+                                        <tr
+                                            key={p.transactionId}
+                                            className="border-b hover:bg-gray-50 transition duration-150"
+                                        >
+                                            <td className="px-4 py-3 font-medium text-gray-800">
+                                                {p.transactionId}
+                                            </td>
+                                            <td className="px-4 py-3 text-blue-700 font-semibold">
+                                                {formatVND(p.amount)}
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-700 text-sm">
+                                                {p.transactionContext}
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-700 text-sm">
+                                                {p.transactionNote}
+                                            </td>
                                             <td className="px-4 py-3">
-                                                <span className={`px-3 py-1 text-sm font-medium rounded-full ${statusPill(p.paymentStatus)}`}>
+                                                <span
+                                                    className={`px-3 py-1 text-sm font-medium rounded-full ${statusPill(
+                                                        p.paymentStatus
+                                                    )}`}
+                                                >
                                                     {p.paymentStatus}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-gray-600">{formattedDate}</td>
                                             <td className="px-4 py-3">
-                                                <button
-                                                    onClick={() => openDetail(p.transactionId)}
-                                                    className="px-3 py-1.5 text-sm rounded-lg border hover:bg-gray-50"
-                                                    title="Xem chi tiết"
-                                                >
-                                                    <i className="bi bi-eye me-1" /> View
-                                                </button>
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => openDetail(p.transactionId)}
+                                                        className="px-3 py-1.5 text-sm rounded-lg border hover:bg-gray-50"
+                                                        title="View detail"
+                                                    >
+                                                        <i className="bi bi-eye me-1" /> View
+                                                    </button>
+
+                                                    {canRecreate && (
+                                                        <button
+                                                            onClick={() => handleRecreate(p.transactionId)}
+                                                            disabled={recreating}
+                                                            className="px-3 py-1.5 text-sm rounded-lg border text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-60"
+                                                            title="Recreate transaction (failed)"
+                                                        >
+                                                            {recreating ? (
+                                                                "Recreating…"
+                                                            ) : (
+                                                                <>
+                                                                    <i className="bi bi-arrow-clockwise me-1" /> Recreate
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -251,8 +363,8 @@ export default function PaymentInfo() {
                 </div>
 
                 <div className="mt-3 text-xs text-gray-500">
-                    Gợi ý: Nút <b>Create</b> ở góc trên sẽ xuất hóa đơn <b>hàng loạt</b> cho các giao dịch đang
-                    <b> Waiting</b>. Muốn tiêu chí khác — chỉnh biến <code>eligible</code> trong{" "}
+                    Tip: The <b>Create</b> button above will bulk-generate invoices for transactions in
+                    <b> Waiting</b> status. To change the criteria, adjust <code>eligible</code> inside{" "}
                     <code>handleCreateAllInvoices</code>.
                 </div>
             </div>
@@ -270,7 +382,12 @@ export default function PaymentInfo() {
                         <div className="p-5 border-b flex items-center justify-between">
                             <h3 className="text-xl font-semibold">
                                 Transaction Detail
-                                {selectedTxId ? <span className="text-gray-500 font-normal text-sm"> • {selectedTxId}</span> : null}
+                                {selectedTxId ? (
+                                    <span className="text-gray-500 font-normal text-sm">
+                                        {" "}
+                                        • {selectedTxId}
+                                    </span>
+                                ) : null}
                             </h3>
                             <button
                                 className="p-2 rounded-lg hover:bg-gray-100"
@@ -283,7 +400,7 @@ export default function PaymentInfo() {
                         {detailLoading ? (
                             <div className="p-8 flex items-center justify-center text-gray-600">
                                 <div className="h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mr-3" />
-                                Đang tải chi tiết...
+                                Loading details…
                             </div>
                         ) : detailError ? (
                             <div className="p-6 text-red-600">{detailError}</div>
@@ -294,7 +411,11 @@ export default function PaymentInfo() {
                                     <KV
                                         label="Status"
                                         value={
-                                            <span className={`px-2.5 py-0.5 rounded-full text-sm font-medium ${statusPill(detail.status)}`}>
+                                            <span
+                                                className={`px-2.5 py-0.5 rounded-full text-sm font-medium ${statusPill(
+                                                    detail.status
+                                                )}`}
+                                            >
                                                 {detail.status}
                                             </span>
                                         }
@@ -319,7 +440,7 @@ export default function PaymentInfo() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="p-6 text-gray-500">Không có dữ liệu chi tiết.</div>
+                            <div className="p-6 text-gray-500">No detail data.</div>
                         )}
                     </div>
                 </div>
@@ -332,7 +453,9 @@ function KV({ label, value }) {
     return (
         <div className="p-3 bg-gray-50 rounded-lg">
             <div className="text-sm text-gray-500">{label}</div>
-            <div className="font-semibold text-gray-900">{value ?? <span className="text-gray-400">—</span>}</div>
+            <div className="font-semibold text-gray-900">
+                {value ?? <span className="text-gray-400">—</span>}
+            </div>
         </div>
     );
 }

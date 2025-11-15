@@ -230,7 +230,7 @@ namespace VoltSwap.BusinessLayer.Services
         //Nemo: Cho staff tạo cancelPlan
         public async Task<ServiceResult> CancelPlanAsync(CheckCancelPlanRequest requestDto)
         {
-            var generateTransId = await GenerateTransactionId();
+            var getstation = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(requestDto.StaffId);
             var getPlanId = await GetPlanIdBySubId(requestDto.SubId);
             var getFee = await _feeRepo.GetAllQueryable()
                                     .FirstOrDefaultAsync(fee => fee.PlanId == getPlanId &&
@@ -240,11 +240,15 @@ namespace VoltSwap.BusinessLayer.Services
 
             //tìm các transaction của user chưa trả để tính vào 
             var gettransactionNotPay = await _unitOfWork.Trans.TransactionListNotpayBySubId(requestDto.SubId);
-            decimal t = 0;
-            foreach (var transaction in gettransactionNotPay)
-            {
-                t += transaction.TotalAmount;
-            }
+
+
+            gettransactionNotPay.TotalAmount = gettransactionNotPay.TotalAmount - getFee.Amount;
+            gettransactionNotPay.Status = "Pending";
+            gettransactionNotPay.Note = $"{requestDto.SubId}-CANCEL-PLAN";
+            await _transRepo.UpdateAsync(gettransactionNotPay);
+            await _unitOfWork.SaveChangesAsync();
+
+
 
             var getSessionList = await GenerateBatterySession(requestDto.SubId);
             var getBatRequest = new BatterySwapRequest
@@ -254,30 +258,25 @@ namespace VoltSwap.BusinessLayer.Services
                 YearSwap = DateTime.UtcNow.ToLocalTime().Year,
             };
             var calMilleageFee = await CalMilleageFee(getBatRequest, getSessionList);
-            string transactionContext = $"{booking.UserDriverId}-RENEW_PACKAGE-{generateTransId.Substring(6)}";
-            var createRefund = new Transaction
-            {
-                TransactionId = generateTransId,
-                SubscriptionId = requestDto.SubId,
-                UserDriverId = booking.UserDriverId,
-                TransactionType = "Refund",
-                Amount = -(getFee.Amount),
-                Currency = "VND",
-                TransactionDate = DateTime.UtcNow.ToLocalTime(),
-                PaymentMethod = "Cash",
-                Status = "Pending",
-                Fee = t + calMilleageFee,
-                TotalAmount = -(getFee.Amount) + t + calMilleageFee,
-                TransactionContext = transactionContext,
-                CreatedBy = requestDto.StaffId,
-            };
+            string transactionContext = $"{requestDto.SubId}-CANCEL-PLAN";
+            var total = gettransactionNotPay.TotalAmount - getFee.Amount;
 
-            await _transRepo.CreateAsync(createRefund);
+            if (total > 0)
+            {
+                gettransactionNotPay.TransactionType = "Penalty Fee";
+            }
+            else
+            {
+                gettransactionNotPay.TransactionType = "Refund";
+                gettransactionNotPay.PaymentMethod = "Cash";
+            }
+
+            await _transRepo.UpdateAsync(gettransactionNotPay);
             await _unitOfWork.SaveChangesAsync();
 
             if (booking != null)
             {
-                booking.TransactionId = generateTransId;
+                booking.TransactionId = gettransactionNotPay.TransactionId;
                 booking.Status = "Done";
                 await _appoinmentRepo.UpdateAsync(booking);
                 await _unitOfWork.SaveChangesAsync();
@@ -292,16 +291,25 @@ namespace VoltSwap.BusinessLayer.Services
                     Message = "Something wrong, please contact to admin or waiting...",
                 };
             }
+            var batteriesInSub = await _unitOfWork.BatterySwap
+            .GetBatteriesBySubscriptionId(requestDto.SubId);
+            foreach (var bat in batteriesInSub)
+            {
+                bat.Status = "Returned";
+                await _unitOfWork.BatterySwap.UpdateAsync(bat);
+                await _unitOfWork.SaveChangesAsync();
 
+            }
 
             return new ServiceResult
             {
                 Status = 200,
                 Message = "Check confirm and refund for customer",
-                Data = createRefund
+                Data = gettransactionNotPay
 
             };
         }
+
         //Bin:  hàm để bên staff xem lịch sử BW của trạm
         public async Task<ServiceResult> BatterySwapList(UserRequest request)
         {
