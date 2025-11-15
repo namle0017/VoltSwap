@@ -34,7 +34,8 @@ namespace VoltSwap.API.Controllers
         }
 
         [AllowAnonymous]
-        [HttpGet("cPaymentCallbackVnpay")]
+        [HttpGet("vnpay/callback")]
+        [HttpPost("vnpay/callback")]
         public async Task<IActionResult> VnPayReturn()
         {
             var response = await _transService.ProcessVnPayCallbackAsync(Request.Query);
@@ -71,12 +72,16 @@ namespace VoltSwap.API.Controllers
             return Ok(new { paymentUrl = url });
         }
 
-        [Authorize(Roles = "Driver,Staff,Admin")]
-        [HttpGet("vnpay/callback")]
+        [AllowAnonymous]
+        [HttpGet("vnpay/callback1")]
         public async Task<IActionResult> VnPayCallback()
         {
             var result = await _transService.ProcessVnPayCallbackAsync(Request.Query);
             return Content($"responsecode={(result.VnPayResponseCode == "00" ? "00" : "99")}", "text/plain");
         }
+
+        [AllowAnonymous]
+        [HttpGet("test")]
+        public IActionResult Test() => Ok("Route works!");
     }
 }

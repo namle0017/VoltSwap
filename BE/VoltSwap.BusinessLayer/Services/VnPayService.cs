@@ -90,8 +90,41 @@ namespace VoltSwap.BusinessLayer.Services
 
         private string GetIpAddress(HttpContext context)
         {
-            var ip = context.Connection.RemoteIpAddress?.ToString();
-            return ip == "::1" ? "127.0.0.1" : ip ?? "127.0.0.1";
+            if (context == null)
+            {
+                return "Invalid IP: Context is null";
+            }
+
+            string ipAddress = null;
+            try
+            {
+                // Lấy từ header X-Forwarded-For (hỗ trợ proxy/load balancer)
+                var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+
+                if (!string.IsNullOrEmpty(forwardedFor))
+                {
+                    // Xử lý nếu có nhiều IP (comma-separated), lấy IP đầu tiên (client IP)
+                    ipAddress = forwardedFor.Split(',')[0].Trim();
+
+                    // Kiểm tra hợp lệ (giữ nguyên logic gốc)
+                    if (ipAddress.ToLowerInvariant() == "unknown" || ipAddress.Length > 45)
+                    {
+                        ipAddress = null;  // Reset để fallback
+                    }
+                }
+
+                // Fallback sang IP remote nếu không hợp lệ hoặc empty
+                if (string.IsNullOrEmpty(ipAddress))
+                {
+                    ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                }
+            }
+            catch (Exception ex)
+            {
+                ipAddress = "Invalid IP: " + ex.Message;
+            }
+
+            return ipAddress ?? "unknown";
         }
 
         private string UrlEncodeUpper(string str)
