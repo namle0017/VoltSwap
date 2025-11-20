@@ -244,7 +244,7 @@ export default function Station() {
     if (!bookingId) return;
 
     if (pollRef.current) clearInterval(pollRef.current);
-    console.log("🚀 Start polling booking status for ID:", bookingId);
+    console.log("Start polling booking status for ID:", bookingId);
 
     pollRef.current = setInterval(async () => {
       try {
@@ -252,7 +252,7 @@ export default function Station() {
         const msg = res?.data?.message || "";
         const status = String(res?.data?.data ?? "").toLowerCase();
 
-        console.log("🔁 Polling response:", msg, "| Status:", status);
+        console.log("Polling response:", msg, "| Status:", status);
 
         if (status.includes("done") || status.includes("completed")) {
           clearInterval(pollRef.current);
@@ -307,7 +307,7 @@ export default function Station() {
         }
       } catch (err) {
         console.error(
-          "🚨 Polling failed (unexpected network/500):",
+          "Polling failed (unexpected network/500):",
           err?.response?.data || err
         );
         const statusText = String(
@@ -378,7 +378,7 @@ export default function Station() {
         setStations(stationRes.data?.data || []);
         setSubs(subRes.data?.data || []);
       } catch (err) {
-        console.error("❌ Failed to load data:", err.response?.data || err);
+        console.error("Failed to load data:", err.response?.data || err);
         setMsgModal({
           title: "Failed to load data",
           message: "There was an error loading stations or subscriptions.",
@@ -572,7 +572,7 @@ export default function Station() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("📦 Booking response:", res.data);
+      console.log("Booking response:", res.data);
 
       const booking = res?.data?.data?.booking || {};
       const lockSeconds =
@@ -583,7 +583,7 @@ export default function Station() {
       if (appointmentId) {
         localStorage.setItem("lastBookingId", appointmentId);
         localStorage.setItem("lastAppointmentId", appointmentId);
-        console.log("✅ Saved lastBookingId (appointmentId):", appointmentId);
+        console.log("Saved lastBookingId (appointmentId):", appointmentId);
         startPolling(appointmentId);
       } else {
         console.warn("⚠️ No appointmentId in booking response!");

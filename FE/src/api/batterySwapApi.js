@@ -1,17 +1,23 @@
 // src/api/batterySwapApi.js
 import axios from "axios";
 
+const base =
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://voltswapprjapi-b8dtg4gfancyeqg3.southeastasia-01.azurewebsites.net"; // Fallback to Azure backend for production
+
 export const batteryApi = axios.create({
-  baseURL: "", // dùng proxy của Vite
+  baseURL: `${base}/api`, // Đảm bảo path bắt đầu từ /BatterySwap/... (không lặp /api)
   headers: { "Content-Type": "application/json" },
 });
 
 batteryApi.interceptors.request.use((config) => {
   const fullUrl = (config.baseURL || "") + (config.url || "");
-  // attach ngrok skip header and bearer token if available
+  // attach ngrok skip header chỉ nếu dev (base chứa ngrok), và bearer token if available
   try {
     config.headers = config.headers || {};
-    config.headers["ngrok-skip-browser-warning"] = "true";
+    if (base.includes("ngrok")) {
+      config.headers["ngrok-skip-browser-warning"] = "true";
+    }
     const token = localStorage.getItem("token");
     if (token) config.headers.Authorization = `Bearer ${token}`;
   } catch {
@@ -23,21 +29,21 @@ batteryApi.interceptors.request.use((config) => {
 
 // ---- BatterySwap APIs ----
 export const getStationList = () =>
-  batteryApi.get("/api/BatterySwap/get-station-list");
+  batteryApi.get("/BatterySwap/get-station-list"); // Bỏ /api vì baseURL đã có
 
 export const validateSubscription = (subscriptionId, stationId) =>
-  batteryApi.get("/api/BatterySwap/validate-subscription", {
+  batteryApi.get("/BatterySwap/validate-subscription", {
     params: { subscriptionId, stationId },
   });
 
 export const swapInBattery = (payload) => {
   console.log("[swap-in] payload →", JSON.parse(JSON.stringify(payload)));
-  return batteryApi.post("/api/BatterySwap/swap-in-battery", payload);
+  return batteryApi.post("/BatterySwap/swap-in-battery", payload);
 };
 
 export const swapOutBattery = (payload) => {
   console.log("[swap-out] payload →", JSON.parse(JSON.stringify(payload)));
-  return batteryApi.post("/api/BatterySwap/swap-out-battery", payload);
+  return batteryApi.post("/BatterySwap/swap-out-battery", payload);
 };
 
 const toStr = (v) => (v == null ? v : String(v));
@@ -59,20 +65,16 @@ export async function manualAssist({
   };
 
   // Try #1: subId
-  let res = await batteryApi.post(
-    "/api/BatterySwap/get-battery-in-station",
-    body,
-    {
-      headers: { "Content-Type": "application/json" },
-      validateStatus: () => true,
-    }
-  );
+  let res = await batteryApi.post("/BatterySwap/get-battery-in-station", body, {
+    headers: { "Content-Type": "application/json" },
+    validateStatus: () => true,
+  });
   if (res.status >= 200 && res.status < 300) return res.data;
 
   // Try #2: subscriptionId
   const alt = { ...body, subscriptionId: body.subId };
   delete alt.subId;
-  res = await batteryApi.post("/api/BatterySwap/get-battery-in-station", alt, {
+  res = await batteryApi.post("/BatterySwap/get-battery-in-station", alt, {
     headers: { "Content-Type": "application/json" },
     validateStatus: () => true,
   });
@@ -107,9 +109,9 @@ export async function staffAddNewBattery({
   };
 
   // Gửi GET request
-  const res = await batteryApi.get("/api/BatterySwap/staff-add-new-battery", {
+  const res = await batteryApi.get("/BatterySwap/staff-add-new-battery", {
     params,
-    headers: { "ngrok-skip-browser-warning": "true" },
+    headers: { "ngrok-skip-browser-warning": "true" }, // Giữ nhưng có thể conditional nếu cần
     validateStatus: () => true,
   });
 
