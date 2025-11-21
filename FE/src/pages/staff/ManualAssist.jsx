@@ -28,7 +28,7 @@ export default function ManualAssist() {
 
     // ====== Step 2 & 3 shared state ======
     const [errorType, setErrorType] = useState(""); // '' | 'pinIn' | 'pinOut'
-    const [inBatteryId, setInBatteryId] = useState("");   // Customer Battery ID
+    const [inBatteryId, setInBatteryId] = useState(""); // Customer Battery ID
     const [outBatteryId, setOutBatteryId] = useState(""); // Out Battery ID
 
     const [submitting, setSubmitting] = useState(false);
@@ -97,11 +97,22 @@ export default function ManualAssist() {
             setValidated(true);
         } catch (e) {
             console.error(e);
-            setCheckErr(
-                e?.response?.data?.message ||
-                e.message ||
-                "Subscription check failed"
-            );
+            const resData = e?.response?.data;
+            if (
+                resData?.title === "One or more validation errors occurred." &&
+                resData?.errors?.SubscriptionId
+            ) {
+                // Sai format SUB ID
+                setCheckErr(
+                    "Invalid Subscription ID format. Please follow pattern SUB-12345678."
+                );
+            } else {
+                setCheckErr(
+                    resData?.message ||
+                    e.message ||
+                    "Subscription check failed."
+                );
+            }
             setValidated(false);
         } finally {
             setCheckingSub(false);
@@ -148,7 +159,11 @@ export default function ManualAssist() {
                 batteryInId: errorType === "pinIn" ? inBatteryId || null : null,
             };
 
-            await api.post("/BatterySwap/staff-help-customer", payload);
+            const res = await api.post(
+                "/BatterySwap/staff-help-customer",
+                payload
+            );
+            setResp(res?.data ?? null);
 
             // 👉 Chỉ hiển thị thông báo thành công
             const msg =
@@ -156,16 +171,35 @@ export default function ManualAssist() {
                     ? `Battery swap successful: received (${inBatteryId}), gave (${outBatteryId}).`
                     : `Battery swap successful: gave (${outBatteryId}) to the customer.`;
             setSuccessMsg(msg);
-
-            // Auto-ẩn sau 4 giây (tuỳ chọn)
-            // setTimeout(() => setSuccessMsg(""), 4000);
         } catch (e) {
             console.error(e);
-            setErr(
-                e?.response?.data?.message ||
-                e.message ||
-                "Manual Assist failed"
-            );
+            const resData = e?.response?.data;
+
+            if (resData?.title === "One or more validation errors occurred." && resData?.errors) {
+                if (resData.errors.SubscriptionId) {
+                    setErr(
+                        "Invalid Subscription ID format. Please follow pattern SUB-12345678."
+                    );
+                } else if (resData.errors.BatteryOutId) {
+                    setErr(
+                        "Invalid BatteryOut ID format. Please follow pattern BT-1234-1A2B."
+                    );
+                } else if (resData.errors.BatteryInId) {
+                    setErr(
+                        "Invalid BatteryIn ID format. Please follow pattern BT-1234-1A2B."
+                    );
+                } else {
+                    const firstKey = Object.keys(resData.errors)[0];
+                    const firstMsg = resData.errors[firstKey]?.[0];
+                    setErr(firstMsg || "Validation error. Please check your inputs.");
+                }
+            } else {
+                setErr(
+                    resData?.message ||
+                    e.message ||
+                    "Manual Assist failed."
+                );
+            }
         } finally {
             setSubmitting(false);
         }
@@ -252,7 +286,11 @@ export default function ManualAssist() {
                         <button
                             className="btn btn-primary"
                             type="button"
-                            disabled={checkingSub || !subscriptionId.trim() || !staffId.trim()}
+                            disabled={
+                                checkingSub ||
+                                !subscriptionId.trim() ||
+                                !staffId.trim()
+                            }
                             onClick={checkSubscription}
                         >
                             {checkingSub ? "Checking…" : "Check subscription"}
@@ -277,11 +315,21 @@ export default function ManualAssist() {
 
                 {validated && subBatteries.length > 0 && (
                     <div style={{ marginTop: 12 }}>
-                        <div className="small muted" style={{ marginBottom: 4 }}>
-                            Suggested Battery IDs (click to fill "Customer Battery ID"):
+                        <div
+                            className="small muted"
+                            style={{ marginBottom: 4 }}
+                        >
+                            Suggested Battery IDs (click to fill "Customer
+                            Battery ID"):
                         </div>
 
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        <div
+                            style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: 8,
+                            }}
+                        >
                             {subBatteries.map((id) => (
                                 <button
                                     key={id}
@@ -294,7 +342,9 @@ export default function ManualAssist() {
                                     style={{
                                         fontSize: 12,
                                         borderColor:
-                                            inBatteryId === id ? "#10b981" : undefined,
+                                            inBatteryId === id
+                                                ? "#10b981"
+                                                : undefined,
                                         background:
                                             inBatteryId === id
                                                 ? "rgba(16,185,129,.1)"
@@ -306,7 +356,10 @@ export default function ManualAssist() {
                             ))}
                         </div>
 
-                        <div className="small muted" style={{ marginTop: 4 }}>
+                        <div
+                            className="small muted"
+                            style={{ marginTop: 4 }}
+                        >
                             You can still edit manually.
                         </div>
                     </div>
@@ -319,8 +372,20 @@ export default function ManualAssist() {
                     <h3 style={{ marginTop: 0 }}>Step 2. Select Action Type</h3>
 
                     <div style={grid2}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 8,
+                            }}
+                        >
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                }}
+                            >
                                 <input
                                     type="radio"
                                     name="errType"
@@ -335,7 +400,13 @@ export default function ManualAssist() {
                                 Pin In
                             </label>
 
-                            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                }}
+                            >
                                 <input
                                     type="radio"
                                     name="errType"
@@ -349,7 +420,6 @@ export default function ManualAssist() {
                                 Pin Out
                             </label>
                         </div>
-
                     </div>
                 </div>
             )}
@@ -370,41 +440,53 @@ export default function ManualAssist() {
                                     setInBatteryId(e.target.value);
                                     setSuccessMsg("");
                                 }}
-                                placeholder="e.g. BAT-ERR-001"
+                                placeholder="e.g. BT-9999-ABCD"
                             />
                         </label>
                     </div>
 
                     <div className="card">
-                        <h3 style={{ marginTop: 0 }}>Give Battery to Customer</h3>
+                        <h3 style={{ marginTop: 0 }}>
+                            Give Battery to Customer
+                        </h3>
                         <label>
                             Out Battery ID
-                            <div style={{ display: "flex", gap: 8 }}>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    alignItems: "center",
+                                }}
+                            >
                                 <input
-                                    className="input"
+                                    className="input input-readonly"
                                     value={outBatteryId}
-                                    onChange={(e) => {
-                                        setOutBatteryId(e.target.value);
-                                        setSuccessMsg("");
-                                    }}
+                                    readOnly
                                     placeholder="Select from warehouse…"
                                     aria-label="Out Battery ID"
                                 />
                                 <button
-                                    className="btn"
+                                    className="btn btn-warehouse"
                                     type="button"
                                     onClick={() => {
                                         setOpenPicker(true);
                                         loadWarehouse();
                                     }}
                                     disabled={!staffId.trim()}
-                                    title={!staffId.trim() ? "Missing staffId" : ""}
+                                    title={
+                                        !staffId.trim()
+                                            ? "Missing staffId"
+                                            : "Pick from warehouse"
+                                    }
                                 >
-                                    From warehouse
+                                    <i
+                                        className="bi bi-box-seam"
+                                        aria-hidden="true"
+                                    />
+                                    <span>Pick from warehouse</span>
                                 </button>
                             </div>
                         </label>
-
                     </div>
                 </div>
             )}
@@ -412,35 +494,47 @@ export default function ManualAssist() {
             {/* ===== STEP 3B: PIN OUT ===== */}
             {validated && errorType === "pinOut" && (
                 <div className="card" style={{ marginTop: 16 }}>
-                    <h3 style={{ marginTop: 0 }}>Step 3 B. Give Battery to Customer</h3>
+                    <h3 style={{ marginTop: 0 }}>
+                        Step 3B. Give Battery to Customer
+                    </h3>
                     <label>
                         Out Battery ID
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div
+                            style={{
+                                display: "flex",
+                                gap: 8,
+                                alignItems: "center",
+                            }}
+                        >
                             <input
-                                className="input"
+                                className="input input-readonly"
                                 value={outBatteryId}
-                                onChange={(e) => {
-                                    setOutBatteryId(e.target.value);
-                                    setSuccessMsg("");
-                                }}
+                                readOnly
                                 placeholder="Select from warehouse…"
                                 aria-label="Out Battery ID"
                             />
                             <button
-                                className="btn"
+                                className="btn btn-warehouse"
                                 type="button"
                                 onClick={() => {
                                     setOpenPicker(true);
                                     loadWarehouse();
                                 }}
                                 disabled={!staffId.trim()}
-                                title={!staffId.trim() ? "Missing staffId" : ""}
+                                title={
+                                    !staffId.trim()
+                                        ? "Missing staffId"
+                                        : "Pick from warehouse"
+                                }
                             >
-                                From warehouse
+                                <i
+                                    className="bi bi-box-seam"
+                                    aria-hidden="true"
+                                />
+                                <span>Pick from warehouse</span>
                             </button>
                         </div>
                     </label>
-
                 </div>
             )}
 
@@ -453,7 +547,9 @@ export default function ManualAssist() {
                             onClick={onConfirm}
                             disabled={!canConfirm || submitting}
                         >
-                            {submitting ? "Processing…" : "Confirm & Send Manual Assist"}
+                            {submitting
+                                ? "Processing…"
+                                : "Confirm & Send Manual Assist"}
                         </button>
                     </div>
 
@@ -461,7 +557,10 @@ export default function ManualAssist() {
                     {err && (
                         <div
                             className="card mt-3"
-                            style={{ borderColor: "#ef4444", background: "#fef2f2" }}
+                            style={{
+                                borderColor: "#ef4444",
+                                background: "#fef2f2",
+                            }}
                         >
                             <div
                                 style={{
@@ -495,10 +594,18 @@ export default function ManualAssist() {
 
             {/* ===== MODAL KHO PIN ===== */}
             {openPicker && (
-                <div className="overlay" onClick={() => setOpenPicker(false)}>
-                    <aside className="drawer" onClick={(e) => e.stopPropagation()}>
+                <div
+                    className="overlay"
+                    onClick={() => setOpenPicker(false)}
+                >
+                    <aside
+                        className="drawer"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <header className="drawer-head">
-                            <h4 className="m-0">Select Battery from Warehouse</h4>
+                            <h4 className="m-0">
+                                Select Battery from Warehouse
+                            </h4>
                             <button
                                 className="btn-close"
                                 onClick={() => setOpenPicker(false)}
@@ -510,21 +617,35 @@ export default function ManualAssist() {
 
                         <div
                             className="drawer-body"
-                            style={{ display: "flex", flexDirection: "column", gap: 12 }}
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 12,
+                            }}
                         >
                             <div className="row-between">
                                 <div className="small muted">
                                     Staff: <b>{staffId || "—"}</b>
                                 </div>
 
-                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <label className="small muted">Min SOC filter</label>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                    }}
+                                >
+                                    <label className="small muted">
+                                        Min SOC filter
+                                    </label>
                                     <input
                                         type="number"
                                         min={0}
                                         max={100}
                                         value={minSoc}
-                                        onChange={(e) => setMinSoc(clamp01(e.target.value))}
+                                        onChange={(e) =>
+                                            setMinSoc(clamp01(e.target.value))
+                                        }
                                         style={{ width: 72 }}
                                         aria-label="Min SOC filter"
                                     />
@@ -544,83 +665,105 @@ export default function ManualAssist() {
                                 </div>
                             )}
 
-                            <div className="slots-grid" role="list" aria-label="Warehouse battery list">
-                                {pickLoading
-                                    ? Array.from({ length: 8 }).map((_, i) => (
-                                        <div key={i} className="slot-card skeleton" />
+                            <div
+                                className="slots-grid"
+                                role="list"
+                                aria-label="Warehouse battery list"
+                            >
+                                {pickLoading ? (
+                                    Array.from({ length: 8 }).map((_, i) => (
+                                        <div
+                                            key={i}
+                                            className="slot-card skeleton"
+                                        />
                                     ))
-                                    : filteredBatteries.length === 0 ? (
-                                        <div className="muted small">
-                                            No matching batteries (only status <b>warehouse</b> is shown).
-                                        </div>
-                                    ) : (
-                                        filteredBatteries.map((b) => {
-                                            const tone = statusTone(b.status);
-                                            return (
-                                                <div
-                                                    key={b.id}
-                                                    className="slot-card"
-                                                    role="listitem"
-                                                    style={{ borderColor: tone.br, background: "#fff" }}
-                                                >
-                                                    <div className="slot-head">
-                                                        <span
-                                                            className="status-badge"
-                                                            style={{
-                                                                background: tone.bg,
-                                                                color: tone.fg,
-                                                                borderColor: tone.br,
-                                                            }}
-                                                        >
-                                                            {tone.label}
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="slot-body">
-                                                        <div className="slot-id">{b.id}</div>
-                                                        <div className="kv">
-                                                            <span>SOH</span>
-                                                            <b>{clamp01(b.soh)}%</b>
-                                                        </div>
-                                                        <div className="kv">
-                                                            <span>SOC</span>
-                                                            <b>{clamp01(b.soc)}%</b>
-                                                        </div>
-                                                        <div className="socbar">
-                                                            <span
-                                                                className="socbar-fill"
-                                                                style={{
-                                                                    width: `${clamp01(b.soc)}%`,
-                                                                    background: tone.br,
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    <div
-                                                        className="slot-foot"
-                                                        style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}
+                                ) : filteredBatteries.length === 0 ? (
+                                    <div className="muted small">
+                                        No matching batteries (only status{" "}
+                                        <b>warehouse</b> is shown).
+                                    </div>
+                                ) : (
+                                    filteredBatteries.map((b) => {
+                                        const tone = statusTone(b.status);
+                                        return (
+                                            <div
+                                                key={b.id}
+                                                className="slot-card"
+                                                role="listitem"
+                                                style={{
+                                                    borderColor: tone.br,
+                                                    background: "#fff",
+                                                }}
+                                            >
+                                                <div className="slot-head">
+                                                    <span
+                                                        className="status-badge"
+                                                        style={{
+                                                            background: tone.bg,
+                                                            color: tone.fg,
+                                                            borderColor: tone.br,
+                                                        }}
                                                     >
-                                                        <button
-                                                            className="btn"
-                                                            onClick={() => {
-                                                                setOutBatteryId(b.id);
-                                                                setOpenPicker(false);
-                                                                setSuccessMsg("");
+                                                        {tone.label}
+                                                    </span>
+                                                </div>
+
+                                                <div className="slot-body">
+                                                    <div className="slot-id">
+                                                        {b.id}
+                                                    </div>
+                                                    <div className="kv">
+                                                        <span>SOH</span>
+                                                        <b>{clamp01(b.soh)}%</b>
+                                                    </div>
+                                                    <div className="kv">
+                                                        <span>SOC</span>
+                                                        <b>{clamp01(b.soc)}%</b>
+                                                    </div>
+                                                    <div className="socbar">
+                                                        <span
+                                                            className="socbar-fill"
+                                                            style={{
+                                                                width: `${clamp01(
+                                                                    b.soc
+                                                                )}%`,
+                                                                background: tone.br,
                                                             }}
-                                                        >
-                                                            Select
-                                                        </button>
+                                                        />
                                                     </div>
                                                 </div>
-                                            );
-                                        })
-                                    )}
+
+                                                <div
+                                                    className="slot-foot"
+                                                    style={{
+                                                        marginTop: 8,
+                                                        display: "flex",
+                                                        justifyContent: "flex-end",
+                                                    }}
+                                                >
+                                                    <button
+                                                        className="btn"
+                                                        onClick={() => {
+                                                            setOutBatteryId(b.id);
+                                                            setOpenPicker(false);
+                                                            setSuccessMsg("");
+                                                        }}
+                                                    >
+                                                        Select
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
                             </div>
                         </div>
 
                         <footer className="drawer-foot">
-                            <button className="btn ghost" onClick={() => setOpenPicker(false)}>
+                            <button
+                                className="btn ghost"
+                                onClick={() => setOpenPicker(false)}
+                            >
                                 Close
                             </button>
                         </footer>
@@ -638,8 +781,30 @@ export default function ManualAssist() {
         .btn { height:36px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:#fff; cursor:pointer; }
         .btn.btn-primary { background:#2563eb; color:#fff; border-color:#1d4ed8; }
         .btn.btn-primary:disabled { opacity:.6; cursor:not-allowed; }
+        .btn.btn-warehouse {
+          display:inline-flex;
+          align-items:center;
+          gap:6px;
+          font-size:12px;
+          border-color:var(--line,#e5e7eb);
+          background:#f9fafb;
+        }
+        .btn.btn-warehouse i { font-size:14px; }
+        .btn.btn-warehouse:hover {
+          background:#eef2ff;
+          border-color:#c7d2fe;
+        }
         .btn.ghost:hover { background:#f8fafc; }
         .btn-close { background:transparent; border:none; font-size:22px; line-height:1; cursor:pointer; color:#0f172a; }
+
+        .input-readonly {
+          background:#f9fafb;
+          cursor:default;
+        }
+        .input-readonly:focus {
+          background:#f9fafb;
+          box-shadow:none;
+        }
 
         .overlay { position:fixed; inset:0; background:rgba(2,6,23,.5); display:flex; align-items:flex-end; }
         .drawer { width:100%; max-height:88vh; background:#fff; border-radius:16px 16px 0 0; overflow:hidden; box-shadow:0 -8px 24px rgba(2,6,23,.2); }
