@@ -2,8 +2,8 @@
 import { batteryApi } from "./batterySwapApi";
 
 const GET_REPORTS = "/Report/get-report";
-const GET_STAFF_LIST = "/api/Report/get_staff-list";
-const ASSIGN_STAFF = "/api/Report/assign-staff";
+const GET_STAFF_LIST = "/Report/get_staff-list";
+const ASSIGN_STAFF = "/Report/assign-staff";
 
 export const fetchComplaints = async () => {
   const res = await batteryApi.get(GET_REPORTS);
