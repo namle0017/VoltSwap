@@ -210,12 +210,26 @@ export default function AdminRequest() {
             setReportNote("");
         } catch (e) {
             console.error(e);
-            setError(
-                e?.response?.data
-                    ?.message ||
-                e.message ||
-                "Submit failed"
-            );
+            const resData = e?.response?.data;
+
+            // ✅ Bắt case validation từ BE: title = "One or more validation errors occurred."
+            if (
+                resData?.title === "One or more validation errors occurred." &&
+                resData?.errors
+            ) {
+                // Nếu BE trả lỗi cho ReportNote thì show đúng message đó
+                if (resData.errors.ReportNote && resData.errors.ReportNote.length > 0) {
+                    setError(resData.errors.ReportNote[0]);
+                } else {
+                    // fallback: lấy lỗi đầu tiên trong errors
+                    const firstKey = Object.keys(resData.errors)[0];
+                    const firstMsg = resData.errors[firstKey]?.[0];
+                    setError(firstMsg || "Validation error. Please check your inputs.");
+                }
+            } else {
+                // Các lỗi khác giữ như cũ
+                setError(resData?.message || e.message || "Submit failed");
+            }
         } finally {
             setCreating(false);
         }

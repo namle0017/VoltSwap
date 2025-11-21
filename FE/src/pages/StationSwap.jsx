@@ -59,7 +59,7 @@ const extractReturnBatteryIds = (raw) => {
   return arr.map((x) => x?.batteryId).filter(Boolean);
 };
 
-// ===== Group theo pillarId, luôn 20 slot/trụ =====
+// ===== Group by pillarId, always 20 slots/pillar =====
 const groupSlotsByPillar = (slots = [], currentStationId) => {
   const map = new Map();
   for (const s of slots) {
@@ -87,7 +87,7 @@ const groupSlotsByPillar = (slots = [], currentStationId) => {
   return map;
 };
 
-// View step 3 (Swap-Out): chỉ xanh các slot được lấy pin
+// View step 3 (Swap-Out): only green slots can be taken
 const makeStep3ViewMap = (pillarMap, pickedList, focusPillarId) => {
   const allowed = new Set((pickedList || []).map((x) => String(x.slotId)));
   const view = new Map();
@@ -102,7 +102,7 @@ const makeStep3ViewMap = (pillarMap, pickedList, focusPillarId) => {
   return view;
 };
 
-// View step 2 (Swap-In): CHỈ xanh các slot có trong slotEmpty từ BE; trụ khác mờ
+// View step 2 (Swap-In): ONLY green slots are those inside slotEmpty from BE; other pillars are dimmed
 const makeStep2ViewMap_AllowedSlotsOnly = (
   pillarMap,
   selectedPillarId,
@@ -170,7 +170,7 @@ export default function StationSwap() {
 
   // Swap-In form
   const [batteryIdsInput, setBatteryIdsInput] = useState("");
-  const [batteryIdsLocked, setBatteryIdsLocked] = useState(false); // sẽ luôn FALSE để người dùng sửa
+  const [batteryIdsLocked, setBatteryIdsLocked] = useState(false); // always FALSE so user can edit
   const [swapInResult, setSwapInResult] = useState(null);
   const [swapOutResult, setSwapOutResult] = useState(null);
   const [swapInError, setSwapInError] = useState(null);
@@ -186,19 +186,22 @@ export default function StationSwap() {
   const [selectedSlotIds, setSelectedSlotIds] = useState([]);
 
   // === Rating (optional) ===
-  const [ratingScore, setRatingScore] = useState(0);          // 0-5
+  const [ratingScore, setRatingScore] = useState(0); // 0-5
   const [ratingComment, setRatingComment] = useState("");
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
-  const [ratingDone, setRatingDone] = useState(false);        // đã gửi hoặc đã bỏ qua
+  const [ratingDone, setRatingDone] = useState(false); // already submitted or skipped
   const [ratingError, setRatingError] = useState("");
 
-
-  // ✅ các slot rỗng cho Swap-In do BE cung cấp (chỉ dùng slotEmpty)
+  // ✅ empty slots for Swap-In provided by BE (use slotEmpty only)
   const [allowedSwapIn, setAllowedSwapIn] = useState(new Set());
 
   const tryParseStations = (raw) => {
     if (typeof raw === "string") {
-      try { return JSON.parse(raw); } catch { return []; }
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return [];
+      }
     }
     if (Array.isArray(raw)) return raw;
     if (raw && typeof raw === "object") {
@@ -224,12 +227,12 @@ export default function StationSwap() {
         stationId: s.stationId ?? s.id ?? s.code ?? `STA-${i}`,
         stationName: s.stationName ?? s.name ?? s.label ?? `Station ${i + 1}`,
       }));
-      if (!list.length) throw new Error("Danh sách trạm rỗng từ BE");
+      if (!list.length) throw new Error("Empty station list from backend.");
       setStations(list);
     } catch (e) {
       console.error("getStationList error:", e?.response?.data || e);
       setStationError(
-        e?.response?.data?.message || e?.message || "Không tải được danh sách trạm từ BE."
+        e?.response?.data?.message || e?.message || "Failed to load station list from backend."
       );
       setStations(FALLBACK_STATIONS);
     } finally {
@@ -260,9 +263,9 @@ export default function StationSwap() {
     );
   }, [subscriptionInfo]);
 
-  // Số pin cần cấp (ưu tiên số BE pick)
+  // Number of batteries that must be given (prioritize BE-picked list)
   const getMustPickCount = () => {
-    if (autoPicked?.length) return autoPicked.length; // BE đã chọn
+    if (autoPicked?.length) return autoPicked.length; // BE has already picked
     if (outOptions?.length) {
       if (requiredBatteryCount > 0) return Math.min(requiredBatteryCount, outOptions.length);
       if (swapInCount > 0) return Math.min(swapInCount, outOptions.length);
@@ -299,40 +302,37 @@ export default function StationSwap() {
   };
 
   // === validate subscription ===
-  // === validate subscription ===
   const doValidate = async (sub, sta) => {
     setSubError("");
     setSwapInError(null);
     const subTrim = (sub || "").trim();
-    if (!sta) return setSubError("Vui lòng chọn trạm trước.");
+    if (!sta) return setSubError("Please select a station first.");
     if (!isValidSubFormat(subTrim))
-      return setSubError("Sai định dạng Subscription ID. Ví dụ: SUB-18779758");
+      return setSubError("Invalid Subscription ID format. Example: SUB-18779758");
 
     setSubmitting(true);
     setLoading(true);
     try {
-      // 🔐 Gắn token cho call validate
+      // Attach token to validate call
       const token = localStorage.getItem("token");
       if (token) {
-        // set tạm cho instance axios dùng chung
+        // Set temporarily for shared axios instance
         api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       } else {
-        // nếu không có token thì vẫn để trống (BE có thể trả 401)
+        // If no token, clear header (backend may respond 401)
         delete api.defaults.headers.common["Authorization"];
       }
 
-      // gọi hàm helper như cũ (giữ logic)
-      // Lưu ý: nếu batterySwapApi.validateSubscription hỗ trợ options,
-      // bạn có thể truyền thêm tham số thứ 3: { headers: { Authorization: `Bearer ${token}` } }
+      // Call helper function as before (keep logic)
       const res = await validateSubscription(subTrim, sta /* , {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined
     } */);
 
       const data = res.data;
-      if (!data || typeof data !== "object") throw new Error("BE trả dữ liệu không hợp lệ");
+      if (!data || typeof data !== "object") throw new Error("Backend returned invalid data format.");
 
       if (data.isValid === false || toLower(data.status) === "invalid") {
-        setSubError(data.message || "Subscription không hợp lệ.");
+        setSubError(data.message || "Subscription is invalid.");
         return;
       }
 
@@ -343,14 +343,14 @@ export default function StationSwap() {
         isPositiveMsg(data.message);
 
       if (!positive) {
-        setSubError(data.message || "Không xác thực được Subscription.");
+        setSubError(data.message || "Unable to validate subscription.");
         return;
       }
 
       const info = data.data ?? data;
       setSubscriptionInfo(info);
 
-      // --- lưới slot & allowed từ slotEmpty (BẮT BUỘC dùng BE) ---
+      // --- slot grid & allowed slots from slotEmpty (must use backend) ---
       const rawSlots = extractSlotsFromResponse(info);
       const pMap = groupSlotsByPillar(rawSlots, sta);
 
@@ -402,14 +402,16 @@ export default function StationSwap() {
       setStep(initialTake ? 3 : 2);
     } catch (err) {
       setSubError(
-        `❌ ${err?.response?.data?.message || err?.message || "Không xác thực được Subscription."}`
+        `❌ ${err?.response?.data?.message ||
+        err?.message ||
+        "Unable to validate subscription."
+        }`
       );
     } finally {
       setSubmitting(false);
       setLoading(false);
     }
   };
-
 
   const handleValidate = (e) => {
     e.preventDefault();
@@ -426,7 +428,7 @@ export default function StationSwap() {
     if (step !== 2) return;
     if (!selectedPillarId) return;
     if (!slot || slot.pillarId !== selectedPillarId) return;
-    if (!allowedSwapIn.has(String(slot.slotId))) return; // chỉ slotEmpty
+    if (!allowedSwapIn.has(String(slot.slotId))) return; // only slotEmpty
 
     const maxNeed = parsedBatteryIds.length || getMustPickCount();
     if (!maxNeed) return;
@@ -452,25 +454,25 @@ export default function StationSwap() {
     setSwapInError(null);
 
     if (!selectedPillarId) {
-      alert("Vui lòng chọn trụ để nộp pin (Swap-In).");
+      alert("Please select a pillar to deposit batteries (Swap-In).");
       return;
     }
 
     const ids = parsedBatteryIds;
 
     if (requiredBatteryCount > 0 && ids.length !== requiredBatteryCount) {
-      alert(`Cần đúng ${requiredBatteryCount} mã pin theo gói`);
+      alert(`You must enter exactly ${requiredBatteryCount} battery IDs according to the package.`);
       return;
     }
     if (ids.length === 0) {
-      alert("Không có mã pin để Swap-In");
+      alert("No battery IDs to Swap-In.");
       return;
     }
 
     const freeSlotIds = getFreeSlotIdsOnSelectedPillar();
     if (freeSlotIds.length < ids.length) {
       alert(
-        `Trụ "${selectedPillarId}" không đủ slot trống theo slotEmpty của BE. Cần ${ids.length}, đang có ${freeSlotIds.length}.`
+        `Pillar "${selectedPillarId}" does not have enough free slots according to backend slotEmpty. Need ${ids.length}, currently ${freeSlotIds.length}.`
       );
       return;
     }
@@ -483,7 +485,7 @@ export default function StationSwap() {
       slotOrder = slotOrder.concat(remain.slice(0, need).map(String));
     }
     if (slotOrder.length < ids.length) {
-      alert("Chưa đủ slot để gán pin. Vui lòng chọn thêm ô hoặc đổi trụ.");
+      alert("Not enough slots to assign batteries. Please select more slots or change pillar.");
       return;
     }
 
@@ -510,7 +512,7 @@ export default function StationSwap() {
 
       const raw = res?.data?.data ?? res?.data ?? {};
 
-      // ƯU TIÊN: danh sách cấp từ BE (BatteryDtos / batTake)
+      // Priority: list of batteries to give from backend (BatteryDtos / batTake)
       let fromBE = (raw.BatteryDtos || raw.batteryDtos || []).map((it) => ({
         batteryId: it.batteryId ?? it.BatteryId,
         slotId: it.slotId ?? it.SlotId,
@@ -525,16 +527,16 @@ export default function StationSwap() {
         }
       }
 
-      // Fallback cuối: nếu BE không trả, không cố suy luận — để rỗng và cảnh báo
+      // Final fallback: if backend does not return any list, keep it empty and show warning
       setOutOptions(fromBE);
 
-      // Số lượng phải cấp theo rule mới
+      // Number of batteries that must be given according to new rule
       const mustPick = fromBE.length ? fromBE.length : getMustPickCount();
 
       if (!fromBE.length) {
         setAutoPicked([]);
         setAutoPickError(
-          "BE không trả danh sách pin để cấp (BatteryDtos/batTake). Vui lòng kiểm tra BE."
+          "Backend did not return the list of batteries to give (BatteryDtos/batTake). Please check backend."
         );
       } else {
         setAutoPicked(fromBE.slice(0, mustPick));
@@ -558,7 +560,7 @@ export default function StationSwap() {
         return;
       }
 
-      let msg = `Swap-In thất bại${status ? ` (status ${status})` : ""}`;
+      let msg = `Swap-In failed${status ? ` (status ${status})` : ""}`;
       if (typeof data === "string") msg += `\n${data}`;
       else if (data?.title) msg += `\n${data.title}`;
       if (data?.errors) {
@@ -575,23 +577,23 @@ export default function StationSwap() {
   };
 
   const submitRating = async () => {
-    // rating là optional — nếu chưa chọn sao thì khuyến khích chọn, hoặc user có thể bấm "Bỏ qua"
+    // rating is optional — if no star selected, encourage user or they can click "Skip"
     if (!ratingScore) {
-      alert("Vui lòng chọn số sao trước khi gửi (hoặc bấm 'Bỏ qua').");
+      alert("Please select a star rating before submitting (or click 'Skip').");
       return;
     }
 
     const driverId =
       localStorage.getItem("userId") ||
       localStorage.getItem("driverId") ||
-      ""; // tuỳ app bạn lưu khoá nào
+      "";
 
     if (!driverId) {
-      alert("Không xác định được driverId. Vui lòng đăng nhập lại.");
+      alert("Cannot detect driverId. Please log in again.");
       return;
     }
     if (!stationId) {
-      alert("Thiếu stationId.");
+      alert("Missing stationId.");
       return;
     }
 
@@ -612,27 +614,26 @@ export default function StationSwap() {
       });
 
       setRatingDone(true);
-      alert("✅ Cảm ơn bạn đã đánh giá!");
+      alert("✅ Thank you for your rating!");
     } catch (e) {
       console.error("create-rating error:", e?.response?.data || e);
       setRatingError(
         e?.response?.data?.message ||
         e?.response?.data?.title ||
-        "❌ Gửi đánh giá thất bại."
+        "❌ Failed to submit rating."
       );
     } finally {
       setRatingSubmitting(false);
     }
   };
 
-
-  // === Xác nhận đã lấy pin → Swap-Out ===
+  // === Confirm batteries taken → Swap-Out ===
   const confirmTakeBatteries = async () => {
     const mustPick = getMustPickCount();
     const list = (autoPicked.length ? autoPicked : outOptions).slice(0, mustPick);
 
     if (!list.length) {
-      alert("BE chưa cung cấp danh sách pin để nhận.");
+      alert("Backend has not provided the list of batteries to take.");
       return;
     }
 
@@ -660,7 +661,7 @@ export default function StationSwap() {
       setStep(4);
     } catch (err) {
       const v = err?.response?.data;
-      let friendly = "Swap-Out thất bại.";
+      let friendly = "Swap-Out failed.";
       if (v?.title) friendly = v.title;
       if (v?.errors && typeof v?.errors === "object") {
         const parts = Object.entries(v.errors).map(
@@ -677,7 +678,7 @@ export default function StationSwap() {
     }
   };
 
-  // === View map cho UI:
+  // === View map for UI ===
   const mustPickList = useMemo(
     () => (autoPicked.length ? autoPicked : outOptions).slice(0, getMustPickCount()),
     [autoPicked, outOptions, requiredBatteryCount, swapInCount]
@@ -714,7 +715,7 @@ export default function StationSwap() {
 
   const pillarEntries = useMemo(() => flattenFromPillarMap(displayPillarMap), [displayPillarMap]);
 
-  // ===== Title theo tên trạm =====
+  // ===== Title using station name =====
   const stationTitle =
     stations.find((s) => s.stationId === stationId)?.stationName ||
     presetStationName ||
@@ -725,21 +726,21 @@ export default function StationSwap() {
       <h1 className="text-2xl font-bold text-center">📗 {stationTitle}</h1>
 
       {stationLoading && (
-        <div className="text-gray-600 text-center">Đang tải danh sách trạm...</div>
+        <div className="text-gray-600 text-center">Loading station list...</div>
       )}
 
       {!stationLoading && (
         <>
           {step === 1 && (
             <form onSubmit={handleValidate} className="card p-6 space-y-3">
-              <h2 className="text-base font-semibold">Bước 1: Chọn trạm & nhập Subscription</h2>
+              <h2 className="text-base font-semibold">Step 1: Select station & enter Subscription</h2>
               <select
                 className="p-3 border rounded-lg w-full"
                 value={stationId}
                 onChange={(e) => setStationId(e.target.value)}
                 required
               >
-                <option value="">-- Chọn trạm --</option>
+                <option value="">-- Select station --</option>
                 {stations.map((s, idx) => (
                   <option key={idx} value={s.stationId}>
                     {s.stationName} ({s.stationId})
@@ -749,7 +750,7 @@ export default function StationSwap() {
 
               <input
                 className="p-3 border rounded-lg w-full"
-                placeholder="Nhập Subscription ID (VD: SUB-18779758)"
+                placeholder="Enter Subscription ID (e.g., SUB-18779758)"
                 value={subscriptionId}
                 onChange={(e) => setSubscriptionId(e.target.value)}
                 required
@@ -762,43 +763,43 @@ export default function StationSwap() {
                 className="btn-primary w-full"
                 disabled={loading || submitting}
               >
-                {submitting ? "Đang xác thực..." : "Xác thực gói thuê"}
+                {submitting ? "Validating..." : "Validate subscription"}
               </button>
             </form>
           )}
 
-          {/* Lưới TRỤ PIN */}
+          {/* Pillar & slot grid */}
           {subscriptionInfo && (
             <div className="card p-6 space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold">⚡ Trạng thái các trụ pin tại trạm</h2>
+                <h2 className="text-base font-semibold">⚡ Pillar status at this station</h2>
                 <div className="flex items-center gap-4 text-xs text-gray-600">
                   <span className="inline-flex items-center gap-1">
                     <span className="w-3 h-3 rounded bg-emerald-500 inline-block" />
-                    Slot có thể chọn (nằm trong <code>slotEmpty</code>)
+                    Slot can be selected (inside <code>slotEmpty</code>)
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <span className="w-3 h-3 rounded bg-slate-400 inline-block" />
-                    Không thể chọn
+                    Cannot be selected
                   </span>
                 </div>
               </div>
 
               {step === 2 && (
                 <div className="text-xs text-gray-600 space-y-1">
-                  <div>1) <b>Chọn một trụ</b> để nộp pin (Swap-In).</div>
-                  <div>2) Nhập <b>BatteryId</b> (mỗi mã một dòng / ngăn cách bằng dấu phẩy).</div>
+                  <div>1) <b>Select a pillar</b> to deposit batteries (Swap-In).</div>
+                  <div>2) Enter <b>BatteryId</b> (one per line or separated by commas).</div>
                 </div>
               )}
               {step === 3 && (
                 <div className="text-xs text-gray-600">
-                  Chỉ <b>trụ cấp pin</b> sáng; và chỉ các <b>ô xanh</b> đã mở để bạn lấy pin.
+                  Only the <b>pickup pillar</b> is highlighted; and only <b>green slots</b> are opened for you to take batteries.
                 </div>
               )}
 
               {pillarEntries.length === 0 ? (
                 <div className="text-gray-500 text-sm text-center">
-                  Không có dữ liệu slot. Vui lòng thử lại hoặc kiểm tra Subscription.
+                  No slot data. Please try again or re-check the subscription.
                 </div>
               ) : (
                 <div className="grid md:grid-cols-3 sm:grid-cols-2 grid-cols-1 gap-4">
@@ -832,10 +833,10 @@ export default function StationSwap() {
                           }
                         }}
                         className={`${pillarBase} ${clickable} ${selectedStyle} ${dimStyle}`}
-                        title={step === 2 ? "Click để chọn trụ Swap-In" : ""}
+                        title={step === 2 ? "Click to choose Swap-In pillar" : ""}
                       >
                         <h4 className="text-center font-semibold mb-2 text-gray-700 flex items-center justify-center gap-2">
-                          <span>Trụ {pid}</span>
+                          <span>Pillar {pid}</span>
                           {step === 2 && isSelected && (
                             <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px]">
                               Swap-In pillar
@@ -843,7 +844,7 @@ export default function StationSwap() {
                           )}
                         </h4>
 
-                        {/* === LƯỚI SLOT: hiệu ứng + icon Bootstrap === */}
+                        {/* === Slot grid with effects + Bootstrap icons === */}
                         <div className="grid grid-cols-4 gap-2">
                           {slots.map((slot, i) => {
                             const pickedIdx =
@@ -854,7 +855,7 @@ export default function StationSwap() {
                               selectedPillarId === pid &&
                               allowedSwapIn.has(String(slot?.slotId));
 
-                            // Slot đang cấp pin (swap-out highlight)
+                            // Slot used to give battery (swap-out highlight)
                             const isOutHighlight = step === 3 && slot.__green;
 
                             const labelTextClass =
@@ -863,9 +864,9 @@ export default function StationSwap() {
                             const baseClasses =
                               "h-10 rounded-md relative overflow-hidden transition-all duration-300 ease-out";
 
-                            // màu cơ bản
+                            // base color
                             const baseColor = slotColorClass(canPick || slot.__green);
-                            // màu nổi bật hơn cho swap-out
+                            // more prominent color for swap-out
                             const outColor = isOutHighlight
                               ? "bg-gradient-to-br from-emerald-400 to-emerald-600"
                               : "";
@@ -875,15 +876,15 @@ export default function StationSwap() {
                               ? "cursor-pointer hover:ring-2 hover:ring-sky-400"
                               : "cursor-default";
 
-                            // motion cho swap-in / swap-out
+                            // motion effects for swap-in / swap-out
                             let motionClass = "scale-95";
                             if (step === 2 && canPick) {
-                              // Swap-In: khi chưa chọn thì hover nổi lên, khi đã chọn thì nổi hẳn
+                              // Swap-In: if not yet selected, hover makes it lift; if selected, always lifted
                               motionClass = pickedIdx
                                 ? "scale-100 shadow-lg"
                                 : "scale-95 hover:-translate-y-1 hover:shadow-md";
                             } else if (isOutHighlight) {
-                              // Swap-Out: slot được lấy pin sẽ pulse nhẹ
+                              // Swap-Out: slot whose battery is being taken will pulse
                               motionClass = "scale-100 shadow-lg animate-pulse";
                             }
 
@@ -896,7 +897,7 @@ export default function StationSwap() {
                                 title={`Slot ${slot?.slotNumber ?? i + 1} • SlotId: ${slot?.slotId || "N/A"
                                   }${slot?.batteryId ? ` • ${slot.batteryId}` : ""}`}
                               >
-                                {/* Swap-In icon (bỏ pin vào) */}
+                                {/* Swap-In icon (put battery in) */}
                                 {step === 2 && canPick && pickedIdx ? (
                                   <div className="absolute left-1 top-1 flex items-center gap-0.5 text-[11px] text-white pointer-events-none">
                                     <i className="bi bi-battery-charging" />
@@ -904,7 +905,7 @@ export default function StationSwap() {
                                   </div>
                                 ) : null}
 
-                                {/* Swap-Out icon (lấy pin ra) */}
+                                {/* Swap-Out icon (take battery out) */}
                                 {step === 3 && isOutHighlight ? (
                                   <div className="absolute left-1 top-1 flex items-center gap-0.5 text-[11px] text-white pointer-events-none">
                                     <i className="bi bi-battery-full" />
@@ -921,7 +922,7 @@ export default function StationSwap() {
                                   </span>
                                 </span>
 
-                                {/* badge thứ tự click khi Swap-In */}
+                                {/* click order badge when Swap-In */}
                                 {pickedIdx ? (
                                   <span className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white shadow">
                                     {pickedIdx}
@@ -931,7 +932,6 @@ export default function StationSwap() {
                             );
                           })}
                         </div>
-
                       </button>
                     );
                   })}
@@ -942,21 +942,21 @@ export default function StationSwap() {
 
           {step === 2 && (
             <div className="card p-6 space-y-3">
-              <h2 className="text-base font-semibold">Bước 2: Swap-In</h2>
+              <h2 className="text-base font-semibold">Step 2: Swap-In</h2>
               <div className="relative">
                 <textarea
                   className="p-3 border rounded-lg w-full"
                   rows={4}
-                  placeholder={"VD:\nBT-7436-XFRU\nBT-4300-4GPV"}
+                  placeholder={"Example:\nBT-7436-XFRU\nBT-4300-4GPV"}
                   value={batteryIdsInput}
                   onChange={(e) => setBatteryIdsInput(e.target.value)}
                   readOnly={false}
                 />
               </div>
 
-              {/* Preview mapping BatteryId ↔ Slot (thứ tự click) */}
+              {/* Preview mapping BatteryId ↔ Slot (click order) */}
               <div className="text-sm text-gray-700">
-                <div className="font-medium mb-1">Preview gán Slot (theo thứ tự bạn click):</div>
+                <div className="font-medium mb-1">Preview slot mapping (following your click order):</div>
                 <div className="max-h-48 overflow-auto border rounded">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 sticky top-0">
@@ -972,7 +972,11 @@ export default function StationSwap() {
                           <td className="p-2">{idx + 1}</td>
                           <td className="p-2">{bid}</td>
                           <td className="p-2">
-                            {selectedSlotIds[idx] ? String(selectedSlotIds[idx]) : <span className="text-gray-400">chưa chọn</span>}
+                            {selectedSlotIds[idx] ? (
+                              String(selectedSlotIds[idx])
+                            ) : (
+                              <span className="text-gray-400">not selected</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -981,10 +985,10 @@ export default function StationSwap() {
                 </div>
                 {selectedPillarId ? (
                   <div className="mt-1 text-xs text-gray-600">
-                    Trụ đã chọn: <b>{selectedPillarId}</b>. Chỉ gán vào <b>các ô xanh</b> mà BE trả trong <code>slotEmpty</code>.
+                    Selected pillar: <b>{selectedPillarId}</b>. You can only assign into <b>green slots</b> that backend returns in <code>slotEmpty</code>.
                   </div>
                 ) : (
-                  <div className="mt-1 text-xs text-orange-600">Chưa chọn trụ.</div>
+                  <div className="mt-1 text-xs text-orange-600">Pillar is not selected yet.</div>
                 )}
               </div>
 
@@ -1005,16 +1009,16 @@ export default function StationSwap() {
                     selectedSlotIds.length < parsedBatteryIds.length
                   }
                 >
-                  {loading ? "Đang gửi..." : "Gửi Swap-In"}
+                  {loading ? "Submitting..." : "Submit Swap-In"}
                 </button>
                 <span className="text-xs text-gray-500">
-                  (Chỉ gán được vào các slot trong <code>slotEmpty</code> của BE)
+                  (Batteries can only be assigned to slots in backend <code>slotEmpty</code>)
                 </span>
               </div>
 
               {swapInResult && (
                 <div className="mt-3">
-                  <div className="font-medium mb-1">Kết quả Swap-In</div>
+                  <div className="font-medium mb-1">Swap-In result</div>
                   <pre className="bg-gray-50 p-3 rounded text-sm overflow-x-auto">
                     {JSON.stringify(swapInResult, null, 2)}
                   </pre>
@@ -1025,7 +1029,7 @@ export default function StationSwap() {
 
           {step === 3 && (
             <div className="card p-6 space-y-3">
-              <h2 className="text-base font-semibold">Bước 3: Swap-Out (xác nhận lấy pin mới)</h2>
+              <h2 className="text-base font-semibold">Step 3: Swap-Out (confirm taking new batteries)</h2>
 
               {autoPickError && (
                 <div className="text-sm text-red-600">{autoPickError}</div>
@@ -1033,12 +1037,12 @@ export default function StationSwap() {
 
               {!autoPicked.length && !outOptions.length && (
                 <div className="text-xs text-yellow-700 bg-yellow-50 p-2 rounded">
-                  BE chưa trả danh sách pin để cấp (BatteryDtos/batTake). Vui lòng kiểm tra BE.
+                  Backend did not return the list of batteries to give (BatteryDtos/batTake). Please check backend.
                 </div>
               )}
 
               <div className="text-sm text-gray-600">
-                Danh sách pin hệ thống đã chọn để cấp — số lượng = <b>{getMustPickCount()}</b>:
+                List of batteries the system selected to give — quantity = <b>{getMustPickCount()}</b>:
               </div>
 
               <div className="max-h-72 overflow-auto border rounded">
@@ -1063,23 +1067,23 @@ export default function StationSwap() {
               </div>
 
               <div className="text-sm text-gray-500">
-                Trên lưới bên trên: chỉ <b>trụ cấp pin</b> sáng và chỉ <b>các ô xanh</b> là ô đã mở để lấy.
+                In the pillar grid above: only the <b>pickup pillar</b> is highlighted and only <b>green slots</b> are opened for you to take.
               </div>
 
-              {/* ĐÃ XOÁ nút quay lại bước 2 */}
+              {/* Removed: back to step 2 button */}
               <div className="flex gap-2">
                 <button
                   className="btn-primary"
                   onClick={confirmTakeBatteries}
                   disabled={loading || mustPickList.length === 0}
                 >
-                  {loading ? "Đang xác nhận..." : "✅ Tôi đã lấy đủ pin — Xác nhận"}
+                  {loading ? "Confirming..." : "✅ I have taken all batteries — Confirm"}
                 </button>
               </div>
 
               {swapOutResult && (
                 <div className="mt-3">
-                  <div className="font-medium mb-1">Kết quả Swap-Out</div>
+                  <div className="font-medium mb-1">Swap-Out result</div>
                   <pre className="bg-gray-50 p-3 rounded text-sm overflow-x-auto">
                     {JSON.stringify(swapOutResult, null, 2)}
                   </pre>
@@ -1090,17 +1094,17 @@ export default function StationSwap() {
 
           {step === 4 && (
             <div className="card p-6 space-y-3">
-              <h2 className="text-base font-semibold">✅ Hoàn tất đổi pin</h2>
-              <div>Trạm: <b>{stationTitle}</b> ({stationId})</div>
+              <h2 className="text-base font-semibold">✅ Battery swap completed</h2>
+              <div>Station: <b>{stationTitle}</b> ({stationId})</div>
               <div>Subscription: <b>{subscriptionId}</b></div>
 
               {/* Rating optional */}
               <div className="mt-4 border-t pt-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Đánh giá trải nghiệm (tuỳ chọn)</h3>
+                  <h3 className="font-semibold">Rate your experience (optional)</h3>
                   {ratingDone && (
                     <span className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700">
-                      Đã ghi nhận đánh giá
+                      Rating recorded
                     </span>
                   )}
                 </div>
@@ -1115,25 +1119,24 @@ export default function StationSwap() {
                           type="button"
                           onClick={() => setRatingScore(n)}
                           className={`text-3xl transition-transform ${ratingScore >= n
-                            ? "text-yellow-400 scale-110"
-                            : "text-gray-300 hover:text-yellow-300"
+                              ? "text-yellow-400 scale-110"
+                              : "text-gray-300 hover:text-yellow-300"
                             }`}
-                          title={`${n} sao`}
+                          title={`${n} star(s)`}
                         >
                           ★
                         </button>
                       ))}
                       <span className="text-sm text-gray-600 ml-2">
-                        {ratingScore ? `${ratingScore}/5` : "Chưa chọn"}
+                        {ratingScore ? `${ratingScore}/5` : "Not selected"}
                       </span>
                     </div>
-
 
                     {/* Comment */}
                     <textarea
                       className="w-full border rounded-lg p-3"
                       rows={3}
-                      placeholder="Viết nhận xét (tuỳ chọn)…"
+                      placeholder="Write your comment (optional)…"
                       value={ratingComment}
                       onChange={(e) => setRatingComment(e.target.value)}
                     />
@@ -1148,39 +1151,39 @@ export default function StationSwap() {
                         className="btn-primary"
                         onClick={submitRating}
                         disabled={ratingSubmitting}
-                        title="Gửi đánh giá (tuỳ chọn)"
+                        title="Submit rating (optional)"
                       >
-                        {ratingSubmitting ? "Đang gửi..." : "Gửi đánh giá"}
+                        {ratingSubmitting ? "Submitting..." : "Submit rating"}
                       </button>
 
                       <button
                         type="button"
                         className="btn-ghost"
-                        onClick={() => setRatingDone(true)} // bỏ qua
+                        onClick={() => setRatingDone(true)} // skip
                         disabled={ratingSubmitting}
-                        title="Bỏ qua đánh giá"
+                        title="Skip rating"
                       >
-                        Bỏ qua
+                        Skip
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="text-sm text-gray-600">
-                    Cảm ơn bạn đã sử dụng dịch vụ! Bạn có thể đóng trang hoặc tiếp tục đổi pin.
+                    Thank you for using the service! You can close this page or continue swapping.
                   </div>
                 )}
               </div>
 
-              {/* Action buttons giữ nguyên */}
+              {/* Action buttons unchanged */}
               <div className="pt-2 flex gap-2">
                 <button className="btn-secondary" onClick={() => setStep(2)}>
-                  Đổi tiếp
+                  Swap again
                 </button>
                 <button className="btn-ghost" onClick={resetAll}>
-                  Làm mới
+                  Reset
                 </button>
                 <button className="btn-primary" onClick={() => navigate("/user/service")}>
-                  Hoàn thành
+                  Finish
                 </button>
               </div>
             </div>
