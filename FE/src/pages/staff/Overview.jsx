@@ -111,9 +111,6 @@ export default function Overview() {
                     </span>
                     <h1 className="text-xl font-bold mt-2">Overview</h1>
 
-                    <p className="text-sm text-slate-500">
-                        {loading ? "Loading overview…" : "Station health, inventory and reports at a glance."}
-                    </p>
                 </div>
 
                 <div className="flex items-center gap-2">

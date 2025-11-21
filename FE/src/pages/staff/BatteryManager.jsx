@@ -325,15 +325,12 @@ function DetailPanel({ selected, onRequestRemove }) {
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
                     <Row k="Slot No." v={selected.slotNumber} />
-                    <Row k="Position" v={selected.pos} />
                     <div className="mt-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm">Empty slot</div>
                 </div>
             ) : (
                 <div className="space-y-2 text-sm">
                     <Row k="Pillar ID" v={selected.pillarId} />
                     <Row k="Slot No." v={selected.slotNumber} />
-                    <Row k="Slot ID (BE)" v={selected.slotId ?? "—"} />
-                    <Row k="Position" v={selected.pos} />
                     <Row k="Battery Code" v={selected.code} />
                     <Row k="SoC" v={`${selected.soc}%`} />
                     <Row k="SoH" v={`${selected.soh}%`} />
@@ -717,12 +714,10 @@ export default function BatteryManager() {
 
     const legend = useMemo(
         () => [
-            { color: "#ef4444", label: "Maintenance (red tile)" },
             { color: "#dc2626", label: "≤ 20% SoC (red bar)" },
             { color: "#f59e0b", label: "21–50% SoC (amber bar)" },
             { color: "#22c55e", label: "> 50% SoC (green bar)" },
             { color: "#94a3b8", label: "Empty" },
-            { color: "#cbd5e1", label: "Locked (disabled)" },
         ],
         []
     );

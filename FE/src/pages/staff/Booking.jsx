@@ -426,8 +426,7 @@ export default function Booking() {
     <section>
       <div className="row-between">
         <div>
-          <h2 className="h1">Booking</h2>
-          <p className="muted">Manage customer bookings and schedules.</p>
+          <h2 className="h1">Booking Detail</h2>
         </div>
         <div className="row-right">
           <input

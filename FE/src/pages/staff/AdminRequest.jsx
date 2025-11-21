@@ -237,19 +237,7 @@ export default function AdminRequest() {
             >
                 Admin request
             </h2>
-            <p
-                style={{
-                    margin: "0 0 14px",
-                    fontSize: 12,
-                    color: "#6b7280",
-                }}
-            >
-                Staff ID:{" "}
-                <strong>
-                    {staffId ||
-                        "N/A (please login)"}
-                </strong>
-            </p>
+
 
             {/* FORM */}
             <form

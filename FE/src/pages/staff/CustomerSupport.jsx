@@ -150,12 +150,9 @@ export default function CustomerSupport() {
             <div className="cs-header">
                 <div>
                     <h2 className="h1">Customer Reports</h2>
-                    <p className="muted">Reports created for driver & station issues.</p>
                 </div>
                 <div className="cs-header-right">
-                    <div>
-                        User ID: <span className="strong">{userId || "-"}</span>
-                    </div>
+
                     <div>
                         Processing: <span className="strong">{openCount}</span>
                     </div>

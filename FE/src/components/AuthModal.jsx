@@ -190,8 +190,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
               {forgotMode
                 ? "Reset Password"
                 : mode === "login"
-                ? "Welcome Back"
-                : "Create Account"}
+                  ? "Welcome Back"
+                  : "Create Account"}
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -285,8 +285,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = "login" }) => {
                 {forgotMode
                   ? "Send Reset Link"
                   : mode === "login"
-                  ? "Sign In"
-                  : "Create Account"}
+                    ? "Sign In"
+                    : "Create Account"}
               </button>
             </form>
 

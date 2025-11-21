@@ -136,7 +136,6 @@ export default function StaffAccount() {
   }
 
 
-  // Forgot password (tạm thời demo)
   function handleForgotPassword() {
     alert("Forgot password flow (to be implemented).");
   }
@@ -185,9 +184,7 @@ export default function StaffAccount() {
           <span>Profile Center</span>
         </div>
         <h1 className="acc-title">Your Account</h1>
-        <p className="acc-subtitle">
-          Keep your personal information up to date.
-        </p>
+
       </header>
 
       <div className="acc-card">
@@ -195,21 +192,7 @@ export default function StaffAccount() {
 
         <div className="acc-card-inner">
           {/* Title row */}
-          <div className="acc-card-head">
-            <div className="acc-avatar-wrap">
-              <div className="acc-avatar">
-                {makeInitials(name || email || "U")}
-              </div>
-            </div>
-            <div className="acc-head-main">
-              <h2 className="acc-card-title">Account Information</h2>
-              <p className="acc-card-desc">Manage your personal details</p>
-            </div>
-            <div className="acc-secured-pill">
-              <i className="bi bi-shield-lock" aria-hidden="true" />
-              <span>Secured</span>
-            </div>
-          </div>
+
 
           {/* Form – chỉ đọc, không submit */}
           <form onSubmit={(e) => e.preventDefault()} className="acc-form">
@@ -285,10 +268,7 @@ export default function StaffAccount() {
             {/* Panel đổi mật khẩu */}
             {showPassBox && (
               <div className="acc-pass-card">
-                <h3 className="acc-pass-title">Change password</h3>
-                <p className="acc-pass-desc">
-                  Enter your current password and a new password.
-                </p>
+
 
                 <div className="acc-grid-2 acc-pass-grid">
                   <div className="acc-field">
@@ -350,10 +330,6 @@ export default function StaffAccount() {
             )}
           </form>
         </div>
-
-        <footer className="acc-footer">
-          Your data is protected and used only for providing our services.
-        </footer>
       </div>
 
       <style>{`
