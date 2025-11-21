@@ -315,11 +315,34 @@ export default function Stations() {
             await loadStations();
         } catch (e) {
             console.error("create-new-station error:", e?.response?.data || e);
-            const msg =
-                e?.response?.data?.message ||
-                e?.response?.data?.title ||
-                e?.message ||
-                "Create station failed.";
+
+            const data = e?.response?.data;
+            let msg = "";
+
+            // ✅ Prefer ASP.NET validation errors
+            if (data?.errors && typeof data.errors === "object") {
+                const parts = [];
+
+                Object.entries(data.errors).forEach(([field, messages]) => {
+                    if (Array.isArray(messages)) {
+                        messages.forEach((m) => parts.push(m));
+                    } else if (messages) {
+                        parts.push(String(messages));
+                    }
+                });
+
+                msg = parts.join("\n"); // or " • " if you want inline
+            }
+
+            // Fallback if no errors[] available
+            if (!msg) {
+                msg =
+                    data?.message ||
+                    data?.title ||
+                    e?.message ||
+                    "Create station failed.";
+            }
+
             setCreateErr(msg);
         } finally {
             setCreating(false);

@@ -49,6 +49,30 @@ export default function StaffManagement() {
         shiftEnd: "17:00",
     });
 
+
+    const extractValidationErrors = (data) => {
+        if (data?.errors && typeof data.errors === "object") {
+            const parts = [];
+            Object.entries(data.errors).forEach(([field, messages]) => {
+                if (Array.isArray(messages)) {
+                    messages.forEach((m) => {
+                        parts.push(`${field}: ${m}`);
+                    });
+                } else if (messages) {
+                    parts.push(`${field}: ${String(messages)}`);
+                }
+            });
+            if (parts.length) {
+                return parts.join("\n");
+            }
+        }
+
+        // fallback
+        if (data?.message) return data.message;
+        if (data?.title) return data.title;
+        return "";
+    };
+
     // ===== UPDATE STAFF modal state =====
     const [editOpen, setEditOpen] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -91,7 +115,7 @@ export default function StaffManagement() {
             setStaffs(mapped);
         } catch (err) {
             console.error("staff-list error", err?.response?.data || err);
-            alert("❌ Không thể tải danh sách nhân viên.");
+            alert("❌ Failed to load staff list.");
         } finally {
             setLoading(false);
         }
@@ -167,7 +191,7 @@ export default function StaffManagement() {
             setSelectedStaff(detail);
         } catch (err) {
             console.error("staff-information error", err?.response?.data || err);
-            alert("❌ Không thể tải chi tiết nhân viên.");
+            alert("❌ Can't load staff detail.");
         } finally {
             setLoadingDetail(false);
         }
@@ -221,10 +245,10 @@ export default function StaffManagement() {
     // ===== Create staff submit =====
     const onCreateStaff = async (e) => {
         e.preventDefault();
-        if (!createForm.staffName.trim()) return alert("Vui lòng nhập tên nhân viên.");
-        if (!createForm.staffEmail.trim()) return alert("Vui lòng nhập email.");
-        if (!createForm.stationId) return alert("Vui lòng chọn trạm.");
-        if (!isValidEmail(createForm.staffEmail)) return alert("Email không hợp lệ.");
+        if (!createForm.staffName.trim()) return alert("Please enter staff name.");
+        if (!createForm.staffEmail.trim()) return alert("Please enter staff email.");
+        if (!createForm.stationId) return alert("Please choose station.");
+        if (!isValidEmail(createForm.staffEmail)) return alert("Wrong email format.");
 
         const payload = {
             staffName: createForm.staffName.trim(),
@@ -246,7 +270,7 @@ export default function StaffManagement() {
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
 
-            alert("✅ Tạo nhân viên thành công.");
+            alert("✅ Create staff account successfully.");
             setCreateOpen(false);
             setCreateForm({
                 staffName: "",
@@ -261,15 +285,17 @@ export default function StaffManagement() {
             loadStaffs();
         } catch (err) {
             console.error("create-staff error", err?.response?.data || err);
-            const v = err?.response?.data;
+            const data = err?.response?.data;
             const msg =
-                (typeof v === "object" && (v.message || v.title)) ||
-                (typeof v === "string" && v) ||
-                err.message;
-            alert(`❌ Tạo thất bại.\n${msg || ""}`);
+                extractValidationErrors(data) ||
+                (typeof data === "string" && data) ||
+                err.message ||
+                "Create staff failed.";
+            alert(`❌ Create Failed.\n${msg}`);
         } finally {
             setCreating(false);
         }
+
     };
 
     // ===== OPEN EDIT (from row) =====
@@ -381,19 +407,21 @@ export default function StaffManagement() {
                     : prev
             );
 
-            alert("✅ Cập nhật nhân viên thành công.");
+            alert("✅ Update Successfully.");
             setEditOpen(false);
         } catch (err) {
             console.error("update-staff-information error:", err?.response?.data || err);
-            const v = err?.response?.data;
+            const data = err?.response?.data;
             const msg =
-                (typeof v === "object" && (v.message || v.title)) ||
-                (typeof v === "string" && v) ||
-                err.message;
-            alert(`❌ Cập nhật thất bại.\n${msg || ""}`);
+                extractValidationErrors(data) ||
+                (typeof data === "string" && data) ||
+                err.message ||
+                "Update Staff Failed.";
+            alert(`❌ Update Staff Failed   .\n${msg}`);
         } finally {
             setSaving(false);
         }
+
     };
 
     // ===== Derived filters =====

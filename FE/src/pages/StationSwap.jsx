@@ -854,34 +854,44 @@ export default function StationSwap() {
                               selectedPillarId === pid &&
                               allowedSwapIn.has(String(slot?.slotId));
 
-                            const isOutHighlight = step === 3 && slot.__green; // slot đang cấp pin (swap-out)
+                            // Slot đang cấp pin (swap-out highlight)
+                            const isOutHighlight = step === 3 && slot.__green;
 
                             const labelTextClass =
                               canPick || slot.__green ? "text-white/95" : "text-gray-900";
 
                             const baseClasses =
-                              "h-10 rounded-md relative overflow-hidden transition-all duration-300";
-                            const colorClass = slotColorClass(canPick || slot.__green);
+                              "h-10 rounded-md relative overflow-hidden transition-all duration-300 ease-out";
+
+                            // màu cơ bản
+                            const baseColor = slotColorClass(canPick || slot.__green);
+                            // màu nổi bật hơn cho swap-out
+                            const outColor = isOutHighlight
+                              ? "bg-gradient-to-br from-emerald-400 to-emerald-600"
+                              : "";
+                            const colorClass = outColor || baseColor;
+
                             const pointerClass = canPick
-                              ? "cursor-pointer hover:ring-2 hover:ring-blue-400"
+                              ? "cursor-pointer hover:ring-2 hover:ring-sky-400"
                               : "cursor-default";
 
+                            // motion cho swap-in / swap-out
                             let motionClass = "scale-95";
                             if (step === 2 && canPick) {
-                              // hiệu ứng bỏ pin vào
+                              // Swap-In: khi chưa chọn thì hover nổi lên, khi đã chọn thì nổi hẳn
                               motionClass = pickedIdx
-                                ? "translate-y-0 scale-100 shadow-lg"
-                                : "-translate-y-1 scale-95";
+                                ? "scale-100 shadow-lg"
+                                : "scale-95 hover:-translate-y-1 hover:shadow-md";
                             } else if (isOutHighlight) {
-                              // hiệu ứng lấy pin ra
-                              motionClass = "scale-100 shadow-lg";
+                              // Swap-Out: slot được lấy pin sẽ pulse nhẹ
+                              motionClass = "scale-100 shadow-lg animate-pulse";
                             }
 
                             return (
                               <div
                                 key={slot?.slotId ?? `${pid}-${i}`}
                                 onClick={() => canPick && togglePickSlot(slot)}
-                                className={`${baseClasses} ${colorClass} ${pointerClass} ${motionClass} ${pickedIdx ? "ring-4 ring-blue-500" : ""
+                                className={`${baseClasses} ${colorClass} ${pointerClass} ${motionClass} ${pickedIdx ? "ring-4 ring-sky-400" : ""
                                   }`}
                                 title={`Slot ${slot?.slotNumber ?? i + 1} • SlotId: ${slot?.slotId || "N/A"
                                   }${slot?.batteryId ? ` • ${slot.batteryId}` : ""}`}
@@ -913,7 +923,7 @@ export default function StationSwap() {
 
                                 {/* badge thứ tự click khi Swap-In */}
                                 {pickedIdx ? (
-                                  <span className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white">
+                                  <span className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white shadow">
                                     {pickedIdx}
                                   </span>
                                 ) : null}
@@ -921,6 +931,7 @@ export default function StationSwap() {
                             );
                           })}
                         </div>
+
                       </button>
                     );
                   })}

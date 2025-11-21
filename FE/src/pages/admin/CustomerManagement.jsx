@@ -4,6 +4,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
 import api from "@/api/api";
 
+const FIELD_LABELS = {
+    DriverTele: "Phone number",
+    DriverAddress: "Address",
+    DriverName: "Full name",
+    DriverEmail: "Email",
+};
+
 const CustomerManagement = () => {
     const [customers, setCustomers] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
@@ -27,20 +34,20 @@ const CustomerManagement = () => {
         driverStatus: "Active",
     });
 
-    // mở modal Edit từ row bảng
+    // open Edit modal from row
     const openEditFromRow = (row) => {
         setEditForm({
             driverId: row.driverId,
             driverName: row.name || "",
             driverEmail: row.email || "",
-            driverTele: "",           // không có trong list -> để rỗng
-            driverAddress: "",        // không có trong list -> để rỗng
+            driverTele: "", // not available in list -> empty
+            driverAddress: "", // not available in list -> empty
             driverStatus: row.status || "Active",
         });
         setEditOpen(true);
     };
 
-    // mở modal Edit từ detail (đã load đủ thông tin)
+    // open Edit modal from detail (already loaded full info)
     const openEditFromDetail = () => {
         const d = selectedCustomer;
         setEditForm({
@@ -48,14 +55,36 @@ const CustomerManagement = () => {
             driverName: d.name || "",
             driverEmail: d.email || "",
             driverTele: d.phone || "",
-            driverAddress: d.address || "", // nếu BE có trả; nếu không sẽ trống
+            driverAddress: d.address || "",
             driverStatus: d.status || "Active",
         });
         setEditOpen(true);
     };
 
-    // validate cơ bản
+    // basic validations
     const isValidEmail = (s = "") => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+
+    // format BE validation errors -> bullet list in English
+    const extractValidationErrors = (data) => {
+        if (data?.errors && typeof data.errors === "object") {
+            const parts = [];
+            Object.entries(data.errors).forEach(([field, messages]) => {
+                const label = FIELD_LABELS[field] || field;
+                if (Array.isArray(messages)) {
+                    messages.forEach((m) => parts.push(`• ${label}: ${m}`));
+                } else if (messages) {
+                    parts.push(`• ${label}: ${String(messages)}`);
+                }
+            });
+            if (parts.length) {
+                return parts.join("\n");
+            }
+        }
+
+        if (data?.message) return data.message;
+        if (data?.title) return data.title;
+        return "";
+    };
 
     const submitUpdateUser = async (e) => {
         e?.preventDefault?.();
@@ -68,10 +97,10 @@ const CustomerManagement = () => {
             driverStatus: editForm.driverStatus || "Active",
         };
 
-        if (!payload.driverId) return alert("Thiếu driverId.");
-        if (!payload.driverName) return alert("Vui lòng nhập tên.");
+        if (!payload.driverId) return alert("Missing driverId.");
+        if (!payload.driverName) return alert("Please enter the customer name.");
         if (!payload.driverEmail || !isValidEmail(payload.driverEmail))
-            return alert("Email không hợp lệ.");
+            return alert("Please enter a valid email address.");
 
         try {
             setSaving(true);
@@ -80,7 +109,7 @@ const CustomerManagement = () => {
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
 
-            // cập nhật list ngay tại chỗ (không cần reload toàn bộ)
+            // update list locally (no need to reload)
             setCustomers((prev) =>
                 prev.map((c) =>
                     c.driverId === payload.driverId
@@ -94,7 +123,7 @@ const CustomerManagement = () => {
                 )
             );
 
-            // cập nhật panel chi tiết nếu đang mở
+            // update detail panel if open
             setSelectedCustomer((prev) =>
                 prev && prev.driverId === payload.driverId
                     ? {
@@ -108,21 +137,22 @@ const CustomerManagement = () => {
                     : prev
             );
 
-            alert("✅ Cập nhật thông tin khách hàng thành công.");
+            alert("✅ Customer information updated successfully.");
             setEditOpen(false);
         } catch (err) {
             console.error("update-user-information error:", err?.response?.data || err);
             const v = err?.response?.data;
-            const msg =
-                (typeof v === "object" && (v.message || v.title)) ||
+            const msgBody =
+                extractValidationErrors(v) ||
                 (typeof v === "string" && v) ||
-                err.message;
-            alert(`❌ Cập nhật thất bại.\n${msg || ""}`);
+                err.message ||
+                "Unknown error.";
+
+            alert(`❌ Update failed.\n\n${msgBody}`);
         } finally {
             setSaving(false);
         }
     };
-
 
     // --- color helpers for package/status ---
     const getPackageBadgeColor = (pkg) => {
@@ -150,7 +180,7 @@ const CustomerManagement = () => {
             const arr = res?.data?.data ?? [];
             const mapped = arr.map((x) => ({
                 driverId: x.driverId,
-                userId: x.userId ?? x.driverId, // fallback nếu BE không trả userId
+                userId: x.userId ?? x.driverId,
                 name: x.driverName,
                 email: x.driverEmail,
                 status: x.driverStatus,
@@ -161,7 +191,7 @@ const CustomerManagement = () => {
             setCustomers(mapped);
         } catch (err) {
             console.error("driver-list error", err?.response?.data || err);
-            alert("❌ Không thể tải danh sách khách hàng.");
+            alert("❌ Failed to load customer list.");
         } finally {
             setLoading(false);
         }
@@ -177,13 +207,12 @@ const CustomerManagement = () => {
         try {
             const token = localStorage.getItem("token");
             const res = await api.get(`/User/driver-detail`, {
-                params: { UserId: driver.driverId }, // ✅ dùng driverId
+                params: { UserId: driver.driverId },
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
             const d = res?.data?.data;
             if (!d) throw new Error("No data");
 
-            // currentPackage: [{ planName, swap }]
             const packages = Array.isArray(d.currentPackage)
                 ? d.currentPackage.map((p) => ({
                     name: p.planName,
@@ -197,9 +226,9 @@ const CustomerManagement = () => {
                 email: d.driverEmail,
                 phone: d.driverTele,
                 registrationDate: d.registation,
-                packages, // mảng object {name, swap}
+                packages,
                 vehicles: d.driverVehicles?.length ?? driver.vehicles,
-                swaps: d.totalSwaps, // tổng swap của tài khoản
+                swaps: d.totalSwaps,
                 status: driver.status,
                 vehicleList:
                     (d.driverVehicles || []).map((v, i) => ({
@@ -213,13 +242,12 @@ const CustomerManagement = () => {
             setSelectedCustomer(detail);
         } catch (err) {
             console.error("driver-detail error", err?.response?.data || err);
-            alert("❌ Không thể tải chi tiết khách hàng.");
+            alert("❌ Failed to load customer details.");
         } finally {
             setLoadingDetail(false);
         }
     };
 
-    // --- DELETE driver (POST /api/User/delete-user { userId }) + confirm modal + toast ---
     // --- DELETE driver (POST /api/User/delete-user { userId }) + English confirm modal + toast ---
     const deleteDriver = async (driver) => {
         const userId = driver.userId ?? driver.driverId;
@@ -228,7 +256,6 @@ const CustomerManagement = () => {
             return;
         }
 
-        // Simple and clear confirmation (English version)
         const { ok } = await window.confirmModal({
             title: "Are you sure?",
             message: `This action will permanently delete ${driver.name} (${userId}).`,
@@ -247,7 +274,6 @@ const CustomerManagement = () => {
                 { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
             );
 
-            // Update UI
             setCustomers((prev) => prev.filter((c) => c.driverId !== driver.driverId));
             setSelectedCustomer((prev) =>
                 prev && prev.driverId === driver.driverId ? null : prev
@@ -266,8 +292,6 @@ const CustomerManagement = () => {
             setDeletingId(null);
         }
     };
-
-
 
     // --- filters ---
     const filteredCustomers = useMemo(() => {
@@ -296,7 +320,7 @@ const CustomerManagement = () => {
             <div className="flex items-center gap-2" title={arr.join(", ")}>
                 {firstTwo.map((p, idx) => (
                     <span
-                        key={`${ownerKey}-${p}-${idx}`} // ✅ key duy nhất
+                        key={`${ownerKey}-${p}-${idx}`}
                         className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${getPackageBadgeColor(
                             p
                         )}`}
@@ -447,7 +471,9 @@ const CustomerManagement = () => {
                                                 <div className="font-medium text-gray-900">{c.name}</div>
                                                 <div className="text-sm text-gray-500">{c.email}</div>
                                             </td>
-                                            <td className="px-6 py-4">{renderPackageChips(c.packages, c.driverId)}</td>
+                                            <td className="px-6 py-4">
+                                                {renderPackageChips(c.packages, c.driverId)}
+                                            </td>
                                             <td className="px-6 py-4 text-gray-900">{c.vehicles}</td>
                                             <td className="px-6 py-4 text-gray-900">{c.swaps}</td>
                                             <td className="px-6 py-4">
@@ -480,8 +506,8 @@ const CustomerManagement = () => {
                                                     <button
                                                         onClick={() => deleteDriver(c)}
                                                         className={`p-2 rounded-lg ${deletingId === c.driverId
-                                                            ? "text-gray-400 cursor-not-allowed"
-                                                            : "text-red-600 hover:bg-red-50"
+                                                                ? "text-gray-400 cursor-not-allowed"
+                                                                : "text-red-600 hover:bg-red-50"
                                                             }`}
                                                         disabled={deletingId === c.driverId}
                                                         title="Delete user"
@@ -527,8 +553,10 @@ const CustomerManagement = () => {
                                                 deleteDriver({
                                                     driverId: selectedCustomer.driverId,
                                                     userId:
-                                                        customers.find((c) => c.driverId === selectedCustomer.driverId)?.userId ??
-                                                        selectedCustomer.driverId,
+                                                        customers.find(
+                                                            (c) =>
+                                                                c.driverId === selectedCustomer.driverId
+                                                        )?.userId ?? selectedCustomer.driverId,
                                                     name: selectedCustomer.name,
                                                 })
                                             }
@@ -557,38 +585,69 @@ const CustomerManagement = () => {
                                                 <h3 className="text-lg font-semibold mb-3">
                                                     Personal Info
                                                 </h3>
-                                                <InfoRow icon="bi-person" title="Full Name" value={selectedCustomer.name} />
-                                                <InfoRow icon="bi-envelope" title="Email" value={selectedCustomer.email} />
-                                                <InfoRow icon="bi-telephone" title="Phone" value={selectedCustomer.phone || "—"} />
-                                                <InfoRow icon="bi-calendar" title="Registration" value={selectedCustomer.registrationDate || "—"} />
+                                                <InfoRow
+                                                    icon="bi-person"
+                                                    title="Full Name"
+                                                    value={selectedCustomer.name}
+                                                />
+                                                <InfoRow
+                                                    icon="bi-envelope"
+                                                    title="Email"
+                                                    value={selectedCustomer.email}
+                                                />
+                                                <InfoRow
+                                                    icon="bi-telephone"
+                                                    title="Phone"
+                                                    value={selectedCustomer.phone || "—"}
+                                                />
+                                                <InfoRow
+                                                    icon="bi-calendar"
+                                                    title="Registration"
+                                                    value={
+                                                        selectedCustomer.registrationDate ||
+                                                        "—"
+                                                    }
+                                                />
                                             </div>
                                             <div>
                                                 <h3 className="text-lg font-semibold mb-3">
                                                     Service Info
                                                 </h3>
                                                 <div className="mb-2">
-                                                    <span className="text-gray-600 mr-3">Current Packages</span>
+                                                    <span className="text-gray-600 mr-3">
+                                                        Current Packages
+                                                    </span>
                                                     <div className="mt-2 flex flex-wrap gap-2">
                                                         {selectedCustomer.packages?.length ? (
-                                                            selectedCustomer.packages.map((p, idx) => (
-                                                                <span
-                                                                    key={`${selectedCustomer.driverId}-${p.name}-${idx}`} // ✅ key duy nhất
-                                                                    className={`px-3 py-1 rounded-full text-xs font-medium ${getPackageBadgeColor(
-                                                                        p.name
-                                                                    )}`}
-                                                                    title={`${p.name}: ${p.swap} swaps`}
-                                                                >
-                                                                    {p.name}
-                                                                </span>
-                                                            ))
+                                                            selectedCustomer.packages.map(
+                                                                (p, idx) => (
+                                                                    <span
+                                                                        key={`${selectedCustomer.driverId}-${p.name}-${idx}`}
+                                                                        className={`px-3 py-1 rounded-full text-xs font-medium ${getPackageBadgeColor(
+                                                                            p.name
+                                                                        )}`}
+                                                                        title={`${p.name}: ${p.swap} swaps`}
+                                                                    >
+                                                                        {p.name}
+                                                                    </span>
+                                                                )
+                                                            )
                                                         ) : (
-                                                            <span className="text-gray-400">—</span>
+                                                            <span className="text-gray-400">
+                                                                —
+                                                            </span>
                                                         )}
                                                     </div>
                                                 </div>
 
-                                                <KeyValueRow label="Total Vehicles" value={selectedCustomer.vehicles} />
-                                                <KeyValueRow label="Total Swaps" value={selectedCustomer.swaps} />
+                                                <KeyValueRow
+                                                    label="Total Vehicles"
+                                                    value={selectedCustomer.vehicles}
+                                                />
+                                                <KeyValueRow
+                                                    label="Total Swaps"
+                                                    value={selectedCustomer.swaps}
+                                                />
                                                 <KeyValueRow
                                                     label="Status"
                                                     value={
@@ -606,23 +665,34 @@ const CustomerManagement = () => {
 
                                         <div>
                                             <h3 className="text-lg font-semibold mb-3 flex items-center">
-                                                <i className="bi bi-car-front mr-2"></i>Vehicles
+                                                <i className="bi bi-car-front mr-2"></i>
+                                                Vehicles
                                             </h3>
                                             <div className="grid md:grid-cols-2 gap-4">
                                                 {selectedCustomer.vehicleList?.length ? (
                                                     selectedCustomer.vehicleList.map((v) => (
-                                                        <div key={v.id} className="p-4 border rounded-lg hover:shadow-md transition">
+                                                        <div
+                                                            key={v.id}
+                                                            className="p-4 border rounded-lg hover:shadow-md transition"
+                                                        >
                                                             <div className="flex justify-between mb-2">
-                                                                <span className="font-medium text-gray-900">{v.model}</span>
-                                                                <span className="text-sm text-gray-500">{v.year}</span>
+                                                                <span className="font-medium text-gray-900">
+                                                                    {v.model}
+                                                                </span>
+                                                                <span className="text-sm text-gray-500">
+                                                                    {v.year}
+                                                                </span>
                                                             </div>
                                                             <div className="text-sm text-gray-600">
-                                                                Batteries: {v.numberOfBattery ?? 1}
+                                                                Batteries:{" "}
+                                                                {v.numberOfBattery ?? 1}
                                                             </div>
                                                         </div>
                                                     ))
                                                 ) : (
-                                                    <div className="text-gray-400">No vehicles.</div>
+                                                    <div className="text-gray-400">
+                                                        No vehicles.
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -632,6 +702,8 @@ const CustomerManagement = () => {
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                {/* Edit Modal */}
                 <AnimatePresence>
                     {editOpen && (
                         <motion.div
@@ -648,14 +720,22 @@ const CustomerManagement = () => {
                             >
                                 <div className="p-6 border-b flex items-center justify-between">
                                     <h3 className="text-lg font-semibold">Update Customer</h3>
-                                    <button className="p-2 hover:bg-gray-100 rounded-lg" onClick={() => setEditOpen(false)}>
+                                    <button
+                                        className="p-2 hover:bg-gray-100 rounded-lg"
+                                        onClick={() => setEditOpen(false)}
+                                    >
                                         <i className="bi bi-x-lg" />
                                     </button>
                                 </div>
 
-                                <form className="p-6 grid grid-cols-1 gap-4" onSubmit={submitUpdateUser}>
+                                <form
+                                    className="p-6 grid grid-cols-1 gap-4"
+                                    onSubmit={submitUpdateUser}
+                                >
                                     <div>
-                                        <label className="block text-sm text-gray-700 mb-1">Driver ID</label>
+                                        <label className="block text-sm text-gray-700 mb-1">
+                                            Driver ID
+                                        </label>
                                         <input
                                             className="w-full border rounded-lg px-3 py-2 bg-gray-100"
                                             value={editForm.driverId}
@@ -664,41 +744,69 @@ const CustomerManagement = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm text-gray-700 mb-1">Full Name</label>
+                                        <label className="block text-sm text-gray-700 mb-1">
+                                            Full Name
+                                        </label>
                                         <input
                                             className="w-full border rounded-lg px-3 py-2"
                                             value={editForm.driverName}
-                                            onChange={(e) => setEditForm(f => ({ ...f, driverName: e.target.value }))}
+                                            onChange={(e) =>
+                                                setEditForm((f) => ({
+                                                    ...f,
+                                                    driverName: e.target.value,
+                                                }))
+                                            }
                                             required
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm text-gray-700 mb-1">Email</label>
+                                        <label className="block text-sm text-gray-700 mb-1">
+                                            Email
+                                        </label>
                                         <input
                                             type="email"
                                             className="w-full border rounded-lg px-3 py-2"
                                             value={editForm.driverEmail}
-                                            onChange={(e) => setEditForm(f => ({ ...f, driverEmail: e.target.value }))}
+                                            onChange={(e) =>
+                                                setEditForm((f) => ({
+                                                    ...f,
+                                                    driverEmail: e.target.value,
+                                                }))
+                                            }
                                             required
                                         />
                                     </div>
 
                                     <div className="grid md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm text-gray-700 mb-1">Telephone</label>
+                                            <label className="block text-sm text-gray-700 mb-1">
+                                                Telephone
+                                            </label>
                                             <input
                                                 className="w-full border rounded-lg px-3 py-2"
                                                 value={editForm.driverTele}
-                                                onChange={(e) => setEditForm(f => ({ ...f, driverTele: e.target.value }))}
+                                                onChange={(e) =>
+                                                    setEditForm((f) => ({
+                                                        ...f,
+                                                        driverTele: e.target.value,
+                                                    }))
+                                                }
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm text-gray-700 mb-1">Status</label>
+                                            <label className="block text-sm text-gray-700 mb-1">
+                                                Status
+                                            </label>
                                             <select
                                                 className="w-full border rounded-lg px-3 py-2"
                                                 value={editForm.driverStatus}
-                                                onChange={(e) => setEditForm(f => ({ ...f, driverStatus: e.target.value }))}
+                                                onChange={(e) =>
+                                                    setEditForm((f) => ({
+                                                        ...f,
+                                                        driverStatus: e.target.value,
+                                                    }))
+                                                }
                                             >
                                                 <option value="Active">Active</option>
                                                 <option value="Inactive">Inactive</option>
@@ -707,11 +815,18 @@ const CustomerManagement = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm text-gray-700 mb-1">Address</label>
+                                        <label className="block text-sm text-gray-700 mb-1">
+                                            Address
+                                        </label>
                                         <input
                                             className="w-full border rounded-lg px-3 py-2"
                                             value={editForm.driverAddress}
-                                            onChange={(e) => setEditForm(f => ({ ...f, driverAddress: e.target.value }))}
+                                            onChange={(e) =>
+                                                setEditForm((f) => ({
+                                                    ...f,
+                                                    driverAddress: e.target.value,
+                                                }))
+                                            }
                                         />
                                     </div>
 

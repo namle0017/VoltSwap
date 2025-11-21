@@ -242,81 +242,184 @@ export default function SuggestService() {
         </div>
       </div>
 
-      {/* Modal hiển thị chi tiết gói */}
       {showModal && planDetail && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-11/12 max-w-3xl p-6 transform transition-all">
-            <h2 className="text-2xl font-bold mb-4 text-center">
-              Plan Details: {planDetail.plans.planName}
-            </h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden transform transition-all duration-200">
 
-            <div className="mb-4">
-              <p>
-                <strong>Price:</strong>{" "}
-                {planDetail.plans.price.toLocaleString()}₫
-              </p>
-              <p>
-                <strong>Batteries:</strong> {planDetail.plans.numberBattery}
-              </p>
-              <p>
-                <strong>Duration:</strong> {planDetail.plans.durationDays} days
-              </p>
-              <p>
-                <strong>Mileage:</strong> {planDetail.plans.milleageBaseUsed} km
-              </p>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-400 to-blue-600 px-6 py-4 flex items-center justify-between text-white">
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center shadow-inner">
+                  <i className="bi bi-stars text-yellow-300 text-xl" />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide opacity-80">
+                    Suggested Plan
+                  </p>
+                  <h2 className="text-xl font-semibold">
+                    {planDetail.plans.planName}
+                  </h2>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <div className="text-[10px] uppercase opacity-70">Price</div>
+                <div className="text-xl font-bold">
+                  {Number(planDetail.plans.price || 0).toLocaleString("vi-VN")}₫
+                </div>
+                <div className="text-xs opacity-80">
+                  / {planDetail.plans.durationDays} days
+                </div>
+              </div>
             </div>
 
-            <h3 className="font-semibold text-lg mb-2">📑 Fee Details</h3>
-            <table className="w-full text-center border-collapse border">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-2">Icon</th>
-                  <th>Type</th>
-                  <th>Amount</th>
-                  <th>Unit</th>
-                  <th>Range</th>
-                  <th>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {planDetail.planFees.map((fee, index) => (
-                  <tr key={index} className="border">
-                    <td className="text-lg">{getFeeIcon(fee.typeOfFee)}</td>
-                    <td>{fee.typeOfFee}</td>
-                    <td>{fee.amountFee}</td>
-                    <td>{fee.unit}</td>
-                    <td>
-                      {fee.minValue} - {fee.maxValue}
-                    </td>
-                    <td>{fee.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {/* Content */}
+            {detailLoading ? (
+              <div className="p-8 flex items-center justify-center text-gray-600">
+                <div className="animate-spin h-8 w-8 border-4 border-blue-400 border-t-transparent rounded-full mr-3" />
+                Loading plan details...
+              </div>
+            ) : (
+              <div className="p-6 space-y-6">
 
-            <div className="text-right mt-6">
+                {/* Info Cards */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="rounded-xl border border-green-200 bg-green-50 p-4 shadow-sm">
+                    <h3 className="text-green-700 font-semibold mb-2 flex items-center gap-2">
+                      <i className="bi bi-info-circle" /> Overview
+                    </h3>
+                    <ul className="text-gray-700 space-y-1 text-sm">
+                      <li><span className="font-medium">Batteries:</span> {planDetail.plans.numberBattery}</li>
+                      <li><span className="font-medium">Duration:</span> {planDetail.plans.durationDays} days</li>
+                      <li>
+                        <span className="font-medium">Mileage:</span>{" "}
+                        {planDetail.plans.milleageBaseUsed > 0
+                          ? `${planDetail.plans.milleageBaseUsed} km`
+                          : "Unlimited"}
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
+                    <h3 className="text-blue-800 font-semibold mb-2 flex items-center gap-2">
+                      <i className="bi bi-star-fill text-yellow-500" /> Highlights
+                    </h3>
+                    <ul className="space-y-1 text-gray-700 text-sm">
+                      <li className="flex items-center gap-2">
+                        <i className="bi bi-check-circle-fill text-green-600" />
+                        Recommended based on your vehicle
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <i className="bi bi-check-circle-fill text-green-600" />
+                        Good price–mileage balance
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <i className="bi bi-check-circle-fill text-green-600" />
+                        Transparent fees
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Table title */}
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <i className="bi bi-receipt" />
+                    Fee Details
+                  </h3>
+                  <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-xs border">
+                    {(planDetail.planFees || []).length} items
+                  </span>
+                </div>
+
+                {/* Fee table */}
+                <div className="border border-gray-300 rounded-xl overflow-hidden shadow-md">
+                  <div className="max-h-[320px] overflow-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead className="bg-gray-100 border-b-2 border-gray-300">
+                        <tr>
+                          <th className="p-3 text-left border-r">Icon</th>
+                          <th className="p-3 text-left border-r">Type</th>
+                          <th className="p-3 text-right border-r">Amount</th>
+                          <th className="p-3 text-left border-r">Unit</th>
+                          {/* 👇 prevent wrapping here */}
+                          <th className="p-3 text-center border-r whitespace-nowrap">Range</th>
+                          <th className="p-3 text-left">Description</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {(planDetail.planFees || []).map((fee, index) => (
+                          <tr
+                            key={index}
+                            className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                              } hover:bg-green-50 transition`}
+                          >
+                            <td className="p-3 border-r text-center align-top">
+                              <div className="h-8 w-8 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center shadow-sm">
+                                {getFeeIcon(fee.typeOfFee)}
+                              </div>
+                            </td>
+                            <td className="p-3 border-r font-medium text-gray-900 align-top">
+                              {fee.typeOfFee}
+                            </td>
+                            <td className="p-3 border-r text-right font-bold text-blue-700 align-top">
+                              {Number(fee.amountFee || 0).toLocaleString()}
+                            </td>
+                            <td className="p-3 border-r text-gray-700 align-top">
+                              {fee.unit || "-"}
+                            </td>
+                            {/* 👇 also no wrap for value */}
+                            <td className="p-3 border-r text-center text-gray-700 align-top whitespace-nowrap">
+                              {fee.minValue} – {fee.maxValue}
+                            </td>
+                            <td className="p-3 text-gray-700 align-top leading-relaxed">
+                              {fee.description || "-"}
+                            </td>
+                          </tr>
+                        ))}
+
+                        {(planDetail.planFees || []).length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="p-6 text-center text-gray-500">
+                              No fee details available.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 mr-2"
+                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-semibold flex items-center gap-2"
               >
+                <i className="bi bi-x-circle" />
                 Close
               </button>
+
               <button
                 onClick={() => {
                   setSelected(planDetail.plans);
                   setShowModal(false);
-                  alert(
-                    `✅ ${planDetail.plans.planName} selected! Now press Confirm Registration.`
-                  );
+                  alert(`✅ ${planDetail.plans.planName} selected!`);
                 }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                className="px-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold flex items-center gap-2 shadow-md"
               >
+                <i className="bi bi-check-circle-fill" />
                 Select This Plan
               </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }
