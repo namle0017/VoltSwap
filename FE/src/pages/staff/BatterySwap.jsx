@@ -68,6 +68,62 @@ function StatusBadge({ status }) {
     );
 }
 
+/**
+ * Cell hiển thị Battery In / Out:
+ * - Nếu chỉ có In  -> chỉ show "In: ..."
+ * - Nếu chỉ có Out -> chỉ show "Out: ..."
+ * - Nếu không có gì -> show cả 2 dòng In/Out đều "—"
+ * - Nếu có cả hai (trường hợp hiếm) -> show cả hai
+ */
+function BatteryInOutCell({ inId, outId }) {
+    const hasIn = !!inId;
+    const hasOut = !!outId;
+
+    // Chỉ có In
+    if (hasIn && !hasOut) {
+        return (
+            <div>
+                In: <b>{inId}</b>
+            </div>
+        );
+    }
+
+    // Chỉ có Out
+    if (!hasIn && hasOut) {
+        return (
+            <div>
+                Out: <b>{outId}</b>
+            </div>
+        );
+    }
+
+    // Không có gì cả
+    if (!hasIn && !hasOut) {
+        return (
+            <>
+                <div>
+                    In: <b>—</b>
+                </div>
+                <div>
+                    Out: <b>—</b>
+                </div>
+            </>
+        );
+    }
+
+    // Có cả In và Out (backup trường hợp BE gửi đủ đôi)
+    return (
+        <>
+            <div>
+                In: <b>{inId}</b>
+            </div>
+            <div>
+                Out: <b>{outId}</b>
+            </div>
+        </>
+    );
+}
+
 export default function BatterySwap() {
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -226,14 +282,10 @@ export default function BatterySwap() {
                                         </div>
                                     </td>
                                     <td className="px-4 py-3">
-                                        <div>
-                                            In:{" "}
-                                            <b>{valOrDash(r.batteryIn)}</b>
-                                        </div>
-                                        <div>
-                                            Out:{" "}
-                                            <b>{valOrDash(r.batteryOut)}</b>
-                                        </div>
+                                        <BatteryInOutCell
+                                            inId={r.batteryIn}
+                                            outId={r.batteryOut}
+                                        />
                                     </td>
                                     <td className="px-4 py-3">
                                         {formatTime12h(r.time)}
