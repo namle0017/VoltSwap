@@ -60,7 +60,8 @@ builder.Services.AddCors(options =>
         b.WithOrigins("http://localhost:5173",
             "https://localhost:5173",
             "http://localhost:5174",
-            "https://localhost:5174"
+            "https://localhost:5174",
+            "https://volt-swap.vercel.app"
             )
          .AllowAnyMethod()
          .AllowAnyHeader()
@@ -110,6 +111,11 @@ builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
 
 
+builder.Services.AddRouting(options =>
+{
+    options.LowercaseUrls = true;          // bắt buộc URLs thành chữ thường
+    options.AppendTrailingSlash = false;
+});
 var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
@@ -135,4 +141,5 @@ app.UseAuthentication();
 app.UseAuthorization();   // 4.
 app.MapControllers();
 
+app.MapGet("/minimal-test", () => Results.Ok("App is running!"));
 app.Run();

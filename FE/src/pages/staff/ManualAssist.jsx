@@ -153,8 +153,8 @@ export default function ManualAssist() {
             // 👉 Chỉ hiển thị thông báo thành công
             const msg =
                 errorType === "pinIn"
-                    ? `Đổi pin thành công! Đã nhận pin lỗi (${inBatteryId}) và cấp pin (${outBatteryId}) cho khách.`
-                    : `Đổi pin thành công! Đã cấp pin (${outBatteryId}) cho khách.`;
+                    ? `Battery swap successful: received (${inBatteryId}), gave (${outBatteryId}).`
+                    : `Battery swap successful: gave (${outBatteryId}) to the customer.`;
             setSuccessMsg(msg);
 
             // Auto-ẩn sau 4 giây (tuỳ chọn)

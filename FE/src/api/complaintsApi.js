@@ -1,7 +1,7 @@
 // src/api/complaintsApi.js
 import { batteryApi } from "./batterySwapApi";
 
-const GET_REPORTS = "/api/Report/get-report";
+const GET_REPORTS = "/Report/get-report";
 const GET_STAFF_LIST = "/api/Report/get_staff-list";
 const ASSIGN_STAFF = "/api/Report/assign-staff";
 

@@ -189,7 +189,7 @@ namespace VoltSwap.API.Controllers
 
         }
 
-        [Authorize(Roles = "Admin,Staff")]
+        [Authorize(Roles = "Staff,Admin")]
         [HttpGet("get-staff-report-list")]
         public async Task<IActionResult> GetStaffReportType()
         {
@@ -237,7 +237,7 @@ namespace VoltSwap.API.Controllers
         }
 
         [HttpPost("create-question")]
-        public async Task<IActionResult> CreateQuestion([FromBody]QuestionRequest question)
+        public async Task<IActionResult> CreateQuestion([FromBody] QuestionRequest question)
         {
             if (!ModelState.IsValid)
             {

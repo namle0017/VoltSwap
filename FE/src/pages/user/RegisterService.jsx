@@ -14,16 +14,21 @@ export default function RegisterService() {
   const [planDetail, setPlanDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  // Icon logic theo loại phí — dùng Bootstrap Icons thay vì emoji
+  // Icon logic theo loại phí
   const getFeeIcon = (type) => {
     const key = String(type || "").toLowerCase();
-    if (key.includes("mileage")) return "bi-speedometer2";
-    if (key.includes("swap")) return "bi-arrow-left-right";
+
+    if (key.includes("mileage")) return <i className="bi bi-speedometer2"></i>;
+    if (key.includes("swap")) return <i className="bi bi-arrow-repeat"></i>;
     if (key.includes("penalty") || key.includes("late"))
-      return "bi-exclamation-triangle-fill";
-    if (key.includes("booking")) return "bi-calendar-event";
-    if (key.includes("deposit")) return "bi-piggy-bank";
-    return "bi-bookmark";
+      return (
+        <i className="bi bi-exclamation-triangle-fill text-yellow-600"></i>
+      );
+    if (key.includes("booking"))
+      return <i className="bi bi-calendar-event"></i>;
+    if (key.includes("deposit")) return <i className="bi bi-cash-coin"></i>;
+
+    return <i className="bi bi-pin-angle-fill"></i>;
   };
 
   // Load danh sách plan
@@ -62,33 +67,31 @@ export default function RegisterService() {
     }
   };
 
-  // ✅ Đăng ký gói thuê — payload đúng schema BE
+  // ✅ Đăng ký gói thuê — sửa payload đúng schema BE (bọc trong requestDto)
   const register = async () => {
-    if (!selected) {
-      alert("Please choose a plan first!");
-      return;
-    }
+    if (!selected) return alert("Please choose a plan first!");
 
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
 
     if (!token || !userId) {
-      alert("Please log in again!");
+      alert("⚠️ Please log in again!");
       navigate("/login");
       return;
     }
-
     const payload = { driverId: { userId }, planId: selected.planId };
 
     try {
-      await api.post("/Transaction/transaction-register", payload, {
+      const res = await api.post("/Transaction/transaction-register", payload, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
 
-      alert(`Registered for ${selected.planName} successfully!`);
+      // BE hiện chỉ trả message thành công
+      const msg = res.data?.message || "Registration success!";
+      alert(`✅ ${msg}`);
       navigate("/user/transaction");
     } catch (err) {
       const v = err?.response?.data;
@@ -105,7 +108,7 @@ export default function RegisterService() {
         msg += `\n${details}`;
       }
       console.error("❌ Registration error:", err?.response?.data || err);
-      alert(msg);
+      alert(`❌ ${msg}`);
     }
   };
 
@@ -121,7 +124,10 @@ export default function RegisterService() {
     <div className="min-h-screen bg-gradient-to-br from-cyan-100 to-yellow-100 py-10 px-4">
       <div className="max-w-5xl mx-auto bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
         <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">
-          <i className="bi bi-lightning-charge-fill text-red-500" />{" "}
+          <i
+            className="bi bi-lightning-charge-fill"
+            style={{ color: "red" }}
+          ></i>{" "}
           Choose Your Subscription
         </h2>
 
@@ -166,9 +172,9 @@ export default function RegisterService() {
                         className="px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded-lg"
                       >
                         <i
-                          className="bi bi-info-circle"
+                          className="bi bi-exclamation-circle"
                           style={{ color: "blue" }}
-                        />{" "}
+                        ></i>{" "}
                         Details
                       </button>
                       <button
@@ -197,179 +203,222 @@ export default function RegisterService() {
               : "bg-gray-400 text-gray-100 cursor-not-allowed"
               }`}
           >
-            <i className="bi bi-check-circle-fill" style={{ color: "blue" }} />{" "}
+            <i
+              className="bi bi-check-circle-fill"
+              style={{ color: "blue" }}
+            ></i>{" "}
             Confirm Registration
           </button>
           <button
             onClick={() => navigate("/user/service")}
             className="px-6 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 font-semibold"
           >
-            <i className="bi bi-arrow-left" style={{ color: "blue" }} /> Back
+            <i className="bi bi-arrow-left" style={{ color: "blue" }}></i>
+            Back
           </button>
         </div>
       </div>
+      {/* Modal – Expanded & Clearer */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden transform transition-all duration-200">
 
-      {/* Modal chi tiết — không nền đen full, layout rõ ràng, icon Bootstrap */}
-      {showModal && planDetail && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
-          <div className="flex justify-center mt-20 px-4 pointer-events-none">
-            <div className="w-full max-w-3xl pointer-events-auto">
-              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-6">
-                <div className="flex justify-between items-start gap-4 mb-4">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                      <i className="bi bi-journal-richtext text-blue-600" />
-                      Plan Details: {planDetail.plans.planName}
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Review all conditions, fees and benefits before you
-                      confirm.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setShowModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                    aria-label="Close"
-                  >
-                    <i className="bi bi-x-lg text-xl" />
-                  </button>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-cyan-400 to-blue-600 px-6 py-4 flex items-center justify-between text-white">
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center shadow-inner">
+                  <i className="bi bi-lightning-charge-fill text-yellow-300 text-xl" />
                 </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide opacity-80">
+                    Subscription Plan
+                  </p>
+                  <h2 className="text-xl font-semibold">
+                    {planDetail?.plans?.planName || "Plan Details"}
+                  </h2>
+                </div>
+              </div>
 
-                <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  <div className="space-y-2 bg-blue-50 rounded-xl p-4">
-                    <h3 className="text-sm font-semibold text-blue-700 flex items-center gap-2">
-                      <i className="bi bi-lightning-charge-fill" />
-                      Plan Overview
-                    </h3>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-medium">Price:</span>{" "}
-                      {Number(planDetail.plans.price || 0).toLocaleString(
-                        "vi-VN"
-                      )}
-                      ₫
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-medium">Batteries:</span>{" "}
-                      {planDetail.plans.numberBattery}
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-medium">Duration:</span>{" "}
-                      {planDetail.plans.durationDays} days
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-medium">Mileage:</span>{" "}
-                      {planDetail.plans.milleageBaseUsed} km
-                    </p>
+              {planDetail?.plans && (
+                <div className="text-right">
+                  <div className="text-[11px] uppercase opacity-70">Price</div>
+                  <div className="text-xl font-bold">
+                    {Number(planDetail.plans.price || 0).toLocaleString("vi-VN")}₫
                   </div>
+                  <div className="text-xs opacity-80">
+                    / {planDetail.plans.durationDays} days
+                  </div>
+                </div>
+              )}
+            </div>
 
-                  <div className="space-y-2 bg-gray-50 rounded-xl p-4">
-                    <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                      <i className="bi bi-graph-up-arrow" />
-                      Why this plan might fit you
+            {/* Body */}
+            {detailLoading ? (
+              <div className="p-8 flex items-center justify-center text-gray-600">
+                <div className="animate-spin h-8 w-8 border-4 border-blue-400 border-t-transparent rounded-full mr-3" />
+                Loading plan details...
+              </div>
+            ) : (
+              <div className="p-6 space-y-6">
+
+                {/* Overview Cards */}
+                <div className="grid md:grid-cols-2 gap-4">
+
+                  {/* Overview */}
+                  <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4 shadow-sm">
+                    <h3 className="text-cyan-700 font-semibold mb-2 flex items-center gap-2 text-sm">
+                      <i className="bi bi-info-circle" /> Overview
                     </h3>
-                    <p className="text-sm text-gray-700">
-                      • Suitable for{" "}
-                      <span className="font-semibold">
-                        {planDetail.plans.numberBattery} batteries
-                      </span>{" "}
-                      and trips up to{" "}
-                      <span className="font-semibold">
-                        {planDetail.plans.milleageBaseUsed} km
-                      </span>
-                      .
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      • Duration of{" "}
-                      <span className="font-semibold">
+                    <ul className="text-gray-700 space-y-1 text-sm">
+                      <li>
+                        <span className="font-medium">Batteries:</span>{" "}
+                        {planDetail.plans.numberBattery}
+                      </li>
+                      <li>
+                        <span className="font-medium">Duration:</span>{" "}
                         {planDetail.plans.durationDays} days
-                      </span>{" "}
-                      gives flexibility for your monthly usage.
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      • Check fee details below to understand how extra
-                      mileage, late swaps, or deposits are calculated.
-                    </p>
+                      </li>
+                      <li>
+                        <span className="font-medium">Mileage:</span>{" "}
+                        {planDetail.plans.milleageBaseUsed > 0
+                          ? `${planDetail.plans.milleageBaseUsed} km`
+                          : "Unlimited"}
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Highlights */}
+                  <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 shadow-sm">
+                    <h3 className="text-yellow-800 font-semibold mb-2 flex items-center gap-2 text-sm">
+                      <i className="bi bi-star-fill text-yellow-500" /> Highlights
+                    </h3>
+                    <ul className="space-y-1 text-gray-700 text-sm">
+                      <li className="flex items-center gap-2">
+                        <i className="bi bi-check-circle-fill text-green-600" />
+                        Best for daily commuters
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <i className="bi bi-check-circle-fill text-green-600" />
+                        Includes flexible mileage options
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <i className="bi bi-check-circle-fill text-green-600" />
+                        Transparent fee system
+                      </li>
+                    </ul>
                   </div>
                 </div>
 
-                <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
-                  <i className="bi bi-receipt-cutoff text-blue-600" />
-                  Fee Details
-                </h3>
-                <div className="overflow-x-auto rounded-lg border border-gray-200 mb-4">
-                  <table className="w-full text-center border-collapse text-sm">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="p-2 text-left pl-4">Fee Type</th>
-                        <th>Amount</th>
-                        <th>Unit</th>
-                        <th>Range</th>
-                        <th>Description</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(planDetail.planFees || []).map((fee, index) => (
-                        <tr key={index} className="border-t">
-                          <td className="p-2 text-left pl-4">
-                            <div className="flex items-center gap-2">
-                              <i
-                                className={`bi ${getFeeIcon(
-                                  fee.typeOfFee
-                                )} text-blue-600`}
-                              />
-                              <span>{fee.typeOfFee}</span>
-                            </div>
-                          </td>
-                          <td>{fee.amountFee}</td>
-                          <td>{fee.unit}</td>
-                          <td>
-                            {fee.minValue} - {fee.maxValue}
-                          </td>
-                          <td className="text-left px-2">
-                            {fee.description}
-                          </td>
+                {/* Fee Table Title */}
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                    <i className="bi bi-receipt" />
+                    Fee Details
+                  </h3>
+
+                  <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-xs border">
+                    {(planDetail.planFees || []).length} items
+                  </span>
+                </div>
+
+                {/* Fee Table – Compact */}
+                <div className="border border-gray-300 rounded-2xl overflow-hidden shadow-md">
+                  <div className="max-h-[320px] overflow-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead className="bg-gray-100 border-b-2 border-gray-300">
+                        <tr>
+                          <th className="p-3 text-left border-r">Icon</th>
+                          <th className="p-3 text-left border-r">Type</th>
+                          <th className="p-3 text-right border-r">Amount</th>
+                          <th className="p-3 text-left border-r">Unit</th>
+                          {/* no-wrap range */}
+                          <th className="p-3 text-center border-r whitespace-nowrap">
+                            Range
+                          </th>
+                          <th className="p-3 text-left">Description</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
 
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between mt-4 gap-3">
-                  <div className="text-xs text-gray-500">
-                    Once you select this plan, remember to press{" "}
-                    <span className="font-semibold">
-                      Confirm Registration
-                    </span>{" "}
-                    on the main page.
-                  </div>
-                  <div className="space-x-2 text-right">
-                    <button
-                      onClick={() => setShowModal(false)}
-                      className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-sm font-medium inline-flex items-center gap-2"
-                    >
-                      <i className="bi bi-x-lg" />
-                      Close
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelected(planDetail.plans);
-                        setShowModal(false);
-                        alert(
-                          `${planDetail.plans.planName} selected! Now press Confirm Registration.`
-                        );
-                      }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold inline-flex items-center gap-2"
-                    >
-                      <i className="bi bi-check2-circle" />
-                      Select This Plan
-                    </button>
+                      <tbody>
+                        {(planDetail.planFees || []).map((fee, index) => (
+                          <tr
+                            key={index}
+                            className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                              } hover:bg-yellow-50 transition`}
+                          >
+                            <td className="p-3 border-r text-center align-top">
+                              <div className="h-8 w-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow">
+                                {getFeeIcon(fee.typeOfFee)}
+                              </div>
+                            </td>
+
+                            <td className="p-3 border-r font-semibold text-gray-900 align-top">
+                              {fee.typeOfFee}
+                            </td>
+
+                            <td className="p-3 border-r text-right font-bold text-blue-700 align-top">
+                              {Number(fee.amountFee || 0).toLocaleString("vi-VN")}
+                            </td>
+
+                            <td className="p-3 border-r text-gray-700 align-top">
+                              {fee.unit || "-"}
+                            </td>
+
+                            {/* no-wrap value */}
+                            <td className="p-3 border-r text-center text-gray-700 align-top whitespace-nowrap">
+                              {fee.minValue} – {fee.maxValue}
+                            </td>
+
+                            <td className="p-3 text-gray-700 align-top leading-relaxed">
+                              {fee.description || "-"}
+                            </td>
+                          </tr>
+                        ))}
+
+                        {(planDetail.planFees || []).length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="p-6 text-center text-gray-500">
+                              No fee details available.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t flex flex-col sm:flex-row justify-between items-center gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-5 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-semibold flex items-center gap-2"
+              >
+                <i className="bi bi-x-circle" />
+                Close
+              </button>
+
+              <button
+                onClick={() => {
+                  if (planDetail?.plans) {
+                    setSelected(planDetail.plans);
+                    setShowModal(false);
+                    alert(`✅ ${planDetail.plans.planName} selected!`);
+                  }
+                }}
+                className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold flex items-center gap-2 shadow-md"
+              >
+                <i className="bi bi-check-circle-fill" />
+                Select This Plan
+              </button>
             </div>
           </div>
         </div>
       )}
+
+
+
     </div>
   );
 }

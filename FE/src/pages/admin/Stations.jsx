@@ -13,14 +13,30 @@ import {
 import api from "@/api/api";
 
 const MONTH_LABELS = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
 ];
 
 const formatNumber = (n) =>
-    typeof n === "number" ? n.toLocaleString("vi-VN") : "0";
+    typeof n === "number" ? n.toLocaleString("en-US") : "0";
 
-/* ========= Helpers để chuẩn hoá dữ liệu giống AdminOverview ========= */
+// NEW: format percent with 2 decimal places
+const formatPercent = (n) => {
+    const num = Number(n);
+    if (!Number.isFinite(num)) return "0.00";
+    return num.toFixed(2);
+};
+/* ========= Helpers – normalize data like AdminOverview ========= */
 const pick = (obj, paths, fallback = undefined) => {
     for (const p of paths) {
         try {
@@ -32,8 +48,9 @@ const pick = (obj, paths, fallback = undefined) => {
     return fallback;
 };
 
+
 function normalizeMonthlySwaps(raw) {
-    // raw là payload /Overview/admin-overview
+    // raw is payload from /Overview/admin-overview
     const bsm =
         pick(
             raw,
@@ -65,6 +82,8 @@ function normalizeMonthlySwaps(raw) {
         return { month: monthLabel, swaps };
     });
 }
+
+
 /* ==================================================================== */
 
 export default function Stations() {
@@ -87,7 +106,7 @@ export default function Stations() {
                 setMonthlySwapsData(Array.isArray(normalized) ? normalized : []);
             } catch (e) {
                 console.error("Stations chart fetch error:", e?.response?.data || e);
-                setChartErr("Không tải được dữ liệu biểu đồ.");
+                setChartErr("Failed to load chart data.");
             } finally {
                 setLoadingChart(false);
             }
@@ -143,8 +162,8 @@ export default function Stations() {
             setStations(data);
         } catch (e) {
             console.error("station-list error:", e?.response?.data || e);
-            setStationsErr("Không tải được danh sách trạm.");
-            setStations([]); // fallback rỗng
+            setStationsErr("Failed to load station list.");
+            setStations([]); // fallback empty
         } finally {
             setLoadingStations(false);
         }
@@ -155,8 +174,8 @@ export default function Stations() {
     }, [loadStations]);
 
     // ===== Inventory for transfer (BE) =====
-    const [inventory, setInventory] = useState([]); // list pin đã flatten
-    const [inventoryStations, setInventoryStations] = useState([]); // các trạm có pin (source options)
+    const [inventory, setInventory] = useState([]); // flattened battery list
+    const [inventoryStations, setInventoryStations] = useState([]); // stations that have batteries (Source options)
     const [loadingInv, setLoadingInv] = useState(true);
     const [invErr, setInvErr] = useState("");
 
@@ -169,20 +188,20 @@ export default function Stations() {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
 
-            // Parse NEW shape
+            // Parse shape
             const root = res?.data?.data || {};
             const stationsArr = Array.isArray(root.activeStationsLeft)
                 ? root.activeStationsLeft
                 : [];
 
-            // danh sách trạm có pin (dropdown Source)
+            // list of stations with batteries (dropdown Source)
             const srcStations = stationsArr.map((s) => ({
                 stationId: s.stationId,
                 stationName: s.stationName,
             }));
             setInventoryStations(srcStations);
 
-            // flatten batteryList & gắn stationName
+            // flatten batteryList & attach stationName
             const flat = [];
             stationsArr.forEach((s) => {
                 (s.batteryList || []).forEach((b) => {
@@ -195,7 +214,7 @@ export default function Stations() {
             setInventory(flat);
         } catch (e) {
             console.error("inventory-for-transfer error:", e?.response?.data || e);
-            setInvErr("Không tải được danh sách pin điều phối.");
+            setInvErr("Failed to load batteries for allocation.");
             setInventory([]);
             setInventoryStations([]);
         } finally {
@@ -208,19 +227,19 @@ export default function Stations() {
     }, [loadInv]);
 
     // ===== Allocation state =====
-    const [fromStation, setFromStation] = useState(""); // filter nguồn (optional)
-    const [toStation, setToStation] = useState(""); // bắt buộc chọn đích
+    const [fromStation, setFromStation] = useState(""); // Source filter (required to show list)
+    const [toStation, setToStation] = useState(""); // must choose destination
     const [reason, setReason] = useState(""); // Reason optional
     const [transferring, setTransferring] = useState(false);
 
     const [selectedBatteryIds, setSelectedBatteryIds] = useState(new Set());
 
-    // ===== NEW: Search & Pagination for inventory =====
-    const [searchText, setSearchText] = useState(""); // NEW: search battery/status/station
-    const [page, setPage] = useState(1); // NEW
-    const [pageSize, setPageSize] = useState(10); // NEW
+    // ===== Search & Pagination for inventory =====
+    const [searchText, setSearchText] = useState(""); // search battery/status/station
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
-    // ================== NEW: Create Station (Modal + Form) ==================
+    // ================== Create Station (Modal + Form) ==================
     const [showCreate, setShowCreate] = useState(false);
     const [creating, setCreating] = useState(false);
     const [createErr, setCreateErr] = useState("");
@@ -229,13 +248,12 @@ export default function Stations() {
         stationName: "",
         address: "",
         numberOfPillar: 1,
-        openTime: "08:00",   // HH:mm
-        closeTime: "22:00",  // HH:mm
-        pillarCapicity: 1,   // (giữ nguyên đúng key BE yêu cầu)
+        openTime: "08:00", // HH:mm
+        closeTime: "22:00", // HH:mm
+        pillarCapicity: 1, // keep BE key exactly
     });
 
-    const onChangeForm = (k, v) =>
-        setForm((f) => ({ ...f, [k]: v }));
+    const onChangeForm = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
     const validateForm = () => {
         const name = form.stationName.trim();
@@ -245,14 +263,16 @@ export default function Stations() {
         const pillars = Number(form.numberOfPillar);
         const cap = Number(form.pillarCapicity);
 
-        if (!name) return "Vui lòng nhập Station Name.";
-        if (!addr) return "Vui lòng nhập Address.";
-        if (!/^\d{2}:\d{2}$/.test(open)) return "Open Time phải dạng HH:mm (vd: 08:00).";
-        if (!/^\d{2}:\d{2}$/.test(close)) return "Close Time phải dạng HH:mm (vd: 22:00).";
+        if (!name) return "Please enter Station Name.";
+        if (!addr) return "Please enter Address.";
+        if (!/^\d{2}:\d{2}$/.test(open))
+            return "Open Time must be in HH:mm format (e.g., 08:00).";
+        if (!/^\d{2}:\d{2}$/.test(close))
+            return "Close Time must be in HH:mm format (e.g., 22:00).";
         if (!Number.isInteger(pillars) || pillars < 1)
-            return "Number of Pillar phải là số nguyên ≥ 1.";
+            return "Number of Pillar must be an integer ≥ 1.";
         if (!Number.isInteger(cap) || cap < 1)
-            return "Pillar Capicity phải là số nguyên ≥ 1.";
+            return "Pillar Capacity must be an integer ≥ 1.";
         return "";
     };
 
@@ -276,15 +296,13 @@ export default function Stations() {
         try {
             setCreating(true);
             const token = localStorage.getItem("token");
-            await api.post(
-                "Station/create-new-station",
-                payload,
-                { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-            );
+            await api.post("Station/create-new-station", payload, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
 
-            alert("✅ Tạo trạm mới thành công!");
+            alert("Create station successfully!");
             setShowCreate(false);
-            // reset form nhẹ
+            // light form reset
             setForm({
                 stationName: "",
                 address: "",
@@ -293,15 +311,38 @@ export default function Stations() {
                 closeTime: "22:00",
                 pillarCapicity: 1,
             });
-            // refresh danh sách trạm
+            // refresh station list
             await loadStations();
         } catch (e) {
             console.error("create-new-station error:", e?.response?.data || e);
-            const msg =
-                e?.response?.data?.message ||
-                e?.response?.data?.title ||
-                e?.message ||
-                "Tạo trạm thất bại.";
+
+            const data = e?.response?.data;
+            let msg = "";
+
+            // ✅ Prefer ASP.NET validation errors
+            if (data?.errors && typeof data.errors === "object") {
+                const parts = [];
+
+                Object.entries(data.errors).forEach(([field, messages]) => {
+                    if (Array.isArray(messages)) {
+                        messages.forEach((m) => parts.push(m));
+                    } else if (messages) {
+                        parts.push(String(messages));
+                    }
+                });
+
+                msg = parts.join("\n"); // or " • " if you want inline
+            }
+
+            // Fallback if no errors[] available
+            if (!msg) {
+                msg =
+                    data?.message ||
+                    data?.title ||
+                    e?.message ||
+                    "Create station failed.";
+            }
+
             setCreateErr(msg);
         } finally {
             setCreating(false);
@@ -309,18 +350,21 @@ export default function Stations() {
     };
     // ======================================================================
 
-    // reset page khi filter/search đổi
+    // reset page when filter/search changes
     useEffect(() => {
         setPage(1);
     }, [fromStation, searchText]);
 
     const inventoryFiltered = useMemo(() => {
-        // filter theo nguồn
-        let list = fromStation
-            ? inventory.filter((b) => String(b.stationId) === String(fromStation))
-            : inventory;
+        // MUST select source station, otherwise hide batteries
+        if (!fromStation) return [];
 
-        // search theo batteryId | status | stationId | stationName
+        // filter by source station
+        let list = inventory.filter(
+            (b) => String(b.stationId) === String(fromStation)
+        );
+
+        // search by batteryId | status | stationId | stationName
         const q = searchText.trim().toLowerCase();
         if (q) {
             list = list.filter((b) => {
@@ -328,7 +372,12 @@ export default function Stations() {
                 const st = String(b.status || "").toLowerCase();
                 const sid = String(b.stationId || "").toLowerCase();
                 const sname = String(b.stationName || "").toLowerCase();
-                return id.includes(q) || st.includes(q) || sid.includes(q) || sname.includes(q);
+                return (
+                    id.includes(q) ||
+                    st.includes(q) ||
+                    sid.includes(q) ||
+                    sname.includes(q)
+                );
             });
         }
         return list;
@@ -365,38 +414,49 @@ export default function Stations() {
     };
     const clearAllSelection = () => setSelectedBatteryIds(new Set());
 
+    // Helper: get station name by id (fallback to id if not found)
+    const getStationNameById = (id) => {
+        if (!id) return "";
+        const match =
+            stationOptions.find((s) => String(s.stationId) === String(id)) ||
+            inventoryStations.find((s) => String(s.stationId) === String(id));
+        return match?.stationName || String(id);
+    };
+
     const handleTransfer = async () => {
         if (!toStation) {
-            alert("Vui lòng chọn trạm đích (Destination).");
+            alert("Please choose destination station.");
             return;
         }
         if (selectedBatteryIds.size === 0) {
-            alert("Vui lòng chọn ít nhất 1 pin để điều phối.");
+            alert("Please choose at least one battery to allocate.");
             return;
         }
 
-        // Xác định stationFrom:
+        // Determine stationFrom:
         let src = fromStation;
         if (!src) {
-            // Suy luận từ các pin đã chọn
+            // infer from selected batteries
             const stationSet = new Set(
                 inventory
                     .filter((b) => selectedBatteryIds.has(b.batteryId))
                     .map((b) => String(b.stationId))
             );
             if (stationSet.size === 0) {
-                alert("Không xác định được trạm nguồn. Vui lòng chọn Source (filter).");
+                alert("Source station not identified. Please select Source (filter).");
                 return;
             }
             if (stationSet.size > 1) {
-                alert("Bạn đang chọn pin từ nhiều trạm. Vui lòng lọc còn 1 trạm nguồn (Source).");
+                alert(
+                    "You are selecting batteries from multiple stations. Please filter to 1 source station."
+                );
                 return;
             }
             src = Array.from(stationSet)[0];
         }
 
         if (src === toStation) {
-            alert("Trạm nguồn và trạm đích không được trùng nhau.");
+            alert("Source and destination stations cannot be the same.");
             return;
         }
 
@@ -408,6 +468,10 @@ export default function Stations() {
             createBy: localStorage.getItem("userId") || "admin",
         };
 
+        // NEW: resolve station names for alert
+        const fromName = getStationNameById(src);
+        const toName = getStationNameById(toStation);
+
         try {
             setTransferring(true);
             const token = localStorage.getItem("token");
@@ -416,7 +480,7 @@ export default function Stations() {
             });
 
             alert(
-                `✅ Đã tạo lịch điều phối ${payload.batId.length} pin từ ${payload.stationFrom} → ${payload.stationTo}.`
+                `Scheduled allocation of ${payload.batId.length} batteries from ${fromName} → ${toName}.`
             );
 
             // refresh inventory & clear selections
@@ -430,12 +494,13 @@ export default function Stations() {
                 e?.response?.data?.message ||
                 e?.response?.data ||
                 e?.message ||
-                "Tạo điều phối thất bại.";
+                "Battery allocation failed.";
             alert("❌ " + msg);
         } finally {
             setTransferring(false);
         }
     };
+
 
     return (
         <div className="p-8 bg-gray-50 min-h-screen">
@@ -525,13 +590,18 @@ export default function Stations() {
                 {/* Controls */}
                 <div className="grid md:grid-cols-3 gap-4 mb-4">
                     <div>
-                        <label className="block text-sm text-gray-700 mb-1">Source (filter)</label>
+                        <label className="block text-sm text-gray-700 mb-1">
+                            Source (filter)
+                        </label>
                         <select
                             className="w-full border rounded-lg px-3 py-2"
                             value={fromStation}
-                            onChange={(e) => setFromStation(e.target.value)}
+                            onChange={(e) => {
+                                setFromStation(e.target.value);
+                                setSelectedBatteryIds(new Set());
+                            }}
                         >
-                            <option value="">Tất cả trạm</option>
+                            <option value="">All stations</option>
                             {(inventoryStations.length ? inventoryStations : stationOptions).map(
                                 (st) => (
                                     <option key={st.stationId} value={st.stationId}>
@@ -542,13 +612,15 @@ export default function Stations() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm text-gray-700 mb-1">Destination</label>
+                        <label className="block text-sm text-gray-700 mb-1">
+                            Destination
+                        </label>
                         <select
                             className="w-full border rounded-lg px-3 py-2"
                             value={toStation}
                             onChange={(e) => setToStation(e.target.value)}
                         >
-                            <option value="">Chọn trạm đích</option>
+                            <option value="">Select destination</option>
                             {stationOptions.map((st) => (
                                 <option key={st.stationId} value={st.stationId}>
                                     {st.stationName} ({st.stationId})
@@ -557,78 +629,93 @@ export default function Stations() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm text-gray-700 mb-1">Reason (optional)</label>
+                        <label className="block text-sm text-gray-700 mb-1">
+                            Reason (optional)
+                        </label>
                         <input
                             className="w-full border rounded-lg px-3 py-2"
-                            placeholder="VD: Rebalance tồn kho"
+                            placeholder="E.g. Rebalance stock"
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                         />
                     </div>
                 </div>
 
-                {/* NEW: Search + page size */}
-                <div className="flex flex-wrap items-center gap-3 mb-3">
-                    <div className="relative">
-                        <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                            className="pl-10 pr-3 py-2 border rounded-lg"
-                            placeholder="Tìm pin theo BatteryId / Status / Station…"
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                        />
+                {/* Search + page size (hidden until Source selected) */}
+                {!fromStation ? (
+                    <div className="mb-3 text-sm text-gray-500">
+                        Please select <b>Source (filter)</b> above to view the batteries list.
                     </div>
+                ) : (
+                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                        <div className="relative">
+                            <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                className="pl-10 pr-3 py-2 border rounded-lg"
+                                placeholder="Search by BatteryId / Status / Station…"
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                            />
+                        </div>
 
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">Hiển thị</span>
-                        <select
-                            className="border rounded-lg px-2 py-1"
-                            value={pageSize}
-                            onChange={(e) => setPageSize(Number(e.target.value))}
-                        >
-                            <option value={5}>5</option>
-                            <option value={10}>10</option>
-                            <option value={20}>20</option>
-                            <option value={50}>50</option>
-                        </select>
-                        <span className="text-sm text-gray-600">mỗi trang</span>
-                    </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600">Show</span>
+                            <select
+                                className="border rounded-lg px-2 py-1"
+                                value={pageSize}
+                                onChange={(e) => setPageSize(Number(e.target.value))}
+                            >
+                                <option value={5}>5</option>
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                            </select>
+                            <span className="text-sm text-gray-600">per page</span>
+                        </div>
 
-                    <div className="ml-auto flex items-center gap-2">
-                        <button
-                            className="px-3 py-2 border rounded-lg hover:bg-gray-50"
-                            onClick={selectAllInPage}
-                            disabled={loadingInv || pagedInventory.length === 0}
-                        >
-                            Select all (page)
-                        </button>
-                        <button
-                            className="px-3 py-2 border rounded-lg hover:bg-gray-50"
-                            onClick={selectAllInFilter}
-                            disabled={loadingInv || inventoryFiltered.length === 0}
-                        >
-                            Select all (filter)
-                        </button>
-                        <button
-                            className="px-3 py-2 border rounded-lg hover:bg-gray-50"
-                            onClick={clearAllSelection}
-                            disabled={selectedBatteryIds.size === 0}
-                        >
-                            Clear
-                        </button>
+                        <div className="ml-auto flex items-center gap-2">
+                            <button
+                                className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                                onClick={selectAllInPage}
+                                disabled={loadingInv || pagedInventory.length === 0}
+                            >
+                                Select all (page)
+                            </button>
+                            <button
+                                className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                                onClick={selectAllInFilter}
+                                disabled={loadingInv || inventoryFiltered.length === 0}
+                            >
+                                Select all (filter)
+                            </button>
+                            <button
+                                className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                                onClick={clearAllSelection}
+                                disabled={selectedBatteryIds.size === 0}
+                            >
+                                Clear
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Inventory table (PAGED) */}
                 {loadingInv ? (
                     <div className="text-gray-500 text-center py-8">
                         <div className="h-8 w-8 mx-auto mb-2 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                        Đang tải danh sách pin...
+                        Loading batteries...
                     </div>
                 ) : invErr ? (
                     <div className="text-red-600">{invErr}</div>
+                ) : !fromStation ? (
+                    <div className="text-gray-500">
+                        Please select <b>Source (filter)</b> to display batteries at that
+                        station.
+                    </div>
                 ) : inventoryFiltered.length === 0 ? (
-                    <div className="text-gray-500">Không có pin phù hợp bộ lọc.</div>
+                    <div className="text-gray-500">
+                        No batteries match the current filter.
+                    </div>
                 ) : (
                     <>
                         <div className="overflow-x-auto border rounded-lg">
@@ -671,11 +758,11 @@ export default function Stations() {
                             </table>
                         </div>
 
-                        {/* NEW: Pagination controls */}
+                        {/* Pagination controls */}
                         <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
                             <div className="text-sm text-gray-600">
-                                Tổng: <b>{inventoryFiltered.length}</b> pin • Trang <b>{page}</b>/
-                                <b>{totalPages}</b>
+                                Total: <b>{inventoryFiltered.length}</b> batteries • Page{" "}
+                                <b>{page}</b>/<b>{totalPages}</b>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -692,7 +779,9 @@ export default function Stations() {
                                 >
                                     ‹ Prev
                                 </button>
-                                <span className="px-2 text-sm text-gray-700">Page {page}</span>
+                                <span className="px-2 text-sm text-gray-700">
+                                    Page {page}
+                                </span>
                                 <button
                                     className="px-3 py-2 border rounded-lg hover:bg-gray-50"
                                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -714,13 +803,16 @@ export default function Stations() {
 
                 <div className="mt-4 flex items-center justify-between">
                     <div className="text-sm text-gray-600">
-                        Đã chọn: <b>{selectedBatteryIds.size}</b> pin
+                        Selected: <b>{selectedBatteryIds.size}</b> batteries
                     </div>
                     <button
                         className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-60"
                         onClick={handleTransfer}
                         disabled={
-                            transferring || loadingInv || selectedBatteryIds.size === 0 || !toStation
+                            transferring ||
+                            loadingInv ||
+                            selectedBatteryIds.size === 0 ||
+                            !toStation
                         }
                     >
                         {transferring ? "Scheduling..." : "Schedule Battery Transfer"}
@@ -728,18 +820,20 @@ export default function Stations() {
                 </div>
             </div>
 
-            {/* Stations List (từ /Station/station-list) */}
+            {/* Stations List (from /Station/station-list) */}
             <div className="grid lg:grid-cols-2 gap-6">
                 {loadingStations ? (
                     <div className="col-span-2 text-center text-gray-500 py-8">
                         <div className="h-8 w-8 mx-auto mb-2 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                        Đang tải trạm...
+                        Loading stations...
                     </div>
                 ) : stationsErr ? (
-                    <div className="col-span-2 text-center text-red-600">{stationsErr}</div>
+                    <div className="col-span-2 text-center text-red-600">
+                        {stationsErr}
+                    </div>
                 ) : stations.length === 0 ? (
                     <div className="col-span-2 text-center text-gray-500">
-                        Không có trạm nào.
+                        No stations found.
                     </div>
                 ) : (
                     stationOptions.map((st) => (
@@ -761,13 +855,16 @@ export default function Stations() {
                                     <p className="mt-2 text-xl font-bold">
                                         {st.batteryAvailable}/{st.totalBattery}
                                     </p>
-                                    <p className="text-sm text-gray-600">Available batteries</p>
+                                    <p className="text-sm text-gray-600">
+                                        Available batteries
+                                    </p>
                                 </div>
                                 <div className="bg-green-50 p-4 rounded-lg">
                                     <i className="bi bi-activity text-2xl text-green-700"></i>
                                     <p className="mt-2 text-xl font-bold">
-                                        {st.availablePercent ?? 0}%
+                                        {formatPercent(st.availablePercent)}%
                                     </p>
+
                                     <p className="text-sm text-gray-600">Availability</p>
                                 </div>
                             </div>
@@ -805,64 +902,88 @@ export default function Stations() {
 
                             <div className="grid md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Station Name</label>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Station Name
+                                    </label>
                                     <input
                                         className="w-full border rounded-lg px-3 py-2"
                                         value={form.stationName}
-                                        onChange={(e) => onChangeForm("stationName", e.target.value)}
-                                        placeholder="VD: EVSwap - District 1"
+                                        onChange={(e) =>
+                                            onChangeForm("stationName", e.target.value)
+                                        }
+                                        placeholder="E.g. EVSwap - District 1"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Address</label>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Address
+                                    </label>
                                     <input
                                         className="w-full border rounded-lg px-3 py-2"
                                         value={form.address}
-                                        onChange={(e) => onChangeForm("address", e.target.value)}
-                                        placeholder="123 Lê Lợi, Q.1, TP.HCM"
+                                        onChange={(e) =>
+                                            onChangeForm("address", e.target.value)
+                                        }
+                                        placeholder="123 Le Loi, District 1, HCMC"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Number of Pillar</label>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Number of Pillar
+                                    </label>
                                     <input
                                         type="number"
                                         min={1}
                                         className="w-full border rounded-lg px-3 py-2"
                                         value={form.numberOfPillar}
-                                        onChange={(e) => onChangeForm("numberOfPillar", e.target.value)}
+                                        onChange={(e) =>
+                                            onChangeForm("numberOfPillar", e.target.value)
+                                        }
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Pillar Capicity (per pillar)</label>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Pillar Capacity (per pillar)
+                                    </label>
                                     <input
                                         type="number"
                                         min={1}
                                         className="w-full border rounded-lg px-3 py-2"
                                         value={form.pillarCapicity}
-                                        onChange={(e) => onChangeForm("pillarCapicity", e.target.value)}
+                                        onChange={(e) =>
+                                            onChangeForm("pillarCapicity", e.target.value)
+                                        }
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Open Time</label>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Open Time
+                                    </label>
                                     <input
                                         type="time"
                                         className="w-full border rounded-lg px-3 py-2"
                                         value={form.openTime}
-                                        onChange={(e) => onChangeForm("openTime", e.target.value)}
+                                        onChange={(e) =>
+                                            onChangeForm("openTime", e.target.value)
+                                        }
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm text-gray-700 mb-1">Close Time</label>
+                                    <label className="block text-sm text-gray-700 mb-1">
+                                        Close Time
+                                    </label>
                                     <input
                                         type="time"
                                         className="w-full border rounded-lg px-3 py-2"
                                         value={form.closeTime}
-                                        onChange={(e) => onChangeForm("closeTime", e.target.value)}
+                                        onChange={(e) =>
+                                            onChangeForm("closeTime", e.target.value)
+                                        }
                                     />
                                 </div>
                             </div>

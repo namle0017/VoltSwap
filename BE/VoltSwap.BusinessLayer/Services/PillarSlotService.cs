@@ -281,6 +281,7 @@ namespace VoltSwap.BusinessLayer.Services
             // 1. Tìm subId có đúng không
             var subscription = await _subRepo.GetByIdAsync(subscriptionId);
             if (subscription == null)
+            if (subscription == null)
                 return result;
 
             // 2. Lấy số pin có trong subId đó
