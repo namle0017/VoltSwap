@@ -63,43 +63,7 @@ namespace VoltSwap.API.Controllers
         [HttpGet("customer-reports")]
         public async Task<IActionResult> CustomerReportList([FromQuery] UserRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                // ƯU TIÊN lỗi 'required' cho từng field nếu có nhiều lỗi
-                foreach (var key in ModelState.Keys.ToList())
-                {
-                    var entry = ModelState[key];
-                    if (entry?.Errors.Count > 1)
-                    {
-                        var requiredError = entry.Errors
-                            .FirstOrDefault(e =>
-                                e.ErrorMessage.Contains("required", StringComparison.OrdinalIgnoreCase));
-
-                        if (requiredError != null)
-                        {
-                            // Giữ lại đúng 1 lỗi 'required'
-                            entry.Errors.Clear();
-                            entry.Errors.Add(requiredError);
-                        }
-                    }
-                }
-
-                var errors = ModelState
-                    .Where(x => x.Value?.Errors.Count > 0)
-                    .Select(x => new
-                    {
-                        Field = x.Key,                                // field
-                        Error = x.Value!.Errors.First().ErrorMessage // message đã được ưu tiên
-                    })
-                    .ToList();
-
-                return BadRequest(new
-                {
-                    status = 400,
-                    message = "Invalid data.",
-                    errors
-                });
-            }
+           
 
             var result = await _reportService.GetCustomerReportForStaff(request);
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
@@ -109,43 +73,6 @@ namespace VoltSwap.API.Controllers
         [HttpPost("Driver-create-report")]
         public async Task<IActionResult> CreateReport([FromBody] UserReportRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                // ƯU TIÊN lỗi 'required' cho từng field nếu có nhiều lỗi
-                foreach (var key in ModelState.Keys.ToList())
-                {
-                    var entry = ModelState[key];
-                    if (entry?.Errors.Count > 1)
-                    {
-                        var requiredError = entry.Errors
-                            .FirstOrDefault(e =>
-                                e.ErrorMessage.Contains("required", StringComparison.OrdinalIgnoreCase));
-
-                        if (requiredError != null)
-                        {
-                            // Giữ lại đúng 1 lỗi 'required'
-                            entry.Errors.Clear();
-                            entry.Errors.Add(requiredError);
-                        }
-                    }
-                }
-
-                var errors = ModelState
-                    .Where(x => x.Value?.Errors.Count > 0)
-                    .Select(x => new
-                    {
-                        Field = x.Key,                                // field
-                        Error = x.Value!.Errors.First().ErrorMessage // message đã được ưu tiên
-                    })
-                    .ToList();
-
-                return BadRequest(new
-                {
-                    status = 400,
-                    message = "Invalid data.",
-                    errors
-                });
-            }
 
             var result = await _reportService.DriverCreateReport(request);
             return StatusCode(result.Status, new

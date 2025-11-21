@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -33,6 +34,20 @@ namespace VoltSwap.BusinessLayer.Services
         }
         public async Task<ServiceResult> CreateDriverVehicleAsync(CreateDriverVehicleRequest request)
         {
+
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(request, null, null);
+
+            bool isValid = Validator.TryValidateObject(request, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
+
             var checkExistVehicle = await _unitOfWork.Vehicles.GetAllQueryable()
                 .Where(vehicle => vehicle.UserDriverId == request.DriverId && vehicle.Vin == request.VIN).FirstOrDefaultAsync();
             if (checkExistVehicle != null)

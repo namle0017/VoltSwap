@@ -164,7 +164,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: staff bỏ pin của sub khách hủy vào kho
-        //[Authorize(Roles = "Staff")]
+        [Authorize(Roles = "Staff")]
         [HttpPost("staff-take-battery-in-sub-customer")]
         public async Task<IActionResult> TakeOUt(StaffTakeBatteriesRequest requestDto)
         {

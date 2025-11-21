@@ -776,6 +776,49 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "Battery transfer processed successfully"
             };
         }
+
+        //Bin: staff bỏ pin của sub khách hủy vào kho
+        public async Task<ServiceResult> StaffTakeBattrey(StaffTakeBatteriesRequest request)
+        {
+            // Lấy danh sách pin thuộc subscription
+            var batteriesInSub = await _unitOfWork.BatterySwap
+                .GetBatteriesBySubscriptionId(request.Access.SubscriptionId);
+            var allowSet = batteriesInSub.Select(x => x.BatteryOutId)
+                                         .Where(id => !string.IsNullOrWhiteSpace(id))
+                                         .ToHashSet();
+
+
+            var requestIds = (request.BatteriesId ?? new List<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct()
+                .ToList();
+
+
+            var idsToProcess = requestIds.Where(id => allowSet.Contains(id)).ToList();
+
+            var batteries = await _unitOfWork.Batteries.GetAllQueryable()
+                .Where(b => idsToProcess.Contains(b.BatteryId))
+                .ToListAsync();
+
+            var batList = new List<BatListRespone>();
+            foreach (var b in batteries)
+            {
+                b.BatterySwapStationId = request.Access.StationId;
+                b.BatteryStatus = "Warehouse";
+                b.Soc = Random.Shared.Next(1, 101);
+                batList.Add(new BatListRespone { BatteryId = b.BatteryId });
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Success!.",
+                Data = batList
+            };
+        }
         public async Task<ServiceResult> StaffSwapBattery(StaffBatteryRequest requestDto)
         {
 

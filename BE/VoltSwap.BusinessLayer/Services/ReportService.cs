@@ -1,8 +1,10 @@
 ﻿using Azure;
+using Azure.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -64,6 +66,19 @@ namespace VoltSwap.BusinessLayer.Services
         //hàm này để driver tạo report
         public async Task<ServiceResult> DriverCreateReport(UserReportRequest requestDto)
         {
+
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(requestDto, null, null);
+
+            bool isValid = Validator.TryValidateObject(requestDto, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
             var getreport = await _unitOfWork.ReportType.GetReportTypeName(requestDto.ReportTypeId);
             var result = new Report
             {
@@ -161,6 +176,20 @@ namespace VoltSwap.BusinessLayer.Services
         }
         public async Task<ServiceResult> StaffCreateReport(StaffReportRequest requestDto)
         {
+
+            var validate = new List<ValidationResult>();
+            var context = new ValidationContext(requestDto, null, null);
+
+            bool isValid = Validator.TryValidateObject(requestDto, context, validate, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = validate.First().ErrorMessage
+                };
+            }
+
             var results = new List<StaffReportResponse>();
 
             var getreport = await _unitOfWork.ReportType.GetReportTypeName(requestDto.ReportTypeId);
