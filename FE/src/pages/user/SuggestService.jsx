@@ -219,26 +219,27 @@ export default function SuggestService() {
             </tbody>
           </table>
         </div>
-        <button
-          onClick={() => navigate("/user/service")}
-          className="px-6 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 font-semibold"
-        >
-          <i className="bi bi-arrow-left" style={{ color: "blue" }}></i> Back
-        </button>
-        <div className="text-center mt-8 space-x-3">
+        <div className="mt-8 flex justify-between items-center">
+          {/* BACK BUTTON — LEFT */}
+          <button
+            onClick={() => navigate("/user/service")}
+            className="px-6 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 font-semibold flex items-center gap-2"
+          >
+            <i className="bi bi-arrow-left text-blue-600"></i>
+            Back
+          </button>
+
+          {/* CONFIRM BUTTON — RIGHT */}
           <button
             onClick={register}
             disabled={!selected}
-            className={`px-6 py-2 rounded-lg font-semibold ${
+            className={`px-6 py-2 rounded-lg font-semibold flex items-center gap-2 ${
               selected
                 ? "bg-green-600 text-white hover:bg-green-700"
                 : "bg-gray-400 text-gray-100 cursor-not-allowed"
             }`}
           >
-            <i
-              className="bi bi-check-circle-fill"
-              style={{ color: "blue" }}
-            ></i>{" "}
+            <i className="bi bi-check-circle-fill text-white"></i>
             Confirm Registration
           </button>
         </div>

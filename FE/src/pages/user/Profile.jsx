@@ -204,12 +204,6 @@ export default function Profile() {
               Profile Center
             </span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold mt-3 tracking-tight text-gray-900">
-            Your Account
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Keep your personal information up to date.
-          </p>
         </div>
 
         {/* Main card */}
@@ -310,10 +304,6 @@ export default function Profile() {
             </div>
           </div>
         </div>
-
-        <p className="text-xs text-gray-500 mt-4 text-center">
-          Your data is protected and used only for providing our services.
-        </p>
       </div>
 
       {/* =======================
