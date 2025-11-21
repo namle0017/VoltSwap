@@ -1,10 +1,14 @@
-﻿using BCrypt.Net;
+﻿using Azure.Core;
+using BCrypt.Net;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion.Internal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
@@ -314,6 +318,140 @@ namespace VoltSwap.BusinessLayer.Services
             var userAdmin = await _unitOfWork.Users.GetAdminAsync();
             string adminId = userAdmin.UserId;
             return adminId;
+        }
+
+        public async Task<ServiceResult> ConfirmEmailAsync(ConfirmEmailRequest request)
+        {
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(request, null, null);
+
+            bool isValid = Validator.TryValidateObject(request, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
+            var driverEmail = await _unitOfWork.Users.GetByEmailAsync(request.DriverEmail);
+
+            if (driverEmail == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "We can't find your email, please try again",
+                };
+            }
+
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Please change your password",
+                Data = driverEmail.UserId,
+            };
+        }
+
+        public async Task<ServiceResult> ForgotPassword(ForgotPassword request)
+        {
+
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(request, null, null);
+
+            bool isValid = Validator.TryValidateObject(request, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
+
+            var driver = await _unitOfWork.Users.GetAllQueryable().Where(x => x.UserId == request.UserId && x.Status == "Active").FirstOrDefaultAsync();
+            if (driver == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "We can't find your email, please try again",
+                };
+            }
+
+            driver.UserPasswordHash = GeneratedPasswordHash(request.UserPass);
+            await _userRepo.UpdateAsync(driver);
+            int result = await _unitOfWork.SaveChangesAsync();
+            if (result <= 0)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Sorry our system is have problem. Please try again."
+                };
+            }
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "You have successfully changed your password."
+            };
+
+        }
+
+        public async Task<ServiceResult> ChangePassword(ChangePassword request)
+        {
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(request, null, null);
+
+            bool isValid = Validator.TryValidateObject(request, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
+
+            var driver = await _unitOfWork.Users.GetAllQueryable().Where(x => x.UserId == request.UserId).FirstOrDefaultAsync();
+            if (driver == null)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = "We can't find your email, please try again",
+                };
+            }
+
+            if (!VerifyPasswords(request.OldPass, driver.UserPasswordHash))
+            {
+                if (!VerifyPasswords(request.OldPass, driver.UserPasswordHash))
+                {
+                    return new ServiceResult
+                    {
+                        Status = 400,
+                        Message = "Incorrect Password"
+                    };
+                }
+            }
+
+            driver.UserPasswordHash = GeneratedPasswordHash(request.NewPass);
+            await _userRepo.UpdateAsync(driver);
+            int result = await _unitOfWork.SaveChangesAsync();
+            if (result <= 0)
+            {
+                return new ServiceResult
+                {
+                    Status = 404,
+                    Message = "Sorry our system is have problem. Please try again."
+                };
+            }
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "You have successfully changed your password."
+            };
         }
     }
 }
