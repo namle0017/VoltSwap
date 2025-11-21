@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import api from "@/api/api";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-
+import * as Yup from "yup";
 export default function Vehicle() {
   // ===== VoltSwap palette =====
   const brandVars = {
@@ -27,9 +27,33 @@ export default function Vehicle() {
     model: "",
     batteryCount: "",
   });
-  const [formErr, setFormErr] = useState({ vin: "", model: "", batteryCount: "" });
+  const [formErr, setFormErr] = useState({
+    vin: "",
+    model: "",
+    batteryCount: "",
+  });
   const navigate = useNavigate();
+  const vehicleSchema = Yup.object().shape({
+    vin: Yup.string()
+      .matches(
+        /^VIN[-\s]?([A-Z0-9]{10})$/,
+        "VIN is invalid. Format: VIN-XXXXXXXXXX"
+      )
+      .required("VIN is required."),
 
+    model: Yup.string()
+      .matches(
+        /^[A-Za-z0-9\-_ ]{3,30}$/,
+        "Model must be 3-30 characters (letters, numbers, space, - , _)."
+      )
+      .required("Model is required."),
+
+    batteryCount: Yup.number()
+      .typeError("Battery count must be a number.")
+      .min(1, "Battery count must be greater than 0.")
+      .max(4, "Battery count must be less than 5.")
+      .required("Battery count is required."),
+  });
   const mapVehicle = (x, i = 0) => ({
     id: x?.id ?? x?.vehicleId ?? x?.vin ?? `v-${i}`,
     vin: x?.vin ?? "--",
@@ -99,25 +123,33 @@ export default function Vehicle() {
           setPendingRecs((prev) => prev.filter((x) => x !== VIN));
           return true;
         }
-      } catch { }
+      } catch {}
     }
     setPendingRecs((prev) => prev.filter((x) => x !== VIN));
     return false;
   };
 
   // ===== Modal Validation =====
-  const validateModal = () => {
-    const errs = { vin: "", model: "", batteryCount: "" };
-    if (!newVehicle.vin.trim()) errs.vin = "VIN is required.";
-    if (!newVehicle.model.trim()) errs.model = "Model is required.";
-    const n = parseInt(newVehicle.batteryCount, 10);
-    if (isNaN(n) || n <= 0) errs.batteryCount = "Battery count must be a positive number.";
-    setFormErr(errs);
-    return !errs.vin && !errs.model && !errs.batteryCount;
+  const validateModal = async () => {
+    try {
+      await vehicleSchema.validate(newVehicle, { abortEarly: false });
+      setFormErr({ vin: "", model: "", batteryCount: "" });
+      return true;
+    } catch (err) {
+      const errs = { vin: "", model: "", batteryCount: "" };
+      if (err.inner) {
+        err.inner.forEach((e) => {
+          errs[e.path] = e.message;
+        });
+      }
+      setFormErr(errs);
+      return false;
+    }
   };
 
   const handleCreateVehicle = async () => {
-    if (!validateModal()) return;
+    const ok = await validateModal();
+    if (!ok) return;
     const numberOfBat = parseInt(newVehicle.batteryCount, 10);
     const body = {
       driverId,
@@ -136,7 +168,8 @@ export default function Vehicle() {
       setNewVehicle({ vin: "", model: "", batteryCount: "" });
       setFormErr({ vin: "", model: "", batteryCount: "" });
     } catch (err) {
-      alert("❌ Failed to create vehicle.");
+      const msg = err?.response?.data?.message || "Failed to create vehicle.";
+      alert("❌ " + msg);
     } finally {
       setSaving(false);
     }
@@ -199,7 +232,8 @@ export default function Vehicle() {
               My Vehicles
             </h1>
             <p className="text-gray-600 text-sm mt-1">
-              Manage your vehicles and see recommended plans tailored to each VIN.
+              Manage your vehicles and see recommended plans tailored to each
+              VIN.
             </p>
           </div>
 
@@ -276,7 +310,8 @@ export default function Vehicle() {
                   <div className="mt-3 flex items-center gap-3 text-sm">
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--brand-50)] text-[var(--brand-600)] border border-[var(--brand-500)]/20">
                       <i className="bi bi-battery-half" />
-                      {v.batteryCount} batter{Number(v.batteryCount) > 1 ? "ies" : "y"}
+                      {v.batteryCount} batter
+                      {Number(v.batteryCount) > 1 ? "ies" : "y"}
                     </span>
                     {v.createdAt ? (
                       <span className="text-gray-500">
@@ -310,7 +345,9 @@ export default function Vehicle() {
                         )}
                       </div>
                     ) : (
-                      <span className="text-sm text-gray-500">No recommendations yet</span>
+                      <span className="text-sm text-gray-500">
+                        No recommendations yet
+                      </span>
                     )}
 
                     <button
@@ -322,7 +359,9 @@ export default function Vehicle() {
                           )}`
                         )
                       }
-                      disabled={!v.recommendPlan || v.recommendPlan.length === 0}
+                      disabled={
+                        !v.recommendPlan || v.recommendPlan.length === 0
+                      }
                       title={
                         v.recommendPlan?.length
                           ? "View suggested plans"
@@ -354,7 +393,9 @@ export default function Vehicle() {
               <div className="h-2 bg-[#2f66ff]" />
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-900">Create New Vehicle</h2>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Create New Vehicle
+                  </h2>
                   <button
                     onClick={() => setShowModal(false)}
                     className="p-2 rounded-lg hover:bg-gray-100"
@@ -369,7 +410,9 @@ export default function Vehicle() {
                     label="VIN"
                     placeholder="e.g., VN1ABCDEF12345678"
                     value={newVehicle.vin}
-                    onChange={(e) => setNewVehicle((s) => ({ ...s, vin: e.target.value }))}
+                    onChange={(e) =>
+                      setNewVehicle((s) => ({ ...s, vin: e.target.value }))
+                    }
                     icon="bi-upc-scan"
                     error={formErr.vin}
                   />
@@ -377,7 +420,9 @@ export default function Vehicle() {
                     label="Model"
                     placeholder="e.g., VoltSwap E-Scooter"
                     value={newVehicle.model}
-                    onChange={(e) => setNewVehicle((s) => ({ ...s, model: e.target.value }))}
+                    onChange={(e) =>
+                      setNewVehicle((s) => ({ ...s, model: e.target.value }))
+                    }
                     icon="bi-car-front"
                     error={formErr.model}
                   />
@@ -387,7 +432,10 @@ export default function Vehicle() {
                     placeholder="e.g., 2"
                     value={newVehicle.batteryCount}
                     onChange={(e) =>
-                      setNewVehicle((s) => ({ ...s, batteryCount: e.target.value }))
+                      setNewVehicle((s) => ({
+                        ...s,
+                        batteryCount: e.target.value,
+                      }))
                     }
                     icon="bi-battery-charging"
                     error={formErr.batteryCount}
@@ -445,7 +493,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label}
+      </label>
       <div className="relative">
         {icon ? (
           <i

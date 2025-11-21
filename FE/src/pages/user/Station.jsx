@@ -140,14 +140,16 @@ function BookingCountdownBanner({
       >
         <div className="flex items-start gap-3">
           <div
-            className={`text-xl ${danger ? "text-red-600" : "text-[var(--brand-600)]"
-              }`}
+            className={`text-xl ${
+              danger ? "text-red-600" : "text-[var(--brand-600)]"
+            }`}
           >
             ⏳
           </div>
           <div className="flex-1">
             <div className="font-semibold text-gray-900">
-              You have an active booking {stationName ? `at ${stationName}` : ""}.
+              You have an active booking{" "}
+              {stationName ? `at ${stationName}` : ""}.
             </div>
             <div className="text-sm text-gray-700 mt-0.5">
               Auto-cancel in{" "}
@@ -505,7 +507,8 @@ export default function Station() {
     if (!chosen) {
       setMsgModal({
         title: "Invalid subscription",
-        message: "The selected subscription is not available. Please choose another one.",
+        message:
+          "The selected subscription is not available. Please choose another one.",
         tone: "danger",
       });
       return;
@@ -535,6 +538,20 @@ export default function Station() {
       setMsgModal({
         title: "Incomplete information",
         message: "Please select subscription, date and time before booking.",
+        tone: "danger",
+      });
+      return;
+    }
+
+    // 👉 TẠO DATETIME ĐÃ CHỌN
+    const chosenDateTime = new Date(`${bookingDate}T${bookingTime}:00`);
+    const now = new Date();
+
+    // ❌ Không cho chọn thời điểm trong quá khứ
+    if (chosenDateTime <= now) {
+      setMsgModal({
+        title: "Invalid booking time",
+        message: "Booking time must be later than the current time.",
         tone: "danger",
       });
       return;
@@ -614,7 +631,8 @@ export default function Station() {
 
         notify(
           "Booking created",
-          `Batteries locked at ${selectedStation.stationName
+          `Batteries locked at ${
+            selectedStation.stationName
           }. Expires in ${formatMMSS(lockSeconds)}`
         );
       }
@@ -775,7 +793,7 @@ export default function Station() {
                           lng: st.locationLon,
                         }) /
                           40) *
-                        60
+                          60
                       )}{" "}
                       mins
                     </p>
@@ -861,8 +879,8 @@ export default function Station() {
               pct >= 70
                 ? "from-emerald-400 to-emerald-500"
                 : pct >= 40
-                  ? "from-amber-400 to-amber-500"
-                  : "from-rose-400 to-rose-500";
+                ? "from-amber-400 to-amber-500"
+                : "from-rose-400 to-rose-500";
 
             return (
               <div
@@ -977,6 +995,7 @@ export default function Station() {
               <input
                 type="date"
                 value={bookingDate}
+                min={new Date().toISOString().split("T")[0]} // ⬅ hạn chế ngày nhỏ hơn hôm nay
                 onChange={(e) => setBookingDate(e.target.value)}
                 className="w-full border p-2.5 rounded-xl mb-3 focus:outline-none focus:ring-4 focus:ring-[color:rgba(47,102,255,0.15)] focus:border-[var(--brand-500)]"
                 style={BRAND}
