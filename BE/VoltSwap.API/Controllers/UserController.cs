@@ -35,7 +35,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Cái này để update thông tin của người dùng
-        [Authorize(Roles = "Admin,Driver")]
+        [AllowAnonymous]
         [HttpPut("update-user-information")]
         public async Task<IActionResult> UpdateUserInformation(DriverUpdate requestDto)
         {
@@ -121,7 +121,7 @@ namespace VoltSwap.API.Controllers
         //Bin: Tạo staff mới 
         [Authorize(Roles = "Admin")]
         [HttpPut("create-staff")]
-        public async Task<IActionResult> CreateStaff( StaffCreateRequest request)
+        public async Task<IActionResult> CreateStaff(StaffCreateRequest request)
         {
 
             var createStaff = await _userService.CreateNewStaffAsync(request);

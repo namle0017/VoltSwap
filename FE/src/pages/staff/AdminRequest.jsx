@@ -1,17 +1,13 @@
 // src/pages/AdminRequest.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import api from "@/api/api"; // axios instance chung
-
 // BE endpoints
 const GET_TYPES_ENDPOINT = "/Report/get-staff-report-list";
 const CREATE_REPORT_ENDPOINT = "/Report/staff-create-report";
 const LIST_SUBMITTED_ENDPOINT = "/Report/customer-reports"; // baseURL = /api -> OK
-
 // Chỉ show các reportType 4,5,6,7
 const ALLOWED_TYPES = [4, 5, 6, 7];
-
 /* ========= Helpers ========= */
-
 function formatDateTime(iso) {
     if (!iso) return "-";
     const d = new Date(iso);
@@ -28,7 +24,6 @@ function formatDateTime(iso) {
     const mm2 = String(m).padStart(2, "0");
     return `${dd}/${mm}/${yyyy} ${h}:${mm2}${ampm}`;
 }
-
 function normalizeSubmitted(list, staffId) {
     return (list || [])
         // Lọc type 4-7
@@ -62,16 +57,13 @@ function normalizeSubmitted(list, staffId) {
                 "Processing",
         }));
 }
-
 /* ========= Component ========= */
-
 export default function AdminRequest() {
     const [staffId] = useState(
         localStorage.getItem("StaffId") ||
         localStorage.getItem("userId") ||
         ""
     );
-
     // Form
     const [reportTypes, setReportTypes] =
         useState([]);
@@ -80,7 +72,6 @@ export default function AdminRequest() {
     const [driverId, setDriverId] = useState("");
     const [reportNote, setReportNote] =
         useState("");
-
     // Submitted reports từ BE
     const [submitted, setSubmitted] =
         useState([]);
@@ -93,7 +84,6 @@ export default function AdminRequest() {
     const [creating, setCreating] =
         useState(false);
     const [error, setError] = useState("");
-
     const canSubmit = useMemo(
         () =>
             !!staffId &&
@@ -101,7 +91,6 @@ export default function AdminRequest() {
             reportNote.trim().length > 0,
         [staffId, reportTypeId, reportNote]
     );
-
     /* ----- Load report types ----- */
     async function loadReportTypes() {
         try {
@@ -126,7 +115,6 @@ export default function AdminRequest() {
             setLoadingTypes(false);
         }
     }
-
     /* ----- Load submitted reports (type 4-7) ----- */
     async function loadSubmitted() {
         if (!staffId) return;
@@ -140,13 +128,11 @@ export default function AdminRequest() {
                     },
                 }
             );
-
             const raw = Array.isArray(
                 res?.data?.data
             )
                 ? res.data.data
                 : [];
-
             const normalized =
                 normalizeSubmitted(
                     raw,
@@ -163,7 +149,6 @@ export default function AdminRequest() {
             setLoadingSubmitted(false);
         }
     }
-
     useEffect(() => {
         if (!staffId) {
             setError(
@@ -175,16 +160,13 @@ export default function AdminRequest() {
         loadSubmitted();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [staffId]);
-
     /* ----- Submit new report ----- */
     async function onSubmit(e) {
         e.preventDefault();
         if (!canSubmit || !staffId) return;
-
         try {
             setCreating(true);
             setError("");
-
             const payload = {
                 staffId,
                 driverId:
@@ -195,32 +177,41 @@ export default function AdminRequest() {
                 reportNote:
                     reportNote.trim(),
             };
-
             await api.post(
                 CREATE_REPORT_ENDPOINT,
                 payload
             );
-
             // Sau khi tạo xong -> reload list submitted từ BE để đồng bộ
             await loadSubmitted();
-
             // Reset form
             setReportTypeId("");
             setDriverId("");
             setReportNote("");
         } catch (e) {
             console.error(e);
-            setError(
-                e?.response?.data
-                    ?.message ||
-                e.message ||
-                "Submit failed"
-            );
+            const resData = e?.response?.data;
+            // ✅ Bắt case validation từ BE: title = "One or more validation errors occurred."
+            if (
+                resData?.title === "One or more validation errors occurred." &&
+                resData?.errors
+            ) {
+                // Nếu BE trả lỗi cho ReportNote thì show đúng message đó
+                if (resData.errors.ReportNote && resData.errors.ReportNote.length > 0) {
+                    setError(resData.errors.ReportNote[0]);
+                } else {
+                    // fallback: lấy lỗi đầu tiên trong errors
+                    const firstKey = Object.keys(resData.errors)[0];
+                    const firstMsg = resData.errors[firstKey]?.[0];
+                    setError(firstMsg || "Validation error. Please check your inputs.");
+                }
+            } else {
+                // Các lỗi khác giữ như cũ
+                setError(resData?.message || e.message || "Submit failed");
+            }
         } finally {
             setCreating(false);
         }
     }
-
     return (
         <section
             style={{
@@ -237,8 +228,6 @@ export default function AdminRequest() {
             >
                 Admin request
             </h2>
-
-
             {/* FORM */}
             <form
                 onSubmit={onSubmit}
@@ -286,7 +275,6 @@ export default function AdminRequest() {
                             )}
                         </select>
                     </label>
-
                     <label style={label}>
                         Driver ID (optional)
                         <input
@@ -304,7 +292,6 @@ export default function AdminRequest() {
                         />
                     </label>
                 </div>
-
                 <label
                     style={{
                         ...label,
@@ -330,7 +317,6 @@ export default function AdminRequest() {
                         }
                     />
                 </label>
-
                 <div
                     style={{
                         marginTop: 14,
@@ -358,7 +344,6 @@ export default function AdminRequest() {
                             : "Send Report to Admin"}
                     </button>
                 </div>
-
                 {error && (
                     <div
                         style={{
@@ -373,7 +358,6 @@ export default function AdminRequest() {
                     </div>
                 )}
             </form>
-
             {/* SUBMITTED REPORTS */}
             <div
                 style={{
@@ -418,7 +402,6 @@ export default function AdminRequest() {
                             : "Refresh"}
                     </button>
                 </div>
-
                 <div
                     style={{
                         overflowX:
@@ -487,7 +470,6 @@ export default function AdminRequest() {
                                     </td>
                                 </tr>
                             )}
-
                             {!loadingSubmitted &&
                                 submitted.length ===
                                 0 ? (
@@ -595,9 +577,7 @@ export default function AdminRequest() {
         </section>
     );
 }
-
 /* ==== styles ==== */
-
 const card = {
     background:
         "#ffffff",
@@ -608,7 +588,6 @@ const card = {
     boxShadow:
         "0 6px 18px rgba(15,23,42,0.04)",
 };
-
 const cardSoft = {
     background:
         "#f9fafb",
@@ -619,14 +598,12 @@ const cardSoft = {
     boxShadow:
         "0 4px 14px rgba(15,23,42,0.03)",
 };
-
 const grid2 = {
     display: "grid",
     gridTemplateColumns:
         "1fr 1fr",
     gap: 12,
 };
-
 const label = {
     display:
         "grid",
@@ -635,7 +612,6 @@ const label = {
     fontWeight: 600,
     color: "#111827",
 };
-
 const input = {
     padding:
         "10px 12px",
@@ -648,7 +624,6 @@ const input = {
     backgroundColor:
         "#f9fafb",
 };
-
 const btn = {
     background:
         "#f3f4f6",
@@ -661,7 +636,6 @@ const btn = {
         "pointer",
     fontSize: 13,
 };
-
 const btnPrimary = {
     ...btn,
     background:
@@ -672,7 +646,6 @@ const btnPrimary = {
         "#111827",
     fontWeight: 600,
 };
-
 const btnGhost = {
     ...btn,
     background:
@@ -681,7 +654,6 @@ const btnGhost = {
         "#e5e7eb",
     fontSize: 12,
 };
-
 const table = {
     width: "100%",
     borderCollapse:
@@ -690,7 +662,6 @@ const table = {
     fontSize: 13,
     marginTop: 4,
 };
-
 const th = {
     textAlign:
         "left",
@@ -706,7 +677,6 @@ const th = {
     whiteSpace:
         "nowrap",
 };
-
 const td = {
     padding:
         "9px 12px",
@@ -716,12 +686,10 @@ const td = {
         "1px solid #f3f4f6",
     fontWeight: 400,
 };
-
 const tdStrong = {
     ...td,
     fontWeight: 600,
 };
-
 const emptyTd = {
     padding: 18,
     textAlign:
@@ -730,7 +698,6 @@ const emptyTd = {
         "#9ca3af",
     fontSize: 13,
 };
-
 function statusBadge(status) {
     const s = String(
         status || ""
@@ -739,7 +706,6 @@ function statusBadge(status) {
         "#e5e7eb";
     let color =
         "#111827";
-
     if (
         s === "processing" ||
         s === "pending"
@@ -759,7 +725,6 @@ function statusBadge(status) {
         color =
             "#b91c1c";
     }
-
     return {
         display:
             "inline-flex",

@@ -73,6 +73,40 @@ namespace VoltSwap.API.Controllers
             });
         }
 
+        [AllowAnonymous]
+        [HttpPost("confirm-email")]
+        public async Task<IActionResult> ConfirmEmailAsync(ConfirmEmailRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _authService.ConfirmEmailAsync(request);
+            return StatusCode(result.Status, new { message = result.Message, data = result.Data });
+        }
 
+
+        [AllowAnonymous]
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPasswordAsync(ForgotPassword request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _authService.ForgotPassword(request);
+            return StatusCode(result.Status, new { message = result.Message });
+        }
+        [AllowAnonymous]
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePasswordAsync(ChangePassword request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var result = await _authService.ChangePassword(request);
+            return StatusCode(result.Status, new { message = result.Message });
+        }
     }
 }

@@ -153,8 +153,9 @@ export default function RegisterService() {
                 plans.map((p) => (
                   <tr
                     key={p.planId}
-                    className={`border-b hover:bg-yellow-50 transition ${selected?.planId === p.planId ? "bg-yellow-100" : ""
-                      }`}
+                    className={`border-b hover:bg-yellow-50 transition ${
+                      selected?.planId === p.planId ? "bg-yellow-100" : ""
+                    }`}
                   >
                     <td className="p-3 font-semibold text-gray-800">
                       {p.planName}
@@ -179,10 +180,11 @@ export default function RegisterService() {
                       </button>
                       <button
                         onClick={() => setSelected(p)}
-                        className={`px-3 py-1 rounded-full ${selected?.planId === p.planId
-                          ? "bg-yellow-400 font-semibold"
-                          : "bg-yellow-200 hover:bg-yellow-300"
-                          }`}
+                        className={`px-3 py-1 rounded-full ${
+                          selected?.planId === p.planId
+                            ? "bg-yellow-400 font-semibold"
+                            : "bg-yellow-200 hover:bg-yellow-300"
+                        }`}
                       >
                         {selected?.planId === p.planId ? "Selected" : "Choose"}
                       </button>
@@ -196,12 +198,21 @@ export default function RegisterService() {
 
         <div className="text-center mt-8 space-x-3">
           <button
+            onClick={() => navigate("/user/service")}
+            className="px-6 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 font-semibold"
+          >
+            <i className="bi bi-arrow-left" style={{ color: "blue" }}></i>
+            Back
+          </button>
+
+          <button
             onClick={register}
             disabled={!selected}
-            className={`px-6 py-2 rounded-lg font-semibold ${selected
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-gray-400 text-gray-100 cursor-not-allowed"
-              }`}
+            className={`px-6 py-2 rounded-lg font-semibold ${
+              selected
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "bg-gray-400 text-gray-100 cursor-not-allowed"
+            }`}
           >
             <i
               className="bi bi-check-circle-fill"
@@ -209,20 +220,12 @@ export default function RegisterService() {
             ></i>{" "}
             Confirm Registration
           </button>
-          <button
-            onClick={() => navigate("/user/service")}
-            className="px-6 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 font-semibold"
-          >
-            <i className="bi bi-arrow-left" style={{ color: "blue" }}></i>
-            Back
-          </button>
         </div>
       </div>
       {/* Modal – Expanded & Clearer */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden transform transition-all duration-200">
-
             {/* Header */}
             <div className="bg-gradient-to-r from-cyan-400 to-blue-600 px-6 py-4 flex items-center justify-between text-white">
               <div className="flex items-center gap-4">
@@ -243,7 +246,10 @@ export default function RegisterService() {
                 <div className="text-right">
                   <div className="text-[11px] uppercase opacity-70">Price</div>
                   <div className="text-xl font-bold">
-                    {Number(planDetail.plans.price || 0).toLocaleString("vi-VN")}₫
+                    {Number(planDetail.plans.price || 0).toLocaleString(
+                      "vi-VN"
+                    )}
+                    ₫
                   </div>
                   <div className="text-xs opacity-80">
                     / {planDetail.plans.durationDays} days
@@ -260,10 +266,8 @@ export default function RegisterService() {
               </div>
             ) : (
               <div className="p-6 space-y-6">
-
                 {/* Overview Cards */}
                 <div className="grid md:grid-cols-2 gap-4">
-
                   {/* Overview */}
                   <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4 shadow-sm">
                     <h3 className="text-cyan-700 font-semibold mb-2 flex items-center gap-2 text-sm">
@@ -290,7 +294,8 @@ export default function RegisterService() {
                   {/* Highlights */}
                   <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 shadow-sm">
                     <h3 className="text-yellow-800 font-semibold mb-2 flex items-center gap-2 text-sm">
-                      <i className="bi bi-star-fill text-yellow-500" /> Highlights
+                      <i className="bi bi-star-fill text-yellow-500" />{" "}
+                      Highlights
                     </h3>
                     <ul className="space-y-1 text-gray-700 text-sm">
                       <li className="flex items-center gap-2">
@@ -343,8 +348,9 @@ export default function RegisterService() {
                         {(planDetail.planFees || []).map((fee, index) => (
                           <tr
                             key={index}
-                            className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                              } hover:bg-yellow-50 transition`}
+                            className={`border-b ${
+                              index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                            } hover:bg-yellow-50 transition`}
                           >
                             <td className="p-3 border-r text-center align-top">
                               <div className="h-8 w-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow">
@@ -357,7 +363,9 @@ export default function RegisterService() {
                             </td>
 
                             <td className="p-3 border-r text-right font-bold text-blue-700 align-top">
-                              {Number(fee.amountFee || 0).toLocaleString("vi-VN")}
+                              {Number(fee.amountFee || 0).toLocaleString(
+                                "vi-VN"
+                              )}
                             </td>
 
                             <td className="p-3 border-r text-gray-700 align-top">
@@ -377,7 +385,10 @@ export default function RegisterService() {
 
                         {(planDetail.planFees || []).length === 0 && (
                           <tr>
-                            <td colSpan={6} className="p-6 text-center text-gray-500">
+                            <td
+                              colSpan={6}
+                              className="p-6 text-center text-gray-500"
+                            >
                               No fee details available.
                             </td>
                           </tr>
@@ -416,9 +427,6 @@ export default function RegisterService() {
           </div>
         </div>
       )}
-
-
-
     </div>
   );
 }

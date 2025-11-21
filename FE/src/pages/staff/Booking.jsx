@@ -40,7 +40,12 @@ function statusPillClass(text) {
   if (v.includes("success") || v.includes("done") || v.includes("completed")) return "pill successful";
   return "pill pending";
 }
+
 const isCancelNote = (note) => String(note || "").toLowerCase().includes("cancel");
+
+// NEW: note có từ "swap battery" thì xem là booking swap
+const isSwapNote = (note) => String(note || "").toLowerCase().includes("swap battery");
+
 const canCancel = (status = "") => {
   const s = String(status).toLowerCase();
   if (!s) return true;
@@ -384,7 +389,7 @@ export default function Booking() {
       await api.post(TAKE_IN_EP, payload);
       alert("Batteries moved to inventory successfully.");
       setModalOpen(false);
-      // tuỳ bạn có muốn reload danh sách booking hay không:
+      // tùy bạn có muốn reload danh sách booking hay không:
       // await fetchBookings();
     } catch (e) {
       const msg = e?.response?.data?.message || e?.message || "Failed to take batteries to inventory.";
@@ -477,6 +482,7 @@ export default function Booking() {
             ) : (
               filteredRows.map((bk) => {
                 const showCancelFlow = isCancelNote(bk.note);
+                const isSwap = isSwapNote(bk.note); // NEW
                 const creating = creatingIds.has(bk.bookingId);
                 const confirming = confirmingIds.has(bk.bookingId);
                 const hasTxId = Boolean(txByBooking[bk.bookingId]);
@@ -494,15 +500,18 @@ export default function Booking() {
                     <td><span className={statusPillClass(bk.status)}>{bk.status}</span></td>
                     <td>{bk.note || "—"}</td>
                     <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {/* Check SubId -> mở modal "Take to inventory" */}
-                      <button
-                        className="btn btn-check"
-                        disabled={checking}
-                        onClick={() => handleCheckSub(bk)}
-                        title="Check Subscription of this customer"
-                      >
-                        {checking ? "Checking…" : "Check SubId"}
-                      </button>
+                      {/* Check SubId -> mở modal "Take to inventory"
+                          Ẩn nếu note là "Swap battery" */}
+                      {!isSwap && (
+                        <button
+                          className="btn btn-check"
+                          disabled={checking}
+                          onClick={() => handleCheckSub(bk)}
+                          title="Check Subscription of this customer"
+                        >
+                          {checking ? "Checking…" : "Check SubId"}
+                        </button>
+                      )}
 
                       {/* Cancel Booking: ở ngoài modal */}
                       <button

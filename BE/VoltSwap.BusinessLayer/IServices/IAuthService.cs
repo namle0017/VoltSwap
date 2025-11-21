@@ -15,5 +15,8 @@ namespace VoltSwap.BusinessLayer.IServices
         Task<ServiceResult> RegisterAsync(RegisterRequest request);
         Task<ServiceResult> RefreshTokenAsync(string refreshToken);
         Task<bool> RevokeTokenAsync(String refreshToken);
+        Task<ServiceResult> ConfirmEmailAsync(ConfirmEmailRequest request);
+        Task<ServiceResult> ChangePassword(ChangePassword request);
+        Task<ServiceResult> ForgotPassword(ForgotPassword request);
     }
 }

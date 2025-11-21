@@ -28,7 +28,7 @@ export default function AdminSidebar({ onSignOut }) {
             <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center space-x-2">
                     <div className="text-3xl font-lobster font-bold bg-gradient-to-r from-green-400 via-blue-400 to-blue-600 bg-clip-text text-transparent drop-shadow-md">
-                        EV Admin
+                        VoltSwap Admin
                     </div>
                 </div>
             </div>
