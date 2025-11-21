@@ -170,10 +170,11 @@ export default function SuggestService() {
                 plans.map((p) => (
                   <tr
                     key={p.planId}
-                    className={`border-b transition ${p.isSuggest
-                      ? "bg-green-100 hover:bg-green-200"
-                      : "hover:bg-gray-50"
-                      } ${selected?.planId === p.planId ? "bg-yellow-200" : ""}`}
+                    className={`border-b transition ${
+                      p.isSuggest
+                        ? "bg-green-100 hover:bg-green-200"
+                        : "hover:bg-gray-50"
+                    } ${selected?.planId === p.planId ? "bg-yellow-200" : ""}`}
                   >
                     <td className="p-3 font-semibold text-gray-800">
                       {p.planName}
@@ -203,10 +204,11 @@ export default function SuggestService() {
                       </button>
                       <button
                         onClick={() => setSelected(p)}
-                        className={`px-3 py-1 rounded-full ${selected?.planId === p.planId
-                          ? "bg-yellow-400 font-semibold"
-                          : "bg-yellow-200 hover:bg-yellow-300"
-                          }`}
+                        className={`px-3 py-1 rounded-full ${
+                          selected?.planId === p.planId
+                            ? "bg-yellow-400 font-semibold"
+                            : "bg-yellow-200 hover:bg-yellow-300"
+                        }`}
                       >
                         {selected?.planId === p.planId ? "Selected" : "Choose"}
                       </button>
@@ -217,15 +219,21 @@ export default function SuggestService() {
             </tbody>
           </table>
         </div>
-
+        <button
+          onClick={() => navigate("/user/service")}
+          className="px-6 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 font-semibold"
+        >
+          <i className="bi bi-arrow-left" style={{ color: "blue" }}></i> Back
+        </button>
         <div className="text-center mt-8 space-x-3">
           <button
             onClick={register}
             disabled={!selected}
-            className={`px-6 py-2 rounded-lg font-semibold ${selected
-              ? "bg-green-600 text-white hover:bg-green-700"
-              : "bg-gray-400 text-gray-100 cursor-not-allowed"
-              }`}
+            className={`px-6 py-2 rounded-lg font-semibold ${
+              selected
+                ? "bg-green-600 text-white hover:bg-green-700"
+                : "bg-gray-400 text-gray-100 cursor-not-allowed"
+            }`}
           >
             <i
               className="bi bi-check-circle-fill"
@@ -233,19 +241,12 @@ export default function SuggestService() {
             ></i>{" "}
             Confirm Registration
           </button>
-          <button
-            onClick={() => navigate("/user/service")}
-            className="px-6 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 font-semibold"
-          >
-            <i className="bi bi-arrow-left" style={{ color: "blue" }}></i> Back
-          </button>
         </div>
       </div>
 
       {showModal && planDetail && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden transform transition-all duration-200">
-
             {/* Header */}
             <div className="bg-gradient-to-r from-green-400 to-blue-600 px-6 py-4 flex items-center justify-between text-white">
               <div className="flex items-center gap-4">
@@ -281,7 +282,6 @@ export default function SuggestService() {
               </div>
             ) : (
               <div className="p-6 space-y-6">
-
                 {/* Info Cards */}
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="rounded-xl border border-green-200 bg-green-50 p-4 shadow-sm">
@@ -289,8 +289,14 @@ export default function SuggestService() {
                       <i className="bi bi-info-circle" /> Overview
                     </h3>
                     <ul className="text-gray-700 space-y-1 text-sm">
-                      <li><span className="font-medium">Batteries:</span> {planDetail.plans.numberBattery}</li>
-                      <li><span className="font-medium">Duration:</span> {planDetail.plans.durationDays} days</li>
+                      <li>
+                        <span className="font-medium">Batteries:</span>{" "}
+                        {planDetail.plans.numberBattery}
+                      </li>
+                      <li>
+                        <span className="font-medium">Duration:</span>{" "}
+                        {planDetail.plans.durationDays} days
+                      </li>
                       <li>
                         <span className="font-medium">Mileage:</span>{" "}
                         {planDetail.plans.milleageBaseUsed > 0
@@ -302,7 +308,8 @@ export default function SuggestService() {
 
                   <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
                     <h3 className="text-blue-800 font-semibold mb-2 flex items-center gap-2">
-                      <i className="bi bi-star-fill text-yellow-500" /> Highlights
+                      <i className="bi bi-star-fill text-yellow-500" />{" "}
+                      Highlights
                     </h3>
                     <ul className="space-y-1 text-gray-700 text-sm">
                       <li className="flex items-center gap-2">
@@ -343,7 +350,9 @@ export default function SuggestService() {
                           <th className="p-3 text-right border-r">Amount</th>
                           <th className="p-3 text-left border-r">Unit</th>
                           {/* 👇 prevent wrapping here */}
-                          <th className="p-3 text-center border-r whitespace-nowrap">Range</th>
+                          <th className="p-3 text-center border-r whitespace-nowrap">
+                            Range
+                          </th>
                           <th className="p-3 text-left">Description</th>
                         </tr>
                       </thead>
@@ -352,8 +361,9 @@ export default function SuggestService() {
                         {(planDetail.planFees || []).map((fee, index) => (
                           <tr
                             key={index}
-                            className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                              } hover:bg-green-50 transition`}
+                            className={`border-b ${
+                              index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                            } hover:bg-green-50 transition`}
                           >
                             <td className="p-3 border-r text-center align-top">
                               <div className="h-8 w-8 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center shadow-sm">
@@ -381,7 +391,10 @@ export default function SuggestService() {
 
                         {(planDetail.planFees || []).length === 0 && (
                           <tr>
-                            <td colSpan={6} className="p-6 text-center text-gray-500">
+                            <td
+                              colSpan={6}
+                              className="p-6 text-center text-gray-500"
+                            >
                               No fee details available.
                             </td>
                           </tr>
@@ -390,7 +403,6 @@ export default function SuggestService() {
                     </table>
                   </div>
                 </div>
-
               </div>
             )}
 
@@ -419,7 +431,6 @@ export default function SuggestService() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
