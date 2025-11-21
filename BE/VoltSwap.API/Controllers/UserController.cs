@@ -39,10 +39,6 @@ namespace VoltSwap.API.Controllers
         [HttpPut("update-user-information")]
         public async Task<IActionResult> UpdateUserInformation(DriverUpdate requestDto)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new { message = "Invalid input", errors = ModelState });
-            }
 
             var updateDriverInformation = await _userService.UpdateDriverInformationAsync(requestDto);
 
@@ -78,10 +74,6 @@ namespace VoltSwap.API.Controllers
         [HttpPut("update-staff-information")]
         public async Task<IActionResult> UpdateStaffInformation(StaffUpdate requestDto)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new { message = "Invalid input", errors = ModelState });
-            }
 
             var updateStaffInformation = await _userService.UpdateStaffInformationAsync(requestDto);
 
@@ -131,6 +123,7 @@ namespace VoltSwap.API.Controllers
         [HttpPut("create-staff")]
         public async Task<IActionResult> CreateStaff(StaffCreateRequest request)
         {
+
             var createStaff = await _userService.CreateNewStaffAsync(request);
             return StatusCode(createStaff.Status,
                             new

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
@@ -213,7 +214,18 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<ServiceResult> CreateBookingAsync(CreateBookingRequest request)
         {
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(request, null, null);
 
+            bool isValid = Validator.TryValidateObject(request, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
             var subscription = await GetSubscriptionById(request.SubscriptionId);
             if (subscription == null)
             {

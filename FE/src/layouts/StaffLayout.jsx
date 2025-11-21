@@ -73,6 +73,21 @@ export default function StaffLayout() {
     const navigate = useNavigate();
     const [confirmOpen, setConfirmOpen] = useState(false);
 
+    // Lấy info staff từ localStorage (tùy BE bạn set key gì)
+    const [staffName] = useState(
+        () =>
+            localStorage.getItem("StaffName") ||
+            localStorage.getItem("fullName") ||
+            localStorage.getItem("userName") ||
+            "Staff member"
+    );
+    const [staffEmail] = useState(
+        () =>
+            localStorage.getItem("StaffEmail") ||
+            localStorage.getItem("email") ||
+            ""
+    );
+
     const doSignOut = () => {
         const CLEAR_KEYS = [
             "accessToken",
@@ -89,14 +104,16 @@ export default function StaffLayout() {
         navigate("/", { replace: true }); // về Home.jsx
     };
 
+    const initials = makeInitials(staffName);
+
     return (
         // Layout FULL SCREEN, sidebar cố định, content scroll
         <div
             className="staff-shell"
             style={{
                 display: "flex",
-                height: "100vh",       // chiếm đúng viewport
-                overflow: "hidden",    // chặn scroll toàn trang
+                height: "100vh", // chiếm đúng viewport
+                overflow: "hidden", // chặn scroll toàn trang
                 backgroundColor: "#f5f5fb",
             }}
         >
@@ -190,6 +207,87 @@ export default function StaffLayout() {
                     ))}
                 </nav>
 
+                {/* Staff mini profile (click -> /staff/account) */}
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate("/staff/account")}
+                    onKeyDown={(e) => e.key === "Enter" && navigate("/staff/account")}
+                    style={{
+                        marginTop: 8,
+                        marginBottom: 10,
+                        padding: "10px 12px",
+                        borderRadius: 16,
+                        background:
+                            "linear-gradient(135deg, rgba(59,130,246,0.25), rgba(56,189,248,0.20))",
+                        border: "1px solid rgba(191,219,254,0.8)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        cursor: "pointer",
+                        boxShadow: "0 8px 20px rgba(15,23,42,0.25)",
+                    }}
+                >
+                    <div
+                        style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: "999px",
+                            background:
+                                "linear-gradient(135deg, #22c55e, #16a3ff 60%, #3b82f6)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#ffffff",
+                            fontWeight: 700,
+                            fontSize: 16,
+                        }}
+                    >
+                        {initials}
+                    </div>
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 2,
+                            fontSize: 11,
+                        }}
+                    >
+                        <span style={{ opacity: 0.8 }}>Logged in as</span>
+                        <span
+                            style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                lineHeight: 1.2,
+                            }}
+                        >
+                            {staffName}
+                        </span>
+                        {staffEmail && (
+                            <span
+                                style={{
+                                    opacity: 0.75,
+                                    fontSize: 11,
+                                }}
+                            >
+                                {staffEmail}
+                            </span>
+                        )}
+                        <span
+                            style={{
+                                marginTop: 3,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 2,
+                                color: "#e0f2fe",
+                            }}
+                        >
+                            <span>View profile</span>
+                            <i className="bi bi-arrow-right-short" aria-hidden="true" />
+                        </span>
+                    </div>
+                </div>
+
                 {/* Nút Sign out */}
                 <button
                     type="button"
@@ -197,7 +295,7 @@ export default function StaffLayout() {
                     title="Đăng xuất"
                     className="mt-4 w-full"
                     style={{
-                        marginTop: 8,
+                        marginTop: 4,
                         width: "100%",
                         padding: "10px 12px",
                         borderRadius: 14,
@@ -245,4 +343,18 @@ export default function StaffLayout() {
             />
         </div>
     );
+}
+
+// Lấy chữ cái đầu để bỏ vào avatar
+function makeInitials(name) {
+    if (!name) return "S";
+    const parts = String(name)
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    if (!parts.length) return "S";
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    const last = parts[parts.length - 1][0];
+    const first = parts[0][0];
+    return `${first}${last}`.toUpperCase();
 }

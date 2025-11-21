@@ -77,6 +77,28 @@ export default function Subscription() {
     // Delete loading
     const [deletingId, setDeletingId] = useState(null);
 
+    const extractValidationErrors = (data) => {
+        if (data?.errors && typeof data.errors === "object") {
+            const parts = [];
+            Object.entries(data.errors).forEach(([field, messages]) => {
+                if (Array.isArray(messages)) {
+                    messages.forEach((m) => {
+                        // include field name for clarity
+                        parts.push(`${field}: ${m}`);
+                    });
+                } else if (messages) {
+                    parts.push(`${field}: ${String(messages)}`);
+                }
+            });
+            if (parts.length) return parts.join("\n");
+        }
+
+        // fallback
+        if (data?.message) return data.message;
+        if (data?.title) return data.title;
+        return "";
+    };
+
     // ===== Fee Update Modal =====
     const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
     const [modalGroupKey, setModalGroupKey] = useState("");
@@ -528,14 +550,16 @@ export default function Subscription() {
             setIsFeeModalOpen(false);
         } catch (e) {
             console.error("update-fee error", e?.response?.data || e);
-            alert(
-                e?.response?.data?.message ||
-                e?.response?.data?.title ||
-                "❌ Failed to update fees."
-            );
+            const data = e?.response?.data;
+            const msg =
+                extractValidationErrors(data) ||
+                e?.message ||
+                "❌ Failed to update fees.";
+            alert(msg);
         } finally {
             setSubmittingFees(false);
         }
+
     };
 
     /* ===== UI ===== */

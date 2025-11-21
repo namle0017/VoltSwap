@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using VoltSwap.BusinessLayer.Services;
 using VoltSwap.Common.DTOs;
 
@@ -20,6 +21,7 @@ namespace VoltSwap.API.Controllers
         [HttpPost("Create-vehicle")]
         public async Task<IActionResult> CreateVehicle([FromBody] CreateDriverVehicleRequest request)
         {
+
             var result = await _vehicleService.CreateDriverVehicleAsync(request);
             return StatusCode(result.Status, new
             {

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -471,6 +472,21 @@ namespace VoltSwap.BusinessLayer.Services
         //Bin: Cập nhật plan:
         public async Task<ServiceResult> UpdatePlanAsync(PlanDtos plan)
         {
+
+
+
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(plan, null, null);
+
+            bool isValid = Validator.TryValidateObject(plan, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
             var getplan = await _unitOfWork.Plans.GetPlanAsync(plan.PlanId);
             if(getplan == null)
             {
@@ -530,7 +546,18 @@ namespace VoltSwap.BusinessLayer.Services
         }
         public async Task<ServiceResult> CreatePlanAsync(PlanCreateRequest plan)
         {
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(plan, null, null);
 
+            bool isValid = Validator.TryValidateObject(plan, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
             var groupKey = GetGroupKey(plan.PlanName);
             var newPlanId = await GeneratePlanId();
             var AdminId = await GetAdminId();

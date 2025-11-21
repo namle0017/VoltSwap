@@ -89,10 +89,6 @@ namespace VoltSwap.API.Controllers
         [HttpPost("staff-help-customer")]
         public async Task<IActionResult> StaffHelpAsync([FromBody] StaffBatteryRequest requestDto)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
             var result = await _batSwapService.StaffSwapBattery(requestDto);
 
             return StatusCode(result.Status, new { message = result.Message });
@@ -169,7 +165,7 @@ namespace VoltSwap.API.Controllers
         }
 
         //Bin: staff bỏ pin của sub khách hủy vào kho
-        //[Authorize(Roles = "Staff")]
+        [Authorize(Roles = "Staff")]
         [HttpPost("staff-take-battery-in-sub-customer")]
         public async Task<IActionResult> TakeOUt(StaffTakeBatteriesRequest requestDto)
         {

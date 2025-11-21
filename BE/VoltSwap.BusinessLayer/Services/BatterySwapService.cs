@@ -1,8 +1,10 @@
 ﻿using Azure.Core;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,7 +15,6 @@ using VoltSwap.DAL.Base;
 using VoltSwap.DAL.Models;
 using VoltSwap.DAL.UnitOfWork;
 using static System.Runtime.InteropServices.JavaScript.JSType;
-using Microsoft.EntityFrameworkCore;
 
 namespace VoltSwap.BusinessLayer.Services
 {
@@ -819,8 +820,64 @@ namespace VoltSwap.BusinessLayer.Services
                 Message = "Battery transfer processed successfully"
             };
         }
+
+        //Bin: staff bỏ pin của sub khách hủy vào kho
+        public async Task<ServiceResult> StaffTakeBattrey(StaffTakeBatteriesRequest request)
+        {
+            // Lấy danh sách pin thuộc subscription
+            var batteriesInSub = await _unitOfWork.BatterySwap
+                .GetBatteriesBySubscriptionId(request.Access.SubscriptionId);
+            var allowSet = batteriesInSub.Select(x => x.BatteryOutId)
+                                         .Where(id => !string.IsNullOrWhiteSpace(id))
+                                         .ToHashSet();
+
+
+            var requestIds = (request.BatteriesId ?? new List<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct()
+                .ToList();
+
+
+            var idsToProcess = requestIds.Where(id => allowSet.Contains(id)).ToList();
+
+            var batteries = await _unitOfWork.Batteries.GetAllQueryable()
+                .Where(b => idsToProcess.Contains(b.BatteryId))
+                .ToListAsync();
+
+            var batList = new List<BatListRespone>();
+            foreach (var b in batteries)
+            {
+                b.BatterySwapStationId = request.Access.StationId;
+                b.BatteryStatus = "Warehouse";
+                b.Soc = Random.Shared.Next(1, 101);
+                batList.Add(new BatListRespone { BatteryId = b.BatteryId });
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+
+            return new ServiceResult
+            {
+                Status = 200,
+                Message = "Success!.",
+                Data = batList
+            };
+        }
         public async Task<ServiceResult> StaffSwapBattery(StaffBatteryRequest requestDto)
         {
+
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(requestDto, null, null);
+
+            bool isValid = Validator.TryValidateObject(requestDto, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
             var currDate = DateOnly.FromDateTime(DateTime.UtcNow.ToLocalTime());
             //Lấy trạm của staff
             var station = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(requestDto.StaffId);
@@ -864,20 +921,11 @@ namespace VoltSwap.BusinessLayer.Services
             //Nếu có BatteryIn thì xử lý đổi pin bình thường
             if (!string.IsNullOrEmpty(requestDto.BatteryInId))
             {
-                var checkvar = await _unitOfWork.Batteries.FindingBatteryById(requestDto.BatteryInId);
-                if (checkvar == null)
-                {
-                    return new ServiceResult
-                    {
-                        Status = 404,
-                        Message = "You’re trying to return a different battery",
-                        Data = checkvar,
-                    };
-                }
+
 
                 var batteryIn = await _batRepo.GetByIdAsync(b => b.BatteryId == requestDto.BatteryInId);
                 if (batteryIn == null)
-                    return new ServiceResult { Status = 404, Message = "BatteryIn not found" };
+                    return new ServiceResult { Status = 404, Message = "You’re trying to return a different battery" };
 
                 var getBatteryIn = await _batSwapRepo.GetAllQueryable()
                                         .Where(bat => bat.BatteryOutId == requestDto.BatteryInId

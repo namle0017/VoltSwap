@@ -23,11 +23,7 @@ namespace VoltSwap.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(VoltSwap.Common.DTOs.RegisterRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new { message = "Invalid input", errors = ModelState });
-            }
-
+            
             var result = await _authService.RegisterAsync(request);
             if (result.Status == 201)
             {
@@ -47,10 +43,7 @@ namespace VoltSwap.API.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> LoginAsync(Common.DTOs.LoginRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+
             var result = await _authService.LoginAsync(request);
             return StatusCode(result.Status, new { message = result.Message, data = result.Data });
         }

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -73,6 +74,18 @@ namespace VoltSwap.BusinessLayer.Services
 
         public async Task<IServiceResult> UpdateDriverInformationAsync(DriverUpdate requestDto)
         {
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(requestDto, null, null);
+
+            bool isValid = Validator.TryValidateObject(requestDto, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
             var getUser = await _unitOfWork.Users.GetAllQueryable().
                         Where(x => x.UserId == requestDto.DriverId && x.Status == "Active").FirstOrDefaultAsync();
             if (getUser == null)
@@ -147,6 +160,20 @@ namespace VoltSwap.BusinessLayer.Services
         //Cái này để cần update để cập nhật thông tin của staff
         public async Task<IServiceResult> UpdateStaffInformationAsync(StaffUpdate requestDto)
         {
+
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(requestDto, null, null);
+
+            bool isValid = Validator.TryValidateObject(requestDto, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
+
             var getUser = await _unitOfWork.Users.GetAllQueryable()
                             .Where(us => us.UserId == requestDto.StaffId && us.Status == "Active").FirstOrDefaultAsync();
             if (getUser == null)
@@ -362,6 +389,49 @@ namespace VoltSwap.BusinessLayer.Services
         {
             try
             {
+                var validationResults = new List<ValidationResult>();
+                var context = new ValidationContext(request);
+
+                bool isValid = Validator.TryValidateObject(
+                    request,
+                    context,
+                    validationResults,
+                    validateAllProperties: true
+                );
+
+                // 2. Validate luôn object con StationStaff (nếu có)
+                if (request.StationStaff != null)
+                {
+                    var stationContext = new ValidationContext(request.StationStaff);
+                    Validator.TryValidateObject(
+                        request.StationStaff,
+                        stationContext,
+                        validationResults,
+                        validateAllProperties: true
+                    );
+                }
+
+                // 3. Custom rule: giờ bắt đầu < giờ kết thúc
+                if (request.StationStaff != null &&
+                    request.StationStaff.ShiftStart >= request.StationStaff.ShiftEnd)
+                {
+                    validationResults.Add(new ValidationResult(
+                        "Shift start time must be earlier than shift end time.",
+                        new[] { "ShiftStart", "ShiftEnd" }
+                    ));
+                }
+
+                // Nếu có lỗi => trả 400
+                if (validationResults.Any())
+                {
+                    var errorMessages = string.Join(" | ", validationResults.Select(v => v.ErrorMessage));
+                    return new ServiceResult
+                    {
+                        Status = 400,
+                        Message = errorMessages
+                    };
+                }
+
                 var isUserActive = await _unitOfWork.Users.CheckUserActive(request.StaffEmail);
                 if (isUserActive != null)
                 {

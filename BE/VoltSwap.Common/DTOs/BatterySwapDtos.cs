@@ -85,8 +85,21 @@ namespace VoltSwap.Common.DTOs
     public class StaffBatteryRequest
     {
         public string StaffId { get; set; }
+
+        [RegularExpression(
+      @"^[A-Z]{2}-\d{4}-[A-Z0-9]{4}$",
+      ErrorMessage = "BatteryOutId must follow the format: BT-1234-1A2B.")]
         public String? BatteryOutId { get; set; }
+
+        [RegularExpression(
+      @"^[A-Z]{2}-\d{4}-[A-Z0-9]{4}$",
+      ErrorMessage = "BatteryInId must follow the format: BT-1234-1A2B.")]
         public String? BatteryInId { get; set; }
+
+        [Required(ErrorMessage = "Subscription id is required.")]
+        [RegularExpression(
+       @"^SUB-\d{8}$",
+       ErrorMessage = "SubId must follow the format: SUB-12345678.")]
         public string SubId { get; set; }
     }
 

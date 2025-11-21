@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -35,6 +36,19 @@ namespace VoltSwap.BusinessLayer.Services
         //Bin:update các fee theo loại gói 
         public async Task<ServiceResult> UpdateFeesByGroupKeyAsync(UpdateFeeGroupRequest request)
         {
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(request, null, null);
+
+            bool isValid = Validator.TryValidateObject(request, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
+
             var plans = await _unitOfWork.Plans.GetAllAsync();
             var targetPlans = plans
                 .Where(p => GetGroupKey(p.PlanName) == request.GroupKey)

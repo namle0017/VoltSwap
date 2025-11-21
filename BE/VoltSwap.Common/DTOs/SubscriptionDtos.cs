@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -52,6 +53,17 @@ namespace VoltSwap.Common.DTOs
     public class SubscriptionListReponse
     {
 
+    }
+
+    public class GetBatteryUserRequest
+    {
+        public string StaffId { get; set; }
+
+        [Required(ErrorMessage = "Subscription id is required.")]
+        [RegularExpression(
+       @"^SUB-\d{8}$",
+       ErrorMessage = "SubId must follow the format: SUB-12345678.")]
+        public string SubscriptionId { get; set; }
     }
 
     //Nemo: DTO cho register gói mới

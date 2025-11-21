@@ -7,15 +7,24 @@ export default function NavbarTop() {
   const [user, setUser] = useState({ name: "", email: "" });
 
   useEffect(() => {
-    const name = localStorage.getItem("userName");
-    const email = localStorage.getItem("userEmail");
+    const loadUser = () => {
+      const name = localStorage.getItem("userName");
+      const email = localStorage.getItem("userEmail");
 
-    setUser({
-      name: name || "User",
-      email: email || "No email",
-    });
+      setUser({
+        name: name || "User",
+        email: email || "No email",
+      });
+    };
+
+    // Load lần đầu
+    loadUser();
+
+    // Lắng nghe sự kiện từ Profile
+    window.addEventListener("user-updated", loadUser);
+
+    return () => window.removeEventListener("user-updated", loadUser);
   }, []);
-
   const handleLogout = () => {
     localStorage.clear();
     alert("You have logged out!");

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Identity.Client;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
@@ -111,17 +112,36 @@ namespace VoltSwap.BusinessLayer.Services
         //    };
         //}
 
-        public async Task<ServiceResult> GetBatteryBySubcription(string staffId, string subId)
+        public async Task<ServiceResult> GetBatteryBySubcription(GetBatteryUserRequest request)
         {
+
+
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(request, null, null);
+
+            bool isValid = Validator.TryValidateObject(request, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
             // 1. Check staff & station
-            var staffStation = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(staffId);
+            var staffStation = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(request.StaffId);
 
             var stationId = staffStation.BatterySwapStationId;
 
 
-            var subscription = await _unitOfWork.Subscriptions.GetByIdAsync(subId);
+            var subscription = await _unitOfWork.Subscriptions.GetByIdAsync(request.SubscriptionId);
+            var checkvar = await _unitOfWork.Subscriptions.AnyAsync(s => s.SubscriptionId == request.SubscriptionId && s.Status == "Active");
+            if(!checkvar)
+            {
+                return new ServiceResult(409, "You trying to input don't exist in the system");
+            }
     
-            var batteryDtos = GetBatteryInUsingAvailable(subId);
+            var batteryDtos = GetBatteryInUsingAvailable(request.SubscriptionId);
 
 
 
@@ -132,7 +152,7 @@ namespace VoltSwap.BusinessLayer.Services
                 Data = new
                 {
                     StationId = stationId,
-                    SubscriptionId = subId,
+                    SubscriptionId = request.SubscriptionId,
                     Batteries = batteryDtos
                 }
             };

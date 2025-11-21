@@ -805,6 +805,17 @@ export default function StationSwap() {
                   {pillarEntries.map(([pid, slots]) => {
                     const isSelected = step === 2 && selectedPillarId && pid === selectedPillarId;
                     const isDim = slots.some((s) => s.__dim);
+
+                    const pillarBase =
+                      "bg-gray-50 rounded-lg p-3 border text-left transition-all duration-200";
+                    const clickable =
+                      step === 2 ? "cursor-pointer hover:shadow-lg" : "cursor-default";
+                    const selectedStyle =
+                      step === 2 && isSelected
+                        ? "ring-2 ring-emerald-500 bg-emerald-50 border-emerald-400"
+                        : "";
+                    const dimStyle = isDim ? "opacity-40 grayscale" : "";
+
                     return (
                       <button
                         key={pid}
@@ -820,20 +831,19 @@ export default function StationSwap() {
                             });
                           }
                         }}
-                        className={[
-                          "bg-gray-50 rounded-lg p-3 border text-left",
-                          step === 2 ? "cursor-pointer hover:shadow" : "cursor-default",
-                          isSelected ? "ring-2 ring-emerald-400" : "",
-                          isDim ? "opacity-40 grayscale" : "",
-                        ].join(" ")}
+                        className={`${pillarBase} ${clickable} ${selectedStyle} ${dimStyle}`}
                         title={step === 2 ? "Click để chọn trụ Swap-In" : ""}
                       >
-                        <h4 className="text-center font-semibold mb-2 text-gray-700">
-                          Trụ {pid}
-                          {step === 2 && selectedPillarId === pid ? " • (đã chọn)" : ""}
+                        <h4 className="text-center font-semibold mb-2 text-gray-700 flex items-center justify-center gap-2">
+                          <span>Trụ {pid}</span>
+                          {step === 2 && isSelected && (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px]">
+                              Swap-In pillar
+                            </span>
+                          )}
                         </h4>
 
-                        {/* === LƯỚI SLOT: có label SlotId trong từng ô === */}
+                        {/* === LƯỚI SLOT: hiệu ứng + icon Bootstrap === */}
                         <div className="grid grid-cols-4 gap-2">
                           {slots.map((slot, i) => {
                             const pickedIdx =
@@ -844,23 +854,64 @@ export default function StationSwap() {
                               selectedPillarId === pid &&
                               allowedSwapIn.has(String(slot?.slotId));
 
+                            // Slot đang cấp pin (swap-out highlight)
+                            const isOutHighlight = step === 3 && slot.__green;
+
                             const labelTextClass =
                               canPick || slot.__green ? "text-white/95" : "text-gray-900";
+
+                            const baseClasses =
+                              "h-10 rounded-md relative overflow-hidden transition-all duration-300 ease-out";
+
+                            // màu cơ bản
+                            const baseColor = slotColorClass(canPick || slot.__green);
+                            // màu nổi bật hơn cho swap-out
+                            const outColor = isOutHighlight
+                              ? "bg-gradient-to-br from-emerald-400 to-emerald-600"
+                              : "";
+                            const colorClass = outColor || baseColor;
+
+                            const pointerClass = canPick
+                              ? "cursor-pointer hover:ring-2 hover:ring-sky-400"
+                              : "cursor-default";
+
+                            // motion cho swap-in / swap-out
+                            let motionClass = "scale-95";
+                            if (step === 2 && canPick) {
+                              // Swap-In: khi chưa chọn thì hover nổi lên, khi đã chọn thì nổi hẳn
+                              motionClass = pickedIdx
+                                ? "scale-100 shadow-lg"
+                                : "scale-95 hover:-translate-y-1 hover:shadow-md";
+                            } else if (isOutHighlight) {
+                              // Swap-Out: slot được lấy pin sẽ pulse nhẹ
+                              motionClass = "scale-100 shadow-lg animate-pulse";
+                            }
 
                             return (
                               <div
                                 key={slot?.slotId ?? `${pid}-${i}`}
                                 onClick={() => canPick && togglePickSlot(slot)}
-                                className={[
-                                  "h-10 rounded-md transition-all relative overflow-hidden",
-                                  slotColorClass(canPick || slot.__green),
-                                  canPick
-                                    ? "cursor-pointer hover:ring-2 hover:ring-blue-400"
-                                    : "cursor-default",
-                                  pickedIdx ? "ring-4 ring-blue-500" : "",
-                                ].join(" ")}
-                                title={`Slot ${slot?.slotNumber ?? i + 1} • SlotId: ${slot?.slotId || "N/A"}${slot?.batteryId ? ` • ${slot.batteryId}` : ""}`}
+                                className={`${baseClasses} ${colorClass} ${pointerClass} ${motionClass} ${pickedIdx ? "ring-4 ring-sky-400" : ""
+                                  }`}
+                                title={`Slot ${slot?.slotNumber ?? i + 1} • SlotId: ${slot?.slotId || "N/A"
+                                  }${slot?.batteryId ? ` • ${slot.batteryId}` : ""}`}
                               >
+                                {/* Swap-In icon (bỏ pin vào) */}
+                                {step === 2 && canPick && pickedIdx ? (
+                                  <div className="absolute left-1 top-1 flex items-center gap-0.5 text-[11px] text-white pointer-events-none">
+                                    <i className="bi bi-battery-charging" />
+                                    <i className="bi bi-arrow-down-short" />
+                                  </div>
+                                ) : null}
+
+                                {/* Swap-Out icon (lấy pin ra) */}
+                                {step === 3 && isOutHighlight ? (
+                                  <div className="absolute left-1 top-1 flex items-center gap-0.5 text-[11px] text-white pointer-events-none">
+                                    <i className="bi bi-battery-full" />
+                                    <i className="bi bi-arrow-up-short" />
+                                  </div>
+                                ) : null}
+
                                 {/* label slotId */}
                                 <span
                                   className={`absolute inset-0 grid place-items-center pointer-events-none ${labelTextClass}`}
@@ -870,9 +921,9 @@ export default function StationSwap() {
                                   </span>
                                 </span>
 
-                                {/* badge thứ tự pick */}
+                                {/* badge thứ tự click khi Swap-In */}
                                 {pickedIdx ? (
-                                  <span className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white">
+                                  <span className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white shadow">
                                     {pickedIdx}
                                   </span>
                                 ) : null}
@@ -880,6 +931,7 @@ export default function StationSwap() {
                             );
                           })}
                         </div>
+
                       </button>
                     );
                   })}
