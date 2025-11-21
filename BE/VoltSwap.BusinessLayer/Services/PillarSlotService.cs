@@ -150,7 +150,7 @@ namespace VoltSwap.BusinessLayer.Services
             await _unitOfWork.PillarSlots.UpdateAsync(slotwithbattery);
             await _unitOfWork.SaveChangesAsync();
 
-            var battery = await _unitOfWork.Batteries.FindingBatteryById(request.BatteryId);
+            var battery = await _unitOfWork.Batteries.FindingBatteryById(request.BatteryId.Trim());
             if (battery.BatteryStatus != "Maintenance")
             {
                 battery.BatteryStatus = "Warehouse";

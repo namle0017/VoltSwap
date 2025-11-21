@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,6 +12,13 @@ namespace VoltSwap.Common.DTOs
         public string StaffId { get; set; }
         public String? DriverId { get; set; }
         public int ReportTypeId { get; set; }
+
+        [Required(ErrorMessage = "Content must not be empty.")]
+        [StringLength(500, MinimumLength = 10,
+    ErrorMessage = "Content must be between 10 and 500 characters.")]
+        [RegularExpression(
+    @"^[A-Za-z0-9À-ỹ\s.,!?()\ -]{10,500}$",
+    ErrorMessage = "Content contains invalid characters.")]
         public string ReportNote { get; set; }
     }
     public class UserReportRequest
@@ -18,6 +26,13 @@ namespace VoltSwap.Common.DTOs
 
         public String DriverId { get; set; }
         public int ReportTypeId { get; set; }
+
+        [Required(ErrorMessage = "Content must not be empty.")]
+        [StringLength(500, MinimumLength = 10,
+    ErrorMessage = "Content must be between 10 and 500 characters.")]
+        [RegularExpression(
+    @"^[A-Za-z0-9À-ỹ\s.,!?()\ -]{10,500}$",
+    ErrorMessage = "Content contains invalid characters.")]
         public string ReportNote { get; set; }
     }
     public class UserReportRespone
@@ -77,8 +92,14 @@ namespace VoltSwap.Common.DTOs
     }
 
     //bin
-    public class QuestionRequest 
+    public class QuestionRequest
     {
+        [Required(ErrorMessage = "Content must not be empty.")]
+        [StringLength(500, MinimumLength = 10,
+    ErrorMessage = "Content must be between 10 and 500 characters.")]
+        [RegularExpression(
+    @"^[A-Za-z0-9À-ỹ\s.,!?()\ -]{10,500}$",
+    ErrorMessage = "Content contains invalid characters.")]
         public string Description { get; set; }
     }
 

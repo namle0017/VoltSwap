@@ -22,6 +22,7 @@ namespace VoltSwap.API.Controllers
         [HttpPost("create-booking")]
         public async Task<IActionResult> CreateBooking([FromBody] CreateBookingRequest request)
         {
+
             var result = await _bookingService.CreateBookingAsync(request);
             return StatusCode(result.Status, new
             {

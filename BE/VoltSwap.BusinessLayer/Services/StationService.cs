@@ -1,7 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Azure.Core;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -225,7 +227,7 @@ namespace VoltSwap.BusinessLayer.Services
                 };
             }
             var getstaion = await _unitOfWork.StationStaffs.GetStationWithStaffIdAsync(staffRequest.StaffId);
-            var battery = await _unitOfWork.Batteries.FindingBatteryById(batteryId);
+            var battery = await _unitOfWork.Batteries.FindingBatteryInventoryById(batteryId, getstaion.BatterySwapStationId);
             if (battery == null || battery.BatterySwapStationId != getstaion.BatterySwapStationId || battery.BatteryStatus != "Warehouse")
             {
                 return new ServiceResult
@@ -358,6 +360,18 @@ namespace VoltSwap.BusinessLayer.Services
                 {
                     Status = 400,
                     Message = "The word Station or Trạm cannot be in the name!",
+                };
+            }
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(requestDto, null, null);
+
+            bool isValid = Validator.TryValidateObject(requestDto, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
                 };
             }
             var getLatLng = await _geoService.ConvertAddrToCoordinates(requestDto.Address);

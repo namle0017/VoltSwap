@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,22 +10,49 @@ namespace VoltSwap.Common.DTOs
     public class PlanDtos
     {
         public string PlanId { get; set; }
+
+        [Required(ErrorMessage = "Plan name is required.")]
+        [RegularExpression(@"^(G|TP)[A-Za-z0-9-]*$",
+      ErrorMessage = "Plan name must start with 'G' or 'TP' and can only contain letters, digits and hyphens (-).")]
         public string PlanName { get; set; }
+
+        [Required(ErrorMessage = "Number of batteries is required.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Number of batteries must be greater than 0.")]
         public int? NumberBattery { get; set; }
+
+
+        [Required(ErrorMessage = "Duration days is required.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Duration days must be greater than 0.")]
         public int? DurationDays { get; set; }
         public decimal? MilleageBaseUsed { get; set; }
         public int? SwapLimit { get; set; }
+
+        [Required(ErrorMessage = "Price is required.")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than 0.")]
         public decimal? Price { get; set; }
         public string Status { get; set; }
     }
     public class PlanCreateRequest
     {
-
+        [Required(ErrorMessage = "Plan name is required.")]
+        [RegularExpression(@"^(G|TP)[A-Za-z0-9-]*$",
+      ErrorMessage = "Plan name must start with 'G' or 'TP' and can only contain letters, digits and hyphens (-).")]
         public string PlanName { get; set; }
+
+        [Required(ErrorMessage = "Number of batteries is required.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Number of batteries must be greater than 0.")]
         public int? NumberBattery { get; set; }
+
+
+        [Required(ErrorMessage = "Duration days is required.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Duration days must be greater than 0.")]
         public int? DurationDays { get; set; }
         public decimal? MilleageBaseUsed { get; set; }
         public int? SwapLimit { get; set; }
+
+
+        [Required(ErrorMessage = "Price is required.")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than 0.")]
         public decimal? Price { get; set; }
         public string Status { get; set; }
     }

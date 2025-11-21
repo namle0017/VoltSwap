@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -15,6 +16,7 @@ using VoltSwap.DAL.Base;
 using VoltSwap.DAL.Models;
 using VoltSwap.DAL.UnitOfWork;
 using static VoltSwap.Common.DTOs.GeoDto;
+using System.Globalization;
 
 namespace VoltSwap.BusinessLayer.Services
 {
@@ -33,32 +35,32 @@ namespace VoltSwap.BusinessLayer.Services
             _httpClient = httpClient;
         }
 
-        public async Task<LatAndLngDto> ConvertAddrToCoordinates(string stationAddress)
+public async Task<LatAndLngDto> ConvertAddrToCoordinates(string stationAddress)
+    {
+        var apiKey = _configuration["GeoCodeAPI:Key"];
+        var encodedAddress = Uri.EscapeDataString(stationAddress);
+        var url = $"https://geocode.maps.co/search?q={encodedAddress}&api_key={apiKey}";
+
+        var response = await _httpClient.GetStringAsync(url);
+
+        var jsonArray = JArray.Parse(response);
+        if (jsonArray.Count == 0)
         {
-            //1. Lấy API KEY của 
-            var apiKey = _configuration["GeoCodeAPI:Key"];
-            var encodedAddress = Uri.EscapeDataString(stationAddress);
-            var url = $"https://geocode.maps.co/search?q={encodedAddress}&api_key={apiKey}";
-
-            var response = await _httpClient.GetStringAsync(url);
-
-            var jsonArray = JArray.Parse(response);
-            if (jsonArray.Count() == 0)
-            {
-                return new LatAndLngDto
-                {
-                    LocationLat = -190,
-                    LocationLng = -190,
-                };
-            }
-
             return new LatAndLngDto
             {
-                LocationLat = decimal.Parse(jsonArray[0]["lat"].ToString()),
-                LocationLng = decimal.Parse(jsonArray[0]["lon"].ToString()),
+                LocationLat = -190,
+                LocationLng = -190,
             };
         }
 
-
+        return new LatAndLngDto
+        {
+            LocationLat = decimal.Parse(jsonArray[0]["lat"].ToString(), CultureInfo.InvariantCulture),
+            LocationLng = decimal.Parse(jsonArray[0]["lon"].ToString(), CultureInfo.InvariantCulture),
+        };
     }
+
+
+
+}
 }

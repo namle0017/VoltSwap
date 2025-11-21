@@ -1,10 +1,12 @@
-﻿using BCrypt.Net;
+﻿using Azure.Core;
+using BCrypt.Net;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion.Internal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
@@ -42,6 +44,20 @@ namespace VoltSwap.BusinessLayer.Services
         }
         public async Task<ServiceResult> LoginAsync(LoginRequest requestDto)
         {
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(requestDto, null, null);
+
+            bool isValid = Validator.TryValidateObject(requestDto, context, results, true);
+            if (!isValid)
+            {
+                return new ServiceResult
+                {
+                    Status = 400,
+                    Message = results.First().ErrorMessage
+                };
+            }
+
+
             var user = await _unitOfWork.Users.GetByEmailAsync(requestDto.Email);
             if (user == null)
             {
@@ -92,6 +108,19 @@ namespace VoltSwap.BusinessLayer.Services
         {
             try
             {
+                var results = new List<ValidationResult>();
+                var context = new ValidationContext(request, null, null);
+
+                bool isValid = Validator.TryValidateObject(request, context, results, true);
+                if (!isValid)
+                {
+                    return new ServiceResult
+                    {
+                        Status = 400,
+                        Message = results.First().ErrorMessage
+                    };
+                }
+
                 var isUserActive = await _unitOfWork.Users.CheckUserActive(request.UserEmail);
                 if (isUserActive != null)
                 {

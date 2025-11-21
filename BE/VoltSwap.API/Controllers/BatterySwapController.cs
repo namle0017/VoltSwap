@@ -88,10 +88,6 @@ namespace VoltSwap.API.Controllers
         [HttpPost("staff-help-customer")]
         public async Task<IActionResult> StaffHelpAsync([FromBody] StaffBatteryRequest requestDto)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
             var result = await _batSwapService.StaffSwapBattery(requestDto);
 
             return StatusCode(result.Status, new { message = result.Message });

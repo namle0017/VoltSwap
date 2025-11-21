@@ -34,7 +34,7 @@ namespace VoltSwap.BusinessLayer.Services
         public async Task<ServiceResult> CreateDriverVehicleAsync(CreateDriverVehicleRequest request)
         {
             var checkExistVehicle = await _unitOfWork.Vehicles.GetAllQueryable()
-                .FirstOrDefaultAsync(vehicle => vehicle.UserDriverId == request.DriverId && vehicle.Vin == request.VIN);
+                .Where(vehicle => vehicle.UserDriverId == request.DriverId && vehicle.Vin == request.VIN).FirstOrDefaultAsync();
             if (checkExistVehicle != null)
             {
                 return new ServiceResult
