@@ -219,7 +219,7 @@ export default function SuggestService() {
             </tbody>
           </table>
         </div>
-        <div className="mt-8 flex justify-between items-center">
+        <div className="mt-8 flex justify-center items-center gap-5">
           {/* BACK BUTTON — LEFT */}
           <button
             onClick={() => navigate("/user/service")}
