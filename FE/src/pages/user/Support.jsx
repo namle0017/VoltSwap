@@ -111,7 +111,7 @@ export default function Support() {
             await api.post("/Report/Driver-create-report", payload);
             setMessage("✅ Report sent successfully!");
 
-            // Push into “recent” (so UI never looks trống)
+            // Push into “recent”
             const rt = reportTypes.find((x) => String(x.reportTypeId) === String(selectedType));
             const item = {
                 id: Date.now().toString(36),
@@ -127,8 +127,15 @@ export default function Support() {
             setReportNote("");
             setSelectedType("");
             setTimeout(() => setMessage(""), 2500);
-        } catch {
-            setMessage("❌ Failed to send report.");
+        } catch (err) {
+            const data = err?.response?.data;
+            const beMsg =
+                data?.errors?.ReportNote?.[0] ||      // ưu tiên message validate
+                data?.message ||
+                data?.title ||
+                err?.message;
+
+            setMessage(`❌ ${beMsg || "Failed to send report."}`);
         } finally {
             setSubmitting(false);
         }
