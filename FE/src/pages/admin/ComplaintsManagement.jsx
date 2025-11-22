@@ -70,7 +70,7 @@ const ComplaintsManagement = () => {
             content: r?.note || "",
             status:
               (r?.status === "Processing" && STATUS.ASSIGNED) ||
-              (r?.status === "Resolved" && STATUS.RESOLVED) ||
+              ((r?.status === "Resolved" || r?.status === "Done") && STATUS.RESOLVED) ||
               STATUS.OPEN,
             assignedTo: r?.userStaffId ? { id: r.userStaffId, name: r.userStaffId } : null,
             timeline: [
@@ -292,7 +292,7 @@ const ComplaintsManagement = () => {
         "/Report/mark-resolve",
         {
           reportId: c.reportId,
-          reportStatus: "",
+          reportStatus: "Done",
           note: note || "", // gửi note nếu có
         },
         {

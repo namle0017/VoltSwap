@@ -155,7 +155,7 @@ export default function Stations() {
         setStationsErr("");
         try {
             const token = localStorage.getItem("token");
-            const res = await api.get("Station/station-list", {
+            const res = await api.get("Station/station-list-for-admin", {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             const data = Array.isArray(res?.data?.data) ? res.data.data : [];

@@ -53,7 +53,12 @@ export default function PaymentInfo() {
             setPayments(data);
         } catch (err) {
             console.error("❌ admin-transaction-list error:", err?.response?.data || err);
-            alert("⚠ Failed to load transactions list!");
+            // giữ lại alert hoặc chuyển sang toast nếu có
+            if (window.toast?.error) {
+                window.toast.error("Failed to load transactions list!");
+            } else {
+                alert("⚠ Failed to load transactions list!");
+            }
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -122,7 +127,7 @@ export default function PaymentInfo() {
 
         // Modern confirmation modal
         const { ok } = await window.confirmModal({
-            title: "Are you sure?",
+            title: "Recreate transaction?",
             message: "This action will attempt to recreate the failed transaction.",
             confirmText: "Recreate",
             cancelText: "Cancel",
@@ -138,7 +143,9 @@ export default function PaymentInfo() {
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
 
-            window.toast.success(`Transaction ${transactionId} recreated successfully.`);
+            window.toast?.success
+                ? window.toast.success(`Transaction ${transactionId} recreated successfully.`)
+                : alert(`Transaction ${transactionId} recreated successfully.`);
             await loadTransactions();
         } catch (err) {
             console.error("❌ recreate-transaction error:", err?.response?.data || err);
@@ -147,7 +154,7 @@ export default function PaymentInfo() {
                 err?.response?.data?.title ||
                 err?.message ||
                 "Failed to recreate transaction.";
-            window.toast.error(msg);
+            window.toast?.error ? window.toast.error(msg) : alert(msg);
         } finally {
             setRecreatingIds((prev) => {
                 const n = new Set(prev);
@@ -164,16 +171,26 @@ export default function PaymentInfo() {
         );
 
         if (eligible.length === 0) {
-            alert("No transactions are eligible for invoice creation.");
+            // thông báo bằng modal info
+            await window.confirmModal({
+                title: "No eligible transactions",
+                message: "There are no transactions in Waiting status for invoice creation.",
+                confirmText: "OK",
+                cancelText: "Close",
+                variant: "primary",
+            });
             return;
         }
 
-        if (
-            !window.confirm(
-                `Create invoices for ${eligible.length} transaction(s) currently in Waiting status?`
-            )
-        )
-            return;
+        // ⬇️ Đổi từ window.confirm sang confirmModal
+        const { ok } = await window.confirmModal({
+            title: "Bulk invoice creation",
+            message: `Create invoices for ${eligible.length} transaction(s) currently in Waiting status?`,
+            confirmText: "Create",
+            cancelText: "Cancel",
+            variant: "primary",
+        });
+        if (!ok) return;
 
         const token = localStorage.getItem("token");
         setCreatingAll(true);
@@ -208,12 +225,21 @@ export default function PaymentInfo() {
         const okCount = results.filter((r) => r.ok).length;
         const fail = results.filter((r) => !r.ok);
 
-        let summary = `✅ Invoice creation completed.\nSuccess: ${okCount}/${eligible.length}`;
+        let summary = `Invoice creation completed. Success: ${okCount}/${eligible.length}.`;
         if (fail.length) {
-            summary += `\n❌ Failed: ${fail.length}`;
-            summary += `\nFailed IDs: ${fail.map((f) => f.id).join(", ")}`;
+            summary += ` Failed: ${fail.length}. Failed IDs: ${fail
+                .map((f) => f.id)
+                .join(", ")}`;
         }
-        alert(summary);
+
+        // dùng confirmModal để hiển thị kết quả
+        await window.confirmModal({
+            title: "Invoice creation result",
+            message: summary,
+            confirmText: "OK",
+            cancelText: "Close",
+            variant: "primary",
+        });
 
         loadTransactions();
     };
@@ -234,7 +260,9 @@ export default function PaymentInfo() {
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">
                         Admin Transaction Management
                     </h1>
-                    <p className="text-gray-600">Bulk invoice creation & transaction detail viewer</p>
+                    <p className="text-gray-600">
+                        Bulk invoice creation & transaction detail viewer
+                    </p>
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -274,13 +302,27 @@ export default function PaymentInfo() {
                     <table className="min-w-full border-collapse text-center">
                         <thead className="bg-gray-100 border-b">
                             <tr>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Transaction ID</th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Amount</th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Context</th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Note</th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Status</th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Date</th>
-                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">Actions</th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
+                                    Transaction ID
+                                </th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
+                                    Amount
+                                </th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
+                                    Context
+                                </th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
+                                    Note
+                                </th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
+                                    Status
+                                </th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
+                                    Date
+                                </th>
+                                <th className="px-4 py-3 text-sm font-semibold text-gray-700">
+                                    Actions
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -292,7 +334,6 @@ export default function PaymentInfo() {
                                 </tr>
                             ) : (
                                 payments.map((p) => {
-                                    const status = String(p.paymentStatus || "").toLowerCase();
                                     const formattedDate = p.paymentDate
                                         ? new Date(p.paymentDate).toLocaleDateString("en-US")
                                         : "—";
@@ -325,7 +366,9 @@ export default function PaymentInfo() {
                                                     {p.paymentStatus}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-gray-600">{formattedDate}</td>
+                                            <td className="px-4 py-3 text-gray-600">
+                                                {formattedDate}
+                                            </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center justify-center gap-2">
                                                     <button
@@ -338,7 +381,9 @@ export default function PaymentInfo() {
 
                                                     {canRecreate && (
                                                         <button
-                                                            onClick={() => handleRecreate(p.transactionId)}
+                                                            onClick={() =>
+                                                                handleRecreate(p.transactionId)
+                                                            }
                                                             disabled={recreating}
                                                             className="px-3 py-1.5 text-sm rounded-lg border text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-60"
                                                             title="Recreate transaction (failed)"
@@ -347,7 +392,8 @@ export default function PaymentInfo() {
                                                                 "Recreating…"
                                                             ) : (
                                                                 <>
-                                                                    <i className="bi bi-arrow-clockwise me-1" /> Recreate
+                                                                    <i className="bi bi-arrow-clockwise me-1" />{" "}
+                                                                    Recreate
                                                                 </>
                                                             )}
                                                         </button>
@@ -360,12 +406,6 @@ export default function PaymentInfo() {
                             )}
                         </tbody>
                     </table>
-                </div>
-
-                <div className="mt-3 text-xs text-gray-500">
-                    Tip: The <b>Create</b> button above will bulk-generate invoices for transactions in
-                    <b> Waiting</b> status. To change the criteria, adjust <code>eligible</code> inside{" "}
-                    <code>handleCreateAllInvoices</code>.
                 </div>
             </div>
 
